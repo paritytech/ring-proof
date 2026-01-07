@@ -7,7 +7,7 @@ use ark_std::rand::RngCore;
 use w3f_pcs::pcs::PCS;
 
 use w3f_plonk_common::domain::Domain;
-use w3f_plonk_common::Proof;
+use w3f_plonk_common::{verifier, Proof};
 
 use w3f_ring_proof::{index, RingProof};
 use w3f_ring_proof::{FixedColumnsCommitted, PiopParams, ProverKey, VerifierKey};
@@ -89,7 +89,7 @@ fn setup<R: Rng, CS: PCS<Fq>>(
     (pcs_params, piop_params, h)
 }
 
-fn generate_sample_proof<CS: PCS<Fq>>() -> RingProof<Fq, CS> {
+fn generate_sample_proof<CS: PCS<Fq>>() -> (RingProof<Fq, CS>, VerifierKey<Fq, CS>) {
     // Setup RNG and parameters
     let rng = &mut test_rng();
 
@@ -114,13 +114,18 @@ fn generate_sample_proof<CS: PCS<Fq>>() -> RingProof<Fq, CS> {
     );
     let proof = ring_prover.prove(secret);
 
-    ring_prover.prove(secret)
+    (ring_prover.prove(secret), verifier_key)
 }
 
-fn export_proof_as_json<F: PrimeField, CS: PCS<F>>(proof_to_be_exported: RingProof<F, CS>) {
-    let proof = proof_to_be_exported;
+fn export_proof_as_json<F: PrimeField, CS: PCS<F>>(proof_to_be_exported: RingProof<F, CS>, verifier_key: VerifierKey<F, CS>) {
+
+    let verifier_json_obj = json!({
+        "verification_key": to_hex(&verifier_key),
+    });
+
+    let proof = proof_to_be_exported;    
     // Build a structured JSON object where each important field is stored as a hex string
-    let json_obj = json!({
+    let proof_json_obj = json!({
         "column_commitments": to_hex(&proof.column_commitments),
         "columns_at_zeta": to_hex(&proof.columns_at_zeta),
         "quotient_commitment": to_hex(&proof.quotient_commitment),
@@ -129,15 +134,17 @@ fn export_proof_as_json<F: PrimeField, CS: PCS<F>>(proof_to_be_exported: RingPro
         "lin_at_zeta_omega_proof": to_hex(&proof.lin_at_zeta_omega_proof),
     });
 
-    // Write JSON to temp directory to avoid polluting repo root
+    let verifier_key_and_proof = json!({"verifier_key": verifier_json_obj, "proof": proof_json_obj});
+
+    // Write JSON to temp directory
     let mut path = std::env::temp_dir();
-    path.push("ring_proof_structured.json");
+    path.push("ring_proof_and_key.json");
     fs::write(
         &path,
-        serde_json::to_string_pretty(&json_obj).expect("serialize json"),
+        serde_json::to_string_pretty(&verifier_key_and_proof).expect("serialize json"),
     )
-    .expect("writing proof json should succeed");
-
+        .expect("writing json proof json should succeed");
+    
     // Ensure file exists
     assert!(path.exists());
     // Optionally print path for debugging
@@ -145,6 +152,6 @@ fn export_proof_as_json<F: PrimeField, CS: PCS<F>>(proof_to_be_exported: RingPro
 }
 
 fn main() {
-    let proof = generate_sample_proof::<KZG<Bls12_381>>();
-    export_proof_as_json(proof);
+    let (proof, verifier_key) = generate_sample_proof::<KZG<Bls12_381>>();
+    export_proof_as_json(proof, verifier_key);
 }
