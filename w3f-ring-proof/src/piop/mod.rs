@@ -127,6 +127,7 @@ impl<F: PrimeField, G: AffineRepr<BaseField = F>> FixedColumns<F, G> {
 }
 
 // #[derive(CanonicalSerialize, CanonicalDeserialize)]
+#[derive(Clone)]
 pub struct ProverKey<F: PrimeField, CS: PCS<F>, G: AffineRepr<BaseField = F>> {
     pub(crate) pcs_ck: CS::CK,
     pub(crate) fixed_columns: FixedColumns<F, G>,
