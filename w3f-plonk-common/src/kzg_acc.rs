@@ -56,11 +56,11 @@ impl<E: Pairing> KzgAccumulator<E> {
         ]
         .concat();
         columns.push(proof.quotient_commitment.clone());
+        let columns = columns.iter().map(|c| c.0).collect::<Vec<_>>();
 
         let mut columns_at_zeta = proof.columns_at_zeta.to_vec();
         columns_at_zeta.push(q_zeta);
 
-        let agg_comm = <KZG<E> as PCS<F>>::C::combine(&challenges.nus, &columns);
         let agg_at_zeta: F = columns_at_zeta
             .into_iter()
             .zip(challenges.nus.iter())
@@ -75,8 +75,8 @@ impl<E: Pairing> KzgAccumulator<E> {
         let mut acc_points = vec![];
         let mut acc_scalars = vec![];
 
-        acc_points.push(agg_comm.0);
-        acc_scalars.push(F::one());
+        acc_points.extend(columns);
+        acc_scalars.extend(challenges.nus);
         acc_points.push(proof.agg_at_zeta_proof);
         acc_scalars.push(zeta);
         acc_points.push(self.kzg_vk.g1);
