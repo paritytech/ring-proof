@@ -156,7 +156,7 @@ mod tests {
     #[test]
     // cargo test test_ring_proof_kzg --release --features="print-trace" -- --show-output
     fn test_ring_proof_kzg() {
-        let (verifier, claims) = _test_ring_proof::<KZG<Bls12_381>>(2usize.pow(10), 1);
+        let (verifier, claims) = _test_ring_proof::<KZG<Bls12_381>>(2usize.pow(10), 10);
         let t_verify_batch = start_timer!(|| "Verify Batch KZG");
         let (blinded_pks, proofs) = claims.into_iter().unzip();
         assert!(verifier.verify_batch_kzg(proofs, blinded_pks));

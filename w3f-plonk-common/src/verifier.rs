@@ -11,7 +11,7 @@ use crate::{ColumnsCommited, ColumnsEvaluated, Proof};
 
 pub struct PlonkVerifier<F: PrimeField, CS: PCS<F>, T: PlonkTranscript<F, CS>> {
     // Polynomial commitment scheme verifier's key.
-    pcs_vk: CS::VK,
+    pub pcs_vk: CS::VK,
     // Transcript,
     // initialized with the public parameters and the commitments to the precommitted columns.
     transcript_prelude: T,

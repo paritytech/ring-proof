@@ -4,6 +4,7 @@ use ark_ec::CurveGroup;
 use ark_ff::PrimeField;
 use w3f_pcs::pcs::kzg::KZG;
 use w3f_pcs::pcs::{RawVerifierKey, PCS};
+use w3f_plonk_common::kzg_acc::KzgAccumulator;
 use w3f_plonk_common::piop::VerifierPiop;
 use w3f_plonk_common::transcript::PlonkTranscript;
 use w3f_plonk_common::verifier::PlonkVerifier;
@@ -100,6 +101,7 @@ where
         proofs: Vec<RingProof<E::ScalarField, KZG<E>>>,
         results: Vec<Affine<Jubjub>>,
     ) -> bool {
+        let mut acc = KzgAccumulator::<E>::new(self.plonk_verifier.pcs_vk.clone());
         for (proof, result) in proofs.into_iter().zip(results) {
             let (challenges, mut rng) = self.plonk_verifier.restore_challenges(
                 &result,
@@ -119,13 +121,8 @@ where
                 (seed.x, seed.y),
                 (seed_plus_result.x, seed_plus_result.y),
             );
-            let res = self
-                .plonk_verifier
-                .verify(piop, proof, challenges, &mut rng);
-            if !res {
-                return false;
-            }
+            acc.accumulate(piop, proof, challenges, &mut rng);
         }
-        true
+        acc.verify()
     }
 }
