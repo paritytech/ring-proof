@@ -1,13 +1,13 @@
+use crate::piop::VerifierPiop;
+use crate::verifier::Challenges;
+use crate::{ColumnsCommited, ColumnsEvaluated, Proof};
 use ark_ec::pairing::Pairing;
 use ark_ec::{CurveGroup, VariableBaseMSM};
 use ark_ff::PrimeField;
 use ark_std::rand::Rng;
-use w3f_pcs::pcs::kzg::{AccumulatedOpening, KZG};
 use w3f_pcs::pcs::kzg::params::KzgVerifierKey;
+use w3f_pcs::pcs::kzg::{AccumulatedOpening, KZG};
 use w3f_pcs::pcs::{Commitment, PCS};
-use crate::piop::VerifierPiop;
-use crate::{ColumnsCommited, ColumnsEvaluated, Proof};
-use crate::verifier::Challenges;
 
 // Aggregates opennings for KZG commitments.
 // Somewhat similar to https://eprint.iacr.org/2020/499.pdf, section 8.
@@ -41,10 +41,9 @@ impl<E: Pairing> KzgAccumulator<E> {
         proof: Proof<F, KZG<E>, Commitments, Evaluations>,
         challenges: Challenges<F>,
         rng: &mut R,
-    )
-    where
+    ) where
         F: PrimeField,
-        E: Pairing<ScalarField=F>,
+        E: Pairing<ScalarField = F>,
         Piop: VerifierPiop<F, <KZG<E> as PCS<F>>::C>,
         Commitments: ColumnsCommited<F, <KZG<E> as PCS<F>>::C>,
         Evaluations: ColumnsEvaluated<F>,
@@ -55,7 +54,7 @@ impl<E: Pairing> KzgAccumulator<E> {
             piop.precommitted_columns(),
             proof.column_commitments.to_vec(),
         ]
-            .concat();
+        .concat();
         columns.push(proof.quotient_commitment.clone());
 
         let mut columns_at_zeta = proof.columns_at_zeta.to_vec();
@@ -103,7 +102,9 @@ impl<E: Pairing> KzgAccumulator<E> {
 
     pub fn verify(&self) -> bool {
         let acc = (-E::G1::msm(&self.acc_points, &self.acc_scalars).unwrap()).into_affine();
-        let proof = E::G1::msm(&self.kzg_proofs, &self.randomizers).unwrap().into_affine();
+        let proof = E::G1::msm(&self.kzg_proofs, &self.randomizers)
+            .unwrap()
+            .into_affine();
         KZG::<E>::verify_accumulated(AccumulatedOpening { acc, proof }, &self.kzg_vk)
     }
 }

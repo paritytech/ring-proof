@@ -9,12 +9,12 @@ use w3f_pcs::pcs::{Commitment, PCS};
 
 pub mod domain;
 pub mod gadgets;
+pub mod kzg_acc;
 pub mod piop;
 pub mod prover;
 pub mod test_helpers;
 pub mod transcript;
 pub mod verifier;
-pub mod kzg_acc;
 
 pub trait Column<F: FftField> {
     fn domain(&self) -> GeneralEvaluationDomain<F>;
