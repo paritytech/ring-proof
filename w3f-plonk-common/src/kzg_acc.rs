@@ -4,6 +4,7 @@ use crate::{ColumnsCommited, ColumnsEvaluated, Proof};
 use ark_ec::pairing::Pairing;
 use ark_ec::{CurveGroup, VariableBaseMSM};
 use ark_ff::PrimeField;
+use ark_std::iterable::Iterable;
 use ark_std::rand::Rng;
 use w3f_pcs::pcs::kzg::params::KzgVerifierKey;
 use w3f_pcs::pcs::kzg::{AccumulatedOpening, KZG};
@@ -84,8 +85,8 @@ impl<E: Pairing> KzgAccumulator<E> {
 
         let r = F::rand(rng);
         // z.w openning
-        acc_points.push(lin_comm.0);
-        acc_scalars.push(r);
+        acc_points.extend(lin_comm.1.iter().map(|c| c.0).collect::<Vec<_>>());
+        acc_scalars.extend(lin_comm.0.into_iter().map(|c| c * r).collect::<Vec<_>>());
         acc_points.push(proof.lin_at_zeta_omega_proof);
         acc_scalars.push(zeta_omega * r);
         acc_points.push(self.kzg_vk.g1);

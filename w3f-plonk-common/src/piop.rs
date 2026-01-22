@@ -69,7 +69,7 @@ pub trait VerifierPiop<F: PrimeField, C: Commitment<F>> {
     }
 
     // Commitment to the aggregated linearization polynomial without the constant term.
-    fn lin_poly_commitment(&self, agg_coeffs: &[F]) -> C;
+    fn lin_poly_commitment(&self, agg_coeffs: &[F]) -> (Vec<F>, Vec<C>);
 
     fn domain_evaluated(&self) -> &EvaluatedDomain<F>;
 }
