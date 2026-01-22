@@ -3,7 +3,7 @@ use crate::verifier::Challenges;
 use crate::{ColumnsCommited, ColumnsEvaluated, Proof};
 use ark_ec::pairing::Pairing;
 use ark_ec::{CurveGroup, VariableBaseMSM};
-use ark_ff::PrimeField;
+use ark_ff::{PrimeField, Zero};
 use ark_std::iterable::Iterable;
 use ark_std::rand::Rng;
 use w3f_pcs::pcs::kzg::params::KzgVerifierKey;
@@ -28,8 +28,8 @@ impl<E: Pairing> KzgAccumulator<E> {
     pub fn new(kzg_vk: KzgVerifierKey<E>) -> Self {
         //TODO: capacity
         Self {
-            acc_points: vec![],
-            acc_scalars: vec![],
+            acc_points: vec![kzg_vk.g1],
+            acc_scalars: vec![E::ScalarField::zero()],
             kzg_proofs: vec![],
             randomizers: vec![],
             kzg_vk,
@@ -80,8 +80,7 @@ impl<E: Pairing> KzgAccumulator<E> {
         acc_scalars.extend(challenges.nus);
         acc_points.push(proof.agg_at_zeta_proof);
         acc_scalars.push(zeta);
-        acc_points.push(self.kzg_vk.g1);
-        acc_scalars.push(-agg_at_zeta);
+        self.acc_scalars[0] -= agg_at_zeta;
 
         let r = F::rand(rng);
         // z.w openning
@@ -89,8 +88,7 @@ impl<E: Pairing> KzgAccumulator<E> {
         acc_scalars.extend(lin_comm.0.into_iter().map(|c| c * r).collect::<Vec<_>>());
         acc_points.push(proof.lin_at_zeta_omega_proof);
         acc_scalars.push(zeta_omega * r);
-        acc_points.push(self.kzg_vk.g1);
-        acc_scalars.push(-proof.lin_at_zeta_omega * r);
+        self.acc_scalars[0] -= proof.lin_at_zeta_omega * r;
 
         let kzg_proofs = vec![proof.agg_at_zeta_proof, proof.lin_at_zeta_omega_proof];
         let randomizers = vec![F::one(), r];
