@@ -96,7 +96,7 @@ where
     J: TECurveConfig<BaseField = E::ScalarField>,
     T: PlonkTranscript<E::ScalarField, KZG<E>>,
 {
-    acc: KzgAccumulator<E>,
+    pub acc: KzgAccumulator<E>,
     pub verifier: RingVerifier<E::ScalarField, KZG<E>, J, T>,
 }
 

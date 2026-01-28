@@ -13,8 +13,5 @@ ark-ff = { version = "0.5", default-features = false }
 ark-ec = { version = "0.5", default-features = false }
 ark-poly = { version = "0.5", default-features = false }
 ark-serialize = { version = "0.5", default-features = false, features = ["derive"] }
-w3f-pcs = { git = "https://github.com/davxy/fflonk", default-features = false }
+w3f-pcs = { git = "https://github.com/w3f/fflonk", default-features = false }
 rayon = { version = "1", default-features = false }
-
-# [patch."https://github.com/w3f/fflonk"]
-# w3f-pcs = { path = "/mnt/ssd/develop/w3f/fflonk" }
