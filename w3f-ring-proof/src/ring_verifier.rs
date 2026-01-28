@@ -90,7 +90,7 @@ where
 }
 
 /// Batch verifier for KZG PCS
-pub struct KzgBatchVerifier<E, J, T>
+pub struct KzgBatchVerifier<E, J, T = ArkTranscript>
 where
     E: Pairing,
     J: TECurveConfig<BaseField = E::ScalarField>,
