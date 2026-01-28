@@ -153,11 +153,29 @@ mod tests {
         (pcs_params, piop_params)
     }
 
-    #[test]
     // cargo test test_ring_proof_kzg --release --features="print-trace" -- --show-output
+    //
+    // Batch vs sequential verification times (ms):
+    //
+    // | proofs | batch  | sequential | speedup |
+    // |--------|--------|------------|---------|
+    // | 1      | 2.790  | 3.032      | 1.09x   |
+    // | 2      | 3.218  | 6.425      | 2.00x   |
+    // | 4      | 5.122  | 11.968     | 2.34x   |
+    // | 8      | 6.487  | 23.922     | 3.69x   |
+    // | 16     | 10.002 | 47.773     | 4.78x   |
+    // | 32     | 16.601 | 95.570     | 5.76x   |
+    // | 64     | 29.484 | 210.959    | 7.15x   |
+    // | 128    | 52.170 | 422.217    | 8.09x   |
+    // | 256    | 85.164 | 762.874    | 8.96x   |
+    //
+    // Sequential verification scales linearly with proof count. Batch verification
+    // scales sub-linearly.
+    #[test]
     fn test_ring_proof_kzg() {
-        let (verifier, claims) = _test_ring_proof::<KZG<Bls12_381>>(2usize.pow(10), 10);
-        let t_verify_batch = start_timer!(|| "Verify Batch KZG");
+        let batch_size: usize = 16;
+        let (verifier, claims) = _test_ring_proof::<KZG<Bls12_381>>(2usize.pow(10), batch_size);
+        let t_verify_batch = start_timer!(|| format!("Verify Batch KZG (batch={batch_size})"));
         let (blinded_pks, proofs) = claims.into_iter().unzip();
         assert!(verifier.verify_batch_kzg(proofs, blinded_pks));
         end_timer!(t_verify_batch);

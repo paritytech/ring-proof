@@ -4,11 +4,10 @@ use crate::{ColumnsCommited, ColumnsEvaluated, Proof};
 use ark_ec::pairing::Pairing;
 use ark_ec::{CurveGroup, VariableBaseMSM};
 use ark_ff::{PrimeField, Zero};
-use ark_std::iterable::Iterable;
 use ark_std::rand::Rng;
 use w3f_pcs::pcs::kzg::params::KzgVerifierKey;
 use w3f_pcs::pcs::kzg::{AccumulatedOpening, KZG};
-use w3f_pcs::pcs::{Commitment, PCS};
+use w3f_pcs::pcs::PCS;
 
 // Aggregates opennings for KZG commitments.
 // Somewhat similar to https://eprint.iacr.org/2020/499.pdf, section 8.
