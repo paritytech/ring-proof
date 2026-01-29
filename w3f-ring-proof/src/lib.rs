@@ -155,22 +155,38 @@ mod tests {
 
     // cargo test test_ring_proof_kzg --release --features="print-trace" -- --show-output
     //
+    // ## Parallel feature off
+    //
     // Batch vs sequential verification times (ms):
     //
-    // | proofs | batch  | sequential | speedup |
-    // |--------|--------|------------|---------|
-    // | 1      | 2.790  | 3.032      | 1.09x   |
-    // | 2      | 3.218  | 6.425      | 2.00x   |
-    // | 4      | 5.122  | 11.968     | 2.34x   |
-    // | 8      | 6.487  | 23.922     | 3.69x   |
-    // | 16     | 10.002 | 47.773     | 4.78x   |
-    // | 32     | 16.601 | 95.570     | 5.76x   |
-    // | 64     | 29.484 | 210.959    | 7.15x   |
-    // | 128    | 52.170 | 422.217    | 8.09x   |
-    // | 256    | 85.164 | 762.874    | 8.96x   |
+    // | proofs | sequential | batch  | speedup |
+    // |--------|------------|--------|---------|
+    // | 1      | 3.032      | 2.790  | 1.09x   |
+    // | 2      | 6.425      | 3.218  | 2.00x   |
+    // | 4      | 11.968     | 5.122  | 2.34x   |
+    // | 8      | 23.922     | 6.487  | 3.69x   |
+    // | 16     | 47.773     | 10.002 | 4.78x   |
+    // | 32     | 95.570     | 16.601 | 5.76x   |
+    // | 64     | 210.959    | 29.484 | 7.15x   |
+    // | 128    | 422.217    | 52.170 | 8.09x   |
+    // | 256    | 762.874    | 85.164 | 8.96x   |
     //
-    // Sequential verification scales linearly with proof count. Batch verification
-    // scales sub-linearly.
+    // Sequential verification scales linearly with proof count.
+    // Batch verification scales sub-linearly.
+    //
+    // ## Parallel feature on
+    //
+    // | proofs | sequential | batch  | speedup |
+    // |--------|------------|--------|---------|
+    // | 1      | 3.548      | 2.678  | 1.32x   |
+    // | 2      | 7.160      | 3.108  | 2.30x   |
+    // | 4      | 14.323     | 3.115  | 4.60x   |
+    // | 8      | 28.528     | 3.189  | 8.95x   |
+    // | 16     | 57.961     | 3.818  | 15.18x  |
+    // | 32     | 108.132    | 4.741  | 22.81x  |
+    // | 64     | 218.614    | 6.042  | 36.18x  |
+    // | 128    | 466.069    | 8.324  | 55.99x  |
+    // | 256    | 895.605    | 11.869 | 75.46x  |
     #[test]
     fn test_ring_proof_kzg() {
         let batch_size: usize = 16;

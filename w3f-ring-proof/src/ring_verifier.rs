@@ -192,7 +192,8 @@ where
         }
     }
 
-    // Verifies a batch of proofs against the same ring.
+    /// Verifies a batch of proofs against the same ring.
+    #[cfg(not(feature = "parallel"))]
     pub fn verify_batch_kzg(
         self,
         proofs: Vec<RingProof<E::ScalarField, KZG<E>>>,
@@ -201,6 +202,33 @@ where
         let mut batch = self.kzg_batch_verifier();
         for (proof, result) in proofs.into_iter().zip(results) {
             batch.push(proof, result);
+        }
+        batch.verify()
+    }
+}
+
+#[cfg(feature = "parallel")]
+impl<E, J, T> RingVerifier<E::ScalarField, KZG<E>, J, T>
+where
+    E: Pairing,
+    J: TECurveConfig<BaseField = E::ScalarField>,
+    T: PlonkTranscript<E::ScalarField, KZG<E>> + Sync,
+{
+    /// Verifies a batch of proofs against the same ring.
+    pub fn verify_batch_kzg(
+        self,
+        proofs: Vec<RingProof<E::ScalarField, KZG<E>>>,
+        results: Vec<Affine<J>>,
+    ) -> bool {
+        use rayon::prelude::*;
+        let mut batch = self.kzg_batch_verifier();
+        let prepared: Vec<_> = proofs
+            .into_par_iter()
+            .zip(results)
+            .map(|(proof, result)| batch.prepare(proof, result))
+            .collect();
+        for item in prepared {
+            batch.push_prepared(item);
         }
         batch.verify()
     }
