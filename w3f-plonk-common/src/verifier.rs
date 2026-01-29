@@ -14,7 +14,7 @@ pub struct PlonkVerifier<F: PrimeField, CS: PCS<F>, T: PlonkTranscript<F, CS>> {
     pub pcs_vk: CS::VK,
     // Transcript,
     // initialized with the public parameters and the commitments to the precommitted columns.
-    transcript_prelude: T,
+    pub transcript_prelude: T,
 }
 
 impl<F: PrimeField, CS: PCS<F>, T: PlonkTranscript<F, CS>> PlonkVerifier<F, CS, T> {
