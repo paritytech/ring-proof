@@ -51,7 +51,7 @@ impl ArkTranscript {
 #[cfg(test)]
 mod tests {
     use ark_bls12_381::Bls12_381;
-    use ark_ec::CurveGroup;
+    use ark_ec::{AffineRepr, CurveGroup};
     use ark_ed_on_bls12_381_bandersnatch::{BandersnatchConfig, EdwardsAffine, Fq, Fr};
     use ark_std::ops::Mul;
     use ark_std::rand::Rng;
@@ -67,7 +67,26 @@ mod tests {
 
     use super::*;
 
-    fn _test_ring_proof<CS: PCS<Fq>>(
+    impl<F: PrimeField, CS: PCS<F>> Clone for VerifierKey<F, CS> {
+        fn clone(&self) -> Self {
+            Self {
+                pcs_raw_vk: self.pcs_raw_vk.clone(),
+                fixed_columns_committed: self.fixed_columns_committed.clone(),
+            }
+        }
+    }
+
+    impl<F: PrimeField, CS: PCS<F>, G: AffineRepr<BaseField = F>> Clone for ProverKey<F, CS, G> {
+        fn clone(&self) -> Self {
+            Self {
+                pcs_ck: self.pcs_ck.clone(),
+                fixed_columns: self.fixed_columns.clone(),
+                verifier_key: self.verifier_key.clone(),
+            }
+        }
+    }
+
+    fn _test_ring_proof<CS: PCS<Fq> + Clone>(
         domain_size: usize,
         batch_size: usize,
     ) -> (
