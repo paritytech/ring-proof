@@ -119,7 +119,14 @@ where
     J: TECurveConfig<BaseField = E::ScalarField>,
     T: PlonkTranscript<E::ScalarField, KZG<E>>,
 {
-    /// Prepare
+    /// Prepares a ring proof for batch verification without accumulating it.
+    ///
+    /// Returns a `PreparedBatchItem` that can later be passed to `push_prepared`.
+    ///
+    /// This method is independent of the accumulator state, so multiple proofs can be
+    /// prepared in parallel (e.g., using `rayon`). Each prepared item is in the order
+    /// of a few KB, so for large batches you may want to prepare and push incrementally
+    /// rather than holding all prepared items in memory at once.
     pub fn prepare(
         &self,
         proof: RingProof<E::ScalarField, KZG<E>>,
@@ -156,6 +163,13 @@ where
         }
     }
 
+    /// Accumulates a previously prepared proof into the batch.
+    ///
+    /// This is the second step of the two-phase batch verification workflow:
+    /// 1. `prepare` - can be parallelized across multiple proofs
+    /// 2. `push_prepared` - must be called sequentially (mutates the accumulator)
+    ///
+    /// For simpler usage where parallelism isn't needed, use `push` instead.
     pub fn push_prepared(&mut self, item: PreparedBatchItem<E, J>) {
         let mut ts = self.verifier.plonk_verifier.transcript_prelude.clone();
         ts._add_serializable(b"batch-entropy", &item.entropy);
@@ -172,7 +186,7 @@ where
         self.push_prepared(item);
     }
 
-    /// Batch verify
+    /// Verifies all accumulated proofs in a single batched pairing check.
     pub fn verify(&self) -> bool {
         self.acc.verify()
     }
