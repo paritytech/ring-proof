@@ -174,8 +174,6 @@ mod tests {
 
     // cargo test test_ring_proof_kzg --release --features="print-trace" -- --show-output
     //
-    // ## Parallel feature off
-    //
     // Batch vs sequential verification times (ms):
     //
     // | proofs | sequential | batch  | speedup |
@@ -192,20 +190,6 @@ mod tests {
     //
     // Sequential verification scales linearly with proof count.
     // Batch verification scales sub-linearly.
-    //
-    // ## Parallel feature on
-    //
-    // | proofs | sequential | batch  | speedup |
-    // |--------|------------|--------|---------|
-    // | 1      | 3.548      | 2.678  | 1.32x   |
-    // | 2      | 7.160      | 3.108  | 2.30x   |
-    // | 4      | 14.323     | 3.115  | 4.60x   |
-    // | 8      | 28.528     | 3.189  | 8.95x   |
-    // | 16     | 57.961     | 3.818  | 15.18x  |
-    // | 32     | 108.132    | 4.741  | 22.81x  |
-    // | 64     | 218.614    | 6.042  | 36.18x  |
-    // | 128    | 466.069    | 8.324  | 55.99x  |
-    // | 256    | 895.605    | 11.869 | 75.46x  |
     #[test]
     fn test_ring_proof_kzg() {
         let batch_size: usize = 16;
