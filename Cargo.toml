@@ -13,7 +13,5 @@ ark-ff = { version = "0.5", default-features = false }
 ark-ec = { version = "0.5", default-features = false }
 ark-poly = { version = "0.5", default-features = false }
 ark-serialize = { version = "0.5", default-features = false, features = ["derive"] }
-# TODO: restore w3f once https://github.com/w3f/fflonk/pull/46 gets merged
-# w3f-pcs = { git = "https://github.com/w3f/fflonk", default-features = false }
-w3f-pcs = { git = "https://github.com/davxy/fflonk", default-features = false }
+w3f-pcs = { git = "https://github.com/w3f/fflonk", default-features = false }
 rayon = { version = "1", default-features = false }
