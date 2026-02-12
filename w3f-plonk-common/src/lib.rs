@@ -1,6 +1,8 @@
 #![cfg_attr(not(feature = "std"), no_std)]
 
-use ark_ff::{FftField, PrimeField};
+use ark_ec::pairing::Pairing;
+use ark_ec::AffineRepr;
+use ark_ff::{FftField, Field, PrimeField, Zero};
 use ark_poly::univariate::DensePolynomial;
 use ark_poly::{EvaluationDomain, Evaluations, GeneralEvaluationDomain, Polynomial};
 use ark_serialize::{CanonicalDeserialize, CanonicalSerialize};
@@ -76,6 +78,12 @@ pub trait ColumnsCommited<F: PrimeField, C: Commitment<F>>:
     CanonicalSerialize + CanonicalDeserialize
 {
     fn to_vec(self) -> Vec<C>;
+}
+
+// suboptimal for BLS12-381
+fn is_in_correct_subgroup_assuming_on_curve<E: Pairing>(p: &E::G1Affine) -> bool {
+    let r = E::ScalarField::characteristic();
+    p.mul_bigint(r).is_zero()
 }
 
 #[derive(Clone, CanonicalSerialize, CanonicalDeserialize)]
