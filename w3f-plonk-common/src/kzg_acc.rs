@@ -93,10 +93,23 @@ impl<E: Pairing> KzgAccumulator<E> {
 
         // Openning at `z`
         // TODO: try to get rid of the commitment wrapper in flonk
-        self.acc_points.extend(piop.precommitted_columns().iter().map(|c| c.0).collect::<Vec<_>>());
-        self.acc_points.extend(proof.column_commitments.to_vec().iter().map(|c| c.0).collect::<Vec<_>>());
+        self.acc_points.extend(
+            piop.precommitted_columns()
+                .iter()
+                .map(|c| c.0)
+                .collect::<Vec<_>>(),
+        );
+        self.acc_points.extend(
+            proof
+                .column_commitments
+                .to_vec()
+                .iter()
+                .map(|c| c.0)
+                .collect::<Vec<_>>(),
+        );
         self.acc_points.push(proof.quotient_commitment.clone().0);
-        self.acc_scalars.extend(challenges.nus.iter().map(|nu| *nu * r).collect::<Vec<_>>()); // numbers should match here
+        self.acc_scalars
+            .extend(challenges.nus.iter().map(|nu| *nu * r).collect::<Vec<_>>()); // numbers should match here
 
         self.acc_points.push(proof.agg_at_zeta_proof);
         self.acc_scalars.push(zeta * r);
@@ -104,8 +117,10 @@ impl<E: Pairing> KzgAccumulator<E> {
 
         // Openning at `z.w`
         // TODO: see above
-        self.acc_points.extend(lin_comm.1.iter().map(|c| c.0).collect::<Vec<_>>());
-        self.acc_scalars.extend(lin_comm.0.into_iter().map(|c| c * r2).collect::<Vec<_>>());
+        self.acc_points
+            .extend(lin_comm.1.iter().map(|c| c.0).collect::<Vec<_>>());
+        self.acc_scalars
+            .extend(lin_comm.0.into_iter().map(|c| c * r2).collect::<Vec<_>>());
         self.acc_points.push(proof.lin_at_zeta_omega_proof);
         self.acc_scalars.push(zeta_omega * r2);
         self.acc_scalars[0] -= proof.lin_at_zeta_omega * r2;
