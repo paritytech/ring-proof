@@ -17,7 +17,7 @@ use crate::piop::cell_equality::CellEqualityEvals;
 use crate::piop::{FixedColumnsCommitted, RingCommitments};
 use crate::RingEvaluations;
 
-pub struct PiopVerifier<F: PrimeField, C: Commitment<F>, P: AffineRepr<BaseField = F>> {
+pub struct PiopVerifier<F: PrimeField, C: Commitment<F>, P: AffineRepr<BaseField=F>> {
     domain_evals: EvaluatedDomain<F>,
     // columns
     fixed_columns_committed: FixedColumnsCommitted<F, C>,
@@ -41,7 +41,7 @@ pub struct PiopVerifier<F: PrimeField, C: Commitment<F>, P: AffineRepr<BaseField
     vrf_in: (F, F),
 }
 
-impl<F: PrimeField, C: Commitment<F>, P: AffineRepr<BaseField = F>> PiopVerifier<F, C, P> {
+impl<F: PrimeField, C: Commitment<F>, P: AffineRepr<BaseField=F>> PiopVerifier<F, C, P> {
     pub fn init(
         domain_evals: EvaluatedDomain<F>,
         fixed_columns_committed: FixedColumnsCommitted<F, C>,
@@ -165,8 +165,8 @@ impl<F: PrimeField, C: Commitment<F>, P: AffineRepr<BaseField = F>> PiopVerifier
     }
 }
 
-impl<F: PrimeField, C: Commitment<F>, Jubjub: TECurveConfig<BaseField = F>> VerifierPiop<F, C>
-    for PiopVerifier<F, C, Affine<Jubjub>>
+impl<F: PrimeField, C: Commitment<F>, Jubjub: TECurveConfig<BaseField=F>> VerifierPiop<F, C>
+for PiopVerifier<F, C, Affine<Jubjub>>
 {
     const N_CONSTRAINTS: usize = 22;
     const N_COLUMNS: usize = 15;
@@ -220,10 +220,10 @@ impl<F: PrimeField, C: Commitment<F>, Jubjub: TECurveConfig<BaseField = F>> Veri
                 self.vrf_in.1,
             )],
         ]
-        .concat()
+            .concat()
     }
 
-    fn lin_poly_commitment(&self, agg_coeffs: &[F]) -> C {
+    fn lin_poly_commitment(&self, agg_coeffs: &[F]) -> (Vec<F>, Vec<C>) {
         let pk_from_sk_x = &self.witness_columns_committed.pk_from_sk[0];
         let pk_from_sk_y = &self.witness_columns_committed.pk_from_sk[1];
         let (pk_x_coeff, pk_y_coeff) = self.pk_from_sk.acc_coeffs_1();
@@ -267,9 +267,7 @@ impl<F: PrimeField, C: Commitment<F>, Jubjub: TECurveConfig<BaseField = F>> Veri
             pk_from_index_c2_lin,
             pk_index_sum_lin,
         ];
-
-        // TODO: optimize muls
-        C::combine(&agg_coeffs[2..11], &per_constraint) //TODO
+        (agg_coeffs[2..11].to_vec(), per_constraint)
     }
 
     fn domain_evaluated(&self) -> &EvaluatedDomain<F> {
