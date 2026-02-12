@@ -51,7 +51,7 @@ impl ArkTranscript {
 #[cfg(test)]
 mod tests {
     use ark_bls12_381::Bls12_381;
-    use ark_ec::CurveGroup;
+    use ark_ec::{AffineRepr, CurveGroup};
     use ark_ed_on_bls12_381_bandersnatch::{BandersnatchConfig, EdwardsAffine, Fq, Fr};
     use ark_std::ops::Mul;
     use ark_std::rand::Rng;
@@ -67,7 +67,26 @@ mod tests {
 
     use super::*;
 
-    fn _test_ring_proof<CS: PCS<Fq>>(
+    impl<F: PrimeField, CS: PCS<F>> Clone for VerifierKey<F, CS> {
+        fn clone(&self) -> Self {
+            Self {
+                pcs_raw_vk: self.pcs_raw_vk.clone(),
+                fixed_columns_committed: self.fixed_columns_committed.clone(),
+            }
+        }
+    }
+
+    impl<F: PrimeField, CS: PCS<F>, G: AffineRepr<BaseField = F>> Clone for ProverKey<F, CS, G> {
+        fn clone(&self) -> Self {
+            Self {
+                pcs_ck: self.pcs_ck.clone(),
+                fixed_columns: self.fixed_columns.clone(),
+                verifier_key: self.verifier_key.clone(),
+            }
+        }
+    }
+
+    fn _test_ring_proof<CS: PCS<Fq> + Clone>(
         domain_size: usize,
         batch_size: usize,
     ) -> (
@@ -153,11 +172,29 @@ mod tests {
         (pcs_params, piop_params)
     }
 
-    #[test]
     // cargo test test_ring_proof_kzg --release --features="print-trace" -- --show-output
+    //
+    // Batch vs sequential verification times (ms):
+    //
+    // | proofs | sequential | batch  | speedup |
+    // |--------|------------|--------|---------|
+    // | 1      | 3.032      | 2.790  | 1.09x   |
+    // | 2      | 6.425      | 3.218  | 2.00x   |
+    // | 4      | 11.968     | 5.122  | 2.34x   |
+    // | 8      | 23.922     | 6.487  | 3.69x   |
+    // | 16     | 47.773     | 10.002 | 4.78x   |
+    // | 32     | 95.570     | 16.601 | 5.76x   |
+    // | 64     | 210.959    | 29.484 | 7.15x   |
+    // | 128    | 422.217    | 52.170 | 8.09x   |
+    // | 256    | 762.874    | 85.164 | 8.96x   |
+    //
+    // Sequential verification scales linearly with proof count.
+    // Batch verification scales sub-linearly.
+    #[test]
     fn test_ring_proof_kzg() {
-        let (verifier, claims) = _test_ring_proof::<KZG<Bls12_381>>(2usize.pow(10), 10);
-        let t_verify_batch = start_timer!(|| "Verify Batch KZG");
+        let batch_size: usize = 16;
+        let (verifier, claims) = _test_ring_proof::<KZG<Bls12_381>>(2usize.pow(10), batch_size);
+        let t_verify_batch = start_timer!(|| format!("Verify Batch KZG (batch={batch_size})"));
         let (blinded_pks, proofs) = claims.into_iter().unzip();
         assert!(verifier.verify_batch_kzg(proofs, blinded_pks));
         end_timer!(t_verify_batch);
