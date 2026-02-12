@@ -142,11 +142,6 @@ impl<F: PrimeField, C: Commitment<F>, Jubjub: TECurveConfig<BaseField = F>> Veri
             vec![inner_prod_coeff, cond_add_x_coeff, cond_add_y_coeff],
             vec![inner_prod_acc.clone(), cond_add_acc_x, cond_add_acc_y],
         )
-
-        // C::combine(
-        //     &[inner_prod_coeff, cond_add_x_coeff, cond_add_y_coeff],
-        //     &[inner_prod_acc.clone(), cond_add_acc_x, cond_add_acc_y],
-        // )
     }
 
     fn domain_evaluated(&self) -> &EvaluatedDomain<F> {
