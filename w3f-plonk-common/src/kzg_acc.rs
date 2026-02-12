@@ -134,10 +134,16 @@ impl<E: Pairing> KzgAccumulator<E> {
     }
 
     pub fn verify(&self) -> bool {
-        let acc = (-E::G1::msm(&self.acc_points, &self.acc_scalars).unwrap()).into_affine();
         let proof = E::G1::msm(&self.kzg_proofs, &self.randomizers)
             .unwrap()
             .into_affine();
+        if !crate::is_in_correct_subgroup_assuming_on_curve::<E>(&proof) {
+            return false;
+        }
+        let acc = (-E::G1::msm(&self.acc_points, &self.acc_scalars).unwrap()).into_affine();
+        if !crate::is_in_correct_subgroup_assuming_on_curve::<E>(&acc) {
+            return false;
+        }
         KZG::<E>::verify_accumulated(AccumulatedOpening { acc, proof }, &self.kzg_vk)
     }
 }
