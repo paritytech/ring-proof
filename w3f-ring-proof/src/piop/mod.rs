@@ -127,14 +127,13 @@ impl<F: PrimeField, G: AffineRepr<BaseField = F>> FixedColumns<F, G> {
 }
 
 // #[derive(CanonicalSerialize, CanonicalDeserialize)]
-#[derive(Clone)]
 pub struct ProverKey<F: PrimeField, CS: PCS<F>, G: AffineRepr<BaseField = F>> {
     pub(crate) pcs_ck: CS::CK,
     pub(crate) fixed_columns: FixedColumns<F, G>,
     pub(crate) verifier_key: VerifierKey<F, CS>, // used in the Fiat-Shamir transform
 }
 
-#[derive(Clone, Debug, Eq, PartialEq, CanonicalSerialize, CanonicalDeserialize)]
+#[derive(Debug, Eq, PartialEq, CanonicalSerialize, CanonicalDeserialize)]
 pub struct VerifierKey<F: PrimeField, CS: PCS<F>> {
     pub(crate) pcs_raw_vk: <CS::Params as PcsParams>::RVK,
     pub(crate) fixed_columns_committed: FixedColumnsCommitted<F, CS::C>,
