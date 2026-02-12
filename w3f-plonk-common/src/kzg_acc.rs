@@ -5,6 +5,8 @@ use ark_ec::pairing::Pairing;
 use ark_ec::{CurveGroup, VariableBaseMSM};
 use ark_ff::{PrimeField, Zero};
 use ark_std::rand::Rng;
+use ark_std::vec;
+use ark_std::vec::Vec;
 use w3f_pcs::pcs::kzg::params::KzgVerifierKey;
 use w3f_pcs::pcs::kzg::{AccumulatedOpening, KZG};
 use w3f_pcs::pcs::PCS;

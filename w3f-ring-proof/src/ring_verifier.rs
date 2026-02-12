@@ -13,6 +13,7 @@ use w3f_plonk_common::verifier::{Challenges, PlonkVerifier};
 use crate::piop::params::PiopParams;
 use crate::piop::{FixedColumnsCommitted, PiopVerifier, VerifierKey};
 use crate::{ArkTranscript, RingProof};
+use ark_std::vec::Vec;
 
 pub struct RingVerifier<F, CS, Jubjub, T = ArkTranscript>
 where
