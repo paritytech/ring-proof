@@ -123,7 +123,7 @@ impl<F: PrimeField, C: Commitment<F>, Jubjub: TECurveConfig<BaseField = F>> Veri
         .concat()
     }
 
-    fn lin_poly_commitment(&self, agg_coeffs: &[F]) -> C {
+    fn lin_poly_commitment(&self, agg_coeffs: &[F]) -> (Vec<F>, Vec<C>) {
         assert_eq!(agg_coeffs.len(), Self::N_CONSTRAINTS);
 
         let inner_prod_acc = self.witness_columns_committed.inn_prod_acc.clone();
@@ -138,9 +138,9 @@ impl<F: PrimeField, C: Commitment<F>, Jubjub: TECurveConfig<BaseField = F>> Veri
         cond_add_x_coeff += agg_coeffs[2] * c_acc_x;
         cond_add_y_coeff += agg_coeffs[2] * c_acc_y;
 
-        C::combine(
-            &[inner_prod_coeff, cond_add_x_coeff, cond_add_y_coeff],
-            &[inner_prod_acc.clone(), cond_add_acc_x, cond_add_acc_y],
+        (
+            vec![inner_prod_coeff, cond_add_x_coeff, cond_add_y_coeff],
+            vec![inner_prod_acc.clone(), cond_add_acc_x, cond_add_acc_y],
         )
     }
 

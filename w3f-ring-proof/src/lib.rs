@@ -67,30 +67,38 @@ mod tests {
 
     use super::*;
 
-    fn _test_ring_proof<CS: PCS<Fq>>(domain_size: usize) {
+    fn _test_ring_proof<CS: PCS<Fq>>(
+        domain_size: usize,
+        batch_size: usize,
+    ) -> (
+        RingVerifier<Fq, CS, BandersnatchConfig>,
+        Vec<(EdwardsAffine, RingProof<Fq, CS>)>,
+    ) {
         let rng = &mut test_rng();
 
         let (pcs_params, piop_params) = setup::<_, CS>(rng, domain_size);
-
-        let max_keyset_size = piop_params.keyset_part_size;
-        let keyset_size: usize = rng.gen_range(0..max_keyset_size);
+        let keyset_size = piop_params.keyset_part_size;
         let pks = random_vec::<EdwardsAffine, _>(keyset_size, rng);
-        let k = rng.gen_range(0..keyset_size); // prover's secret index
-        let pk = pks[k].clone();
-
         let (prover_key, verifier_key) = index::<_, CS, _>(&pcs_params, &piop_params, &pks);
 
-        // PROOF generation
-        let secret = Fr::rand(rng); // prover's secret scalar
-        let result = piop_params.h.mul(secret) + pk;
-        let ring_prover = RingProver::init(
-            prover_key,
-            piop_params.clone(),
-            k,
-            ArkTranscript::new(b"w3f-ring-proof-test"),
-        );
         let t_prove = start_timer!(|| "Prove");
-        let proof = ring_prover.prove(secret);
+        let claims: Vec<(EdwardsAffine, RingProof<Fq, CS>)> = (0..batch_size)
+            .map(|_| {
+                let prover_idx = rng.gen_range(0..keyset_size);
+                let prover = RingProver::init(
+                    prover_key.clone(),
+                    piop_params.clone(),
+                    prover_idx,
+                    ArkTranscript::new(b"w3f-ring-proof-test"),
+                );
+                let prover_pk = pks[prover_idx].clone();
+                let blinding_factor = Fr::rand(rng);
+                let blinded_pk = prover_pk + piop_params.h.mul(blinding_factor);
+                let blinded_pk = blinded_pk.into_affine();
+                let proof = prover.prove(blinding_factor);
+                (blinded_pk, proof)
+            })
+            .collect();
         end_timer!(t_prove);
 
         let ring_verifier = RingVerifier::init(
@@ -99,9 +107,10 @@ mod tests {
             ArkTranscript::new(b"w3f-ring-proof-test"),
         );
         let t_verify = start_timer!(|| "Verify");
-        let res = ring_verifier.verify(proof, result.into_affine());
+        let (blinded_pks, proofs) = claims.iter().cloned().unzip();
+        assert!(ring_verifier.verify_batch(proofs, blinded_pks));
         end_timer!(t_verify);
-        assert!(res);
+        (ring_verifier, claims)
     }
 
     #[test]
@@ -145,12 +154,17 @@ mod tests {
     }
 
     #[test]
+    // cargo test test_ring_proof_kzg --release --features="print-trace" -- --show-output
     fn test_ring_proof_kzg() {
-        _test_ring_proof::<KZG<Bls12_381>>(2usize.pow(10));
+        let (verifier, claims) = _test_ring_proof::<KZG<Bls12_381>>(2usize.pow(10), 10);
+        let t_verify_batch = start_timer!(|| "Verify Batch KZG");
+        let (blinded_pks, proofs) = claims.into_iter().unzip();
+        assert!(verifier.verify_batch_kzg(proofs, blinded_pks));
+        end_timer!(t_verify_batch);
     }
 
     #[test]
     fn test_ring_proof_id() {
-        _test_ring_proof::<w3f_pcs::pcs::IdentityCommitment>(2usize.pow(10));
+        _test_ring_proof::<w3f_pcs::pcs::IdentityCommitment>(2usize.pow(10), 1);
     }
 }

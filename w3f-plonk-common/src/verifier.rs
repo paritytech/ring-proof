@@ -11,7 +11,7 @@ use crate::{ColumnsCommited, ColumnsEvaluated, Proof};
 
 pub struct PlonkVerifier<F: PrimeField, CS: PCS<F>, T: PlonkTranscript<F, CS>> {
     // Polynomial commitment scheme verifier's key.
-    pcs_vk: CS::VK,
+    pub pcs_vk: CS::VK,
     // Transcript,
     // initialized with the public parameters and the commitments to the precommitted columns.
     transcript_prelude: T,
@@ -64,6 +64,7 @@ impl<F: PrimeField, CS: PCS<F>, T: PlonkTranscript<F, CS>> PlonkVerifier<F, CS, 
             .sum();
 
         let lin_comm = piop.lin_poly_commitment(&challenges.alphas);
+        let lin_comm = CS::C::combine(&lin_comm.0, &lin_comm.1);
 
         let zeta = challenges.zeta;
         let zeta_omega = zeta * piop.domain_evaluated().omega();
