@@ -17,7 +17,7 @@ use crate::piop::cell_equality::CellEqualityEvals;
 use crate::piop::{FixedColumnsCommitted, RingCommitments};
 use crate::RingEvaluations;
 
-pub struct PiopVerifier<F: PrimeField, C: Commitment<F>, P: AffineRepr<BaseField=F>> {
+pub struct PiopVerifier<F: PrimeField, C: Commitment<F>, P: AffineRepr<BaseField = F>> {
     domain_evals: EvaluatedDomain<F>,
     // columns
     fixed_columns_committed: FixedColumnsCommitted<F, C>,
@@ -41,7 +41,7 @@ pub struct PiopVerifier<F: PrimeField, C: Commitment<F>, P: AffineRepr<BaseField
     vrf_in: (F, F),
 }
 
-impl<F: PrimeField, C: Commitment<F>, P: AffineRepr<BaseField=F>> PiopVerifier<F, C, P> {
+impl<F: PrimeField, C: Commitment<F>, P: AffineRepr<BaseField = F>> PiopVerifier<F, C, P> {
     pub fn init(
         domain_evals: EvaluatedDomain<F>,
         fixed_columns_committed: FixedColumnsCommitted<F, C>,
@@ -165,8 +165,8 @@ impl<F: PrimeField, C: Commitment<F>, P: AffineRepr<BaseField=F>> PiopVerifier<F
     }
 }
 
-impl<F: PrimeField, C: Commitment<F>, Jubjub: TECurveConfig<BaseField=F>> VerifierPiop<F, C>
-for PiopVerifier<F, C, Affine<Jubjub>>
+impl<F: PrimeField, C: Commitment<F>, Jubjub: TECurveConfig<BaseField = F>> VerifierPiop<F, C>
+    for PiopVerifier<F, C, Affine<Jubjub>>
 {
     const N_CONSTRAINTS: usize = 22;
     const N_COLUMNS: usize = 15;
@@ -220,7 +220,7 @@ for PiopVerifier<F, C, Affine<Jubjub>>
                 self.vrf_in.1,
             )],
         ]
-            .concat()
+        .concat()
     }
 
     fn lin_poly_commitment(&self, agg_coeffs: &[F]) -> (Vec<F>, Vec<C>) {
