@@ -1,10 +1,10 @@
 [workspace]
 resolver = "2"
 members = [
-    "evm-vrfier",
+#    "evm-vrfier",
     "w3f-plonk-common",
     "w3f-ring-proof",
-    "w3f-ring-vrf-snark",
+#    "w3f-ring-vrf-snark",
 ]
 
 [workspace.dependencies]
