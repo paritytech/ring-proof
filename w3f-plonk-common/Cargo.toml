@@ -16,12 +16,12 @@ ark-poly.workspace = true
 ark-serialize.workspace = true
 w3f-pcs.workspace = true
 rayon = { workspace = true, optional = true }
-getrandom_or_panic = { version = "0.0.3", default-features = false }
-rand_core = "0.6"
+getrandom_or_panic.workspace = true
+rand_core.workspace = true
 
 [dev-dependencies]
-ark-ed-on-bls12-381-bandersnatch = { version = "0.5", default-features = false }
-criterion = { version = "0.5", features = ["html_reports"] }
+ark-ed-on-bls12-381-bandersnatch.workspace = true
+criterion.workspace = true
 
 [[bench]]
 name = "plonk_common"
