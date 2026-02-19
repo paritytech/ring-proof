@@ -10,8 +10,8 @@ Machine: AMD Ryzen Threadripper 3970X (64 logical cores), 62 GiB RAM, Arch Linux
 
 | Domain Size | Time     |
 |-------------|----------|
-| 512         | 61.9 ms  |
-| 1024        | 86.1 ms  |
+| 512         | 45.8 ms  |
+| 1024        | 77.9 ms  |
 
 Includes KZG trusted setup (`3 * domain_size` degree) and domain/PIOP parameter construction.
 
@@ -19,8 +19,8 @@ Includes KZG trusted setup (`3 * domain_size` degree) and domain/PIOP parameter 
 
 | Domain Size | Time     |
 |-------------|----------|
-| 512         | 48.0 ms  |
-| 1024        | 92.0 ms  |
+| 512         | 43.3 ms  |
+| 1024        | 79.7 ms  |
 
 Commits the ring key columns and selector polynomial using KZG. Full keyset (max capacity).
 
@@ -28,8 +28,8 @@ Commits the ring key columns and selector polynomial using KZG. Full keyset (max
 
 | Domain Size | Time      |
 |-------------|-----------|
-| 512         | 159 ms    |
-| 1024        | 289 ms    |
+| 512         | 158 ms    |
+| 1024        | 279 ms    |
 
 Single proof generation. Includes witness generation (conditional additions, inner product accumulation) and PLONK prover (constraint evaluation, quotient polynomial, KZG commitments and openings).
 
@@ -37,8 +37,8 @@ Single proof generation. Includes witness generation (conditional additions, inn
 
 | Domain Size | Time     |
 |-------------|----------|
-| 512         | 3.63 ms  |
-| 1024        | 3.36 ms  |
+| 512         | 3.30 ms  |
+| 1024        | 3.30 ms  |
 
 Single proof verification. Dominated by pairing checks. Near-constant with domain size as the verifier works with evaluations, not full polynomials.
 
@@ -46,10 +46,10 @@ Single proof verification. Dominated by pairing checks. Near-constant with domai
 
 | Batch Size | Sequential | KZG Accumulator | Speedup |
 |------------|------------|-----------------|---------|
-| 1          | 3.10 ms    | 3.10 ms         | 1.0x    |
-| 4          | 14.0 ms    | 5.29 ms         | 2.6x    |
-| 16         | 49.8 ms    | 11.3 ms         | 4.4x    |
-| 32         | 99.6 ms    | 19.8 ms         | 5.0x    |
+| 1          | 3.32 ms    | 3.09 ms         | 1.1x    |
+| 4          | 13.4 ms    | 5.54 ms         | 2.4x    |
+| 16         | 53.0 ms    | 11.4 ms         | 4.7x    |
+| 32         | 106 ms     | 18.6 ms         | 5.7x    |
 
 Sequential verification scales linearly (one pairing check per proof). KZG accumulator batches all pairing equations into a single check via MSM, giving sub-linear scaling.
 
@@ -59,4 +59,4 @@ Sequential verification scales linearly (one pairing check per proof). KZG accum
 |------------|---------|
 | Compressed | 592 bytes |
 
-Serialization time: ~771 ns.
+Serialization time: ~723 ns.
