@@ -16,7 +16,7 @@ ark-poly.workspace = true
 ark-serialize.workspace = true
 w3f-pcs.workspace = true
 rayon = { workspace = true, optional = true }
-w3f-plonk-common = { version = "0.0.5", default-features = false }
+w3f-plonk-common = { path = "../w3f-plonk-common", default-features = false }
 ark-transcript = { version = "0.0.3", default-features = false }
 
 [dev-dependencies]

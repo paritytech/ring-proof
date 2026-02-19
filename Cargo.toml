@@ -1,7 +1,7 @@
 [workspace]
 resolver = "2"
 members = [
-    "evm-vrfier",
+    # "evm-vrfier",
     "w3f-plonk-common",
     "w3f-ring-proof",
     "w3f-ring-vrf-snark",
@@ -14,5 +14,4 @@ ark-ec = { version = "0.5", default-features = false }
 ark-poly = { version = "0.5", default-features = false }
 ark-serialize = { version = "0.5", default-features = false, features = ["derive"] }
 w3f-pcs = { version = "0.0.5", default-features = false }
-#w3f-pcs = { git = "https://github.com/w3f/fflonk", default-features = false }
 rayon = { version = "1", default-features = false }
