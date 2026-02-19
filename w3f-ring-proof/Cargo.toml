@@ -22,6 +22,11 @@ ark-transcript = { version = "0.0.3", default-features = false }
 [dev-dependencies]
 ark-bls12-381 = { version = "0.5", default-features = false, features = ["curve"] }
 ark-ed-on-bls12-381-bandersnatch = { version = "0.5", default-features = false }
+criterion = { version = "0.5", features = ["html_reports"] }
+
+[[bench]]
+name = "ring_proof"
+harness = false
 
 [features]
 default = [ "std" ]
