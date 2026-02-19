@@ -4,6 +4,8 @@ Measured with `cargo bench --bench ring_proof -p w3f-ring-proof -- --quick`.
 
 Curve: Bandersnatch on BLS12-381 with KZG. Single-threaded, release profile.
 
+Machine: AMD Ryzen Threadripper 3970X (64 logical cores), 62 GiB RAM, Arch Linux 6.18.9, rustc 1.93.0.
+
 ## Setup (PCS + PIOP Parameters)
 
 | Domain Size | Time     |

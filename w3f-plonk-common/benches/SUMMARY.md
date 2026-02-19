@@ -4,6 +4,8 @@ Measured with `cargo bench --bench plonk_common -p w3f-plonk-common -- --quick`.
 
 Curve: Bandersnatch (on BLS12-381). Single-threaded, release profile.
 
+Machine: AMD Ryzen Threadripper 3970X (64 logical cores), 62 GiB RAM, Arch Linux 6.18.9, rustc 1.93.0.
+
 ## Domain Creation
 
 | Domain Size | Hiding    | Non-Hiding |
