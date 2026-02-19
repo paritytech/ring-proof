@@ -133,11 +133,30 @@ pub struct ProverKey<F: PrimeField, CS: PCS<F>, G: AffineRepr<BaseField = F>> {
     pub(crate) verifier_key: VerifierKey<F, CS>, // used in the Fiat-Shamir transform
 }
 
+impl<F: PrimeField, CS: PCS<F>, G: AffineRepr<BaseField = F>> Clone for ProverKey<F, CS, G> {
+    fn clone(&self) -> Self {
+        Self {
+            pcs_ck: self.pcs_ck.clone(),
+            fixed_columns: self.fixed_columns.clone(),
+            verifier_key: self.verifier_key.clone(),
+        }
+    }
+}
+
 #[derive(Debug, Eq, PartialEq, CanonicalSerialize, CanonicalDeserialize)]
 pub struct VerifierKey<F: PrimeField, CS: PCS<F>> {
     pub(crate) pcs_raw_vk: <CS::Params as PcsParams>::RVK,
     pub(crate) fixed_columns_committed: FixedColumnsCommitted<F, CS::C>,
     //TODO: domain
+}
+
+impl<F: PrimeField, CS: PCS<F>> Clone for VerifierKey<F, CS> {
+    fn clone(&self) -> Self {
+        Self {
+            pcs_raw_vk: self.pcs_raw_vk.clone(),
+            fixed_columns_committed: self.fixed_columns_committed.clone(),
+        }
+    }
 }
 
 impl<E: Pairing> VerifierKey<E::ScalarField, KZG<E>> {
