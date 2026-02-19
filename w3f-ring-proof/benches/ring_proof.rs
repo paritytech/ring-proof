@@ -51,7 +51,12 @@ fn generate_proof(
     let h = get_h(piop_params);
     let prover_idx = rng.gen_range(0..pks.len());
     let (prover_key, _) = index::<_, CS, _>(pcs_params, piop_params, pks);
-    let prover = RingProver::init(prover_key, piop_params.clone(), prover_idx, make_transcript());
+    let prover = RingProver::init(
+        prover_key,
+        piop_params.clone(),
+        prover_idx,
+        make_transcript(),
+    );
     let blinding_factor = Fr::rand(rng);
     let blinded_pk = (pks[prover_idx] + h.mul(blinding_factor)).into_affine();
     let proof = prover.prove(blinding_factor);
@@ -103,8 +108,12 @@ fn bench_prove(c: &mut Criterion) {
         let (prover_key, _) = index::<_, CS, _>(&pcs_params, &piop_params, &pks);
 
         let prover_idx = rng.gen_range(0..keyset_size);
-        let prover =
-            RingProver::init(prover_key, piop_params.clone(), prover_idx, make_transcript());
+        let prover = RingProver::init(
+            prover_key,
+            piop_params.clone(),
+            prover_idx,
+            make_transcript(),
+        );
 
         group.bench_with_input(BenchmarkId::new("single", n), &n, |b, _| {
             let blinding_factor = Fr::rand(rng);
