@@ -29,7 +29,7 @@ where
     F: FftField,
 {
     pub fn init(p: P, domain: &Domain<F>) -> Self {
-        let doublings = Self::doublings_of(p, domain);
+        let doublings = Self::doublings_of(p, domain.capacity);
         let doublings = AffineColumn::public_column(doublings, domain);
         let not_last = domain.not_last_row.clone();
         Self {
@@ -38,11 +38,11 @@ where
         }
     }
 
-    pub fn doublings_of(p: P, domain: &Domain<F>) -> Vec<P> {
+    pub fn doublings_of(p: P, n: usize) -> Vec<P> {
         let mut p = p.into_group();
-        let mut doublings = Vec::with_capacity(domain.capacity);
+        let mut doublings = Vec::with_capacity(n);
         doublings.push(p);
-        for _ in 1..domain.capacity {
+        for _ in 1..n {
             p.double_in_place();
             doublings.push(p);
         }

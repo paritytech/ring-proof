@@ -3,7 +3,7 @@ use crate::gadgets::booleanity::BitColumn;
 use crate::{Column, FieldColumn};
 use ark_ec::{AffineRepr, CurveGroup};
 use ark_ff::{FftField, Field};
-
+use ark_poly::GeneralEvaluationDomain;
 // use ark_serialize::{CanonicalDeserialize, CanonicalSerialize};
 use ark_std::marker::PhantomData;
 use ark_std::vec::Vec;
@@ -31,6 +31,7 @@ impl<F: FftField, P: AffineRepr<BaseField = F>> AffineColumn<F, P> {
         let ys = domain.column(ys, hidden);
         Self { points, xs, ys }
     }
+
     pub fn private_column(points: Vec<P>, domain: &Domain<F>) -> Self {
         Self::column(points, domain, true)
     }
@@ -41,6 +42,32 @@ impl<F: FftField, P: AffineRepr<BaseField = F>> AffineColumn<F, P> {
 
     pub fn evaluate(&self, z: &F) -> (F, F) {
         (self.xs.evaluate(z), self.ys.evaluate(z))
+    }
+
+    pub fn trim_to(&mut self, n: usize) {
+        assert!(n <= self.constrained_len());
+        self.xs.constrained_len = n;
+        self.ys.constrained_len = n;
+    }
+}
+
+impl<F: FftField, P: AffineRepr<BaseField = F>> Column<F> for AffineColumn<F, P> {
+    type T = P;
+
+    fn domain(&self) -> GeneralEvaluationDomain<F> {
+        self.xs.domain()
+    }
+
+    fn domain_4x(&self) -> GeneralEvaluationDomain<F> {
+        self.xs.domain_4x()
+    }
+
+    fn constrained_len(&self) -> usize {
+        self.xs.constrained_len()
+    }
+
+    fn constrained_vals(&self) -> &[Self::T] {
+        &self.points[0..self.constrained_len()]
     }
 }
 
@@ -71,13 +98,13 @@ where
         seed: P,
         domain: &Domain<F>,
     ) -> Self {
-        assert_eq!(bitmask.bits.len(), domain.capacity - 1);
-        // assert_eq!(points.points.len(), domain.capacity - 1); //TODO
+        assert_eq!(bitmask.constrained_len(), domain.capacity - 1);
+        assert_eq!(points.constrained_len(), domain.capacity - 1);
         let not_last = domain.not_last_row.clone();
         let acc = bitmask
-            .bits
+            .constrained_vals()
             .iter()
-            .zip(points.points.iter())
+            .zip(points.constrained_vals())
             .scan(seed, |acc, (&b, point)| {
                 if b {
                     *acc = (*acc + point).into_affine();

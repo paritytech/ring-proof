@@ -26,6 +26,8 @@ impl<F: FftField> BitColumn<F> {
 }
 
 impl<F: FftField> Column<F> for BitColumn<F> {
+    type T = bool;
+
     fn domain(&self) -> GeneralEvaluationDomain<F> {
         self.col.domain()
     }
@@ -34,8 +36,18 @@ impl<F: FftField> Column<F> for BitColumn<F> {
         self.col.domain_4x()
     }
 
-    fn as_poly(&self) -> &DensePolynomial<F> {
-        self.col.as_poly()
+    fn constrained_len(&self) -> usize {
+        self.col.constrained_len()
+    }
+
+    fn constrained_vals(&self) -> &[Self::T] {
+        &self.bits[0..self.constrained_len()]
+    }
+}
+
+impl<F: FftField> BitColumn<F> {
+    pub fn evaluate(&self, z: &F) -> F {
+        self.col.evaluate(z)
     }
 }
 

@@ -20,7 +20,6 @@ use w3f_plonk_common::piop::ProverPiop;
 use crate::piop::cell_equality::CellEqualityPolys;
 use w3f_plonk_common::gadgets::column_sum::ColumnSumPolys;
 use w3f_plonk_common::gadgets::ec::te_doubling::Doubling;
-use w3f_plonk_common::Column;
 
 /// The prover's private input is its secret key `sk`.
 /// The public inputs are:
@@ -117,7 +116,10 @@ impl<F: PrimeField, Curve: TECurveConfig<BaseField = F>> PiopProver<F, Curve> {
         );
 
         let doublings_of_in_gadget = Doubling::init(vrf_in, &domain);
-        let doublings_of_in = doublings_of_in_gadget.doublings.clone();
+        let mut doublings_of_in = doublings_of_in_gadget.doublings.clone();
+        // The `doublings` gadget constrains the points in the column up to `domain.capacity`,
+        // but the `additions` gadget can't constrain the last point (due to the `seed` point).
+        doublings_of_in.trim_to(domain.capacity - 1);
         let out_from_in = CondAdd::init(sk_bits.clone(), doublings_of_in, params.seed, &domain);
         let out_from_in_x = FixedCells::init(out_from_in.acc.xs.clone(), &domain);
         let out_from_in_y = FixedCells::init(out_from_in.acc.ys.clone(), &domain);
@@ -174,8 +176,8 @@ where
         &self,
         commit: Fun,
     ) -> Self::Commitments {
-        let sk_bits = commit(self.sk_bits.as_poly());
-        let pk_index = commit(self.pk_index.as_poly());
+        let sk_bits = commit(self.sk_bits.col.as_poly());
+        let pk_index = commit(self.pk_index.col.as_poly());
         let pk_from_sk = [
             commit(self.pk_from_sk.acc.xs.as_poly()),
             commit(self.pk_from_sk.acc.ys.as_poly()),
@@ -213,8 +215,8 @@ where
             self.pks.ys.as_poly().clone(),
             self.doublings_of_g.xs.as_poly().clone(),
             self.doublings_of_g.ys.as_poly().clone(),
-            self.sk_bits.as_poly().clone(),
-            self.pk_index.as_poly().clone(),
+            self.sk_bits.col.as_poly().clone(),
+            self.pk_index.col.as_poly().clone(),
             self.pk_from_sk.acc.xs.as_poly().clone(),
             self.pk_from_sk.acc.ys.as_poly().clone(),
             self.doublings_of_in_gadget.doublings.xs.as_poly().clone(),

@@ -19,22 +19,24 @@ pub mod transcript;
 pub mod verifier;
 
 pub trait Column<F: FftField> {
+    /// Type of a column cell.
+    type T;
+    /// Evaluation domain of the associated column polynomial `p`:
+    /// `p(w^i) = col[i]` for the domain generator `w`.
     fn domain(&self) -> GeneralEvaluationDomain<F>;
+    /// Evaluation domain of constraint polynomials.
     fn domain_4x(&self) -> GeneralEvaluationDomain<F>;
-    fn as_poly(&self) -> &DensePolynomial<F>;
-    fn size(&self) -> usize {
-        self.domain().size()
-    }
-    fn evaluate(&self, z: &F) -> F {
-        self.as_poly().evaluate(z)
-    }
+    /// Length of the constrained prefix of the column.
+    /// Is either equal to `domain.capacity` or `domain.capacity - 1`.
+    fn constrained_len(&self) -> usize;
+    /// Values of the cells that are constrained.
+    fn constrained_vals(&self) -> &[Self::T];
 }
 
 // #[derive(Clone, CanonicalSerialize, CanonicalDeserialize)]
 #[derive(Clone)]
 pub struct FieldColumn<F: FftField> {
-    // actual (constrained) len of the input in evaluation form
-    pub len: usize,
+    constrained_len: usize,
     pub poly: DensePolynomial<F>,
     pub evals: Evaluations<F>,
     pub evals_4x: Evaluations<F>,
@@ -47,12 +49,18 @@ impl<F: FftField> FieldColumn<F> {
         Evaluations::from_vec_and_domain(evals_4x, self.domain_4x())
     }
 
-    pub fn vals(&self) -> &[F] {
-        &self.evals.evals[..self.len]
+    pub fn as_poly(&self) -> &DensePolynomial<F> {
+        &self.poly
+    }
+
+    pub fn evaluate(&self, z: &F) -> F {
+        self.poly.evaluate(z)
     }
 }
 
 impl<F: FftField> Column<F> for FieldColumn<F> {
+    type T = F;
+
     fn domain(&self) -> GeneralEvaluationDomain<F> {
         self.evals.domain()
     }
@@ -61,8 +69,12 @@ impl<F: FftField> Column<F> for FieldColumn<F> {
         self.evals_4x.domain()
     }
 
-    fn as_poly(&self) -> &DensePolynomial<F> {
-        &self.poly
+    fn constrained_len(&self) -> usize {
+        self.constrained_len
+    }
+
+    fn constrained_vals(&self) -> &[Self::T] {
+        &self.evals.evals[..self.constrained_len]
     }
 }
 

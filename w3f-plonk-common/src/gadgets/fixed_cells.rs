@@ -24,7 +24,7 @@ pub struct FixedCellsValues<F: Field> {
 
 impl<F: FftField> FixedCells<F> {
     pub fn init(col: FieldColumn<F>, domain: &Domain<F>) -> Self {
-        assert_eq!(col.len, domain.capacity);
+        assert_eq!(col.constrained_len, domain.capacity);
         let l_first = domain.l_first.clone();
         let l_last = domain.l_last.clone();
         Self {
@@ -35,7 +35,7 @@ impl<F: FftField> FixedCells<F> {
     }
 
     pub fn constraints(&self) -> Vec<Evaluations<F>> {
-        let domain_capacity = self.col.len; // that's an ugly way to learn the capacity, but we've asserted it above.
+        let domain_capacity = self.col.constrained_len; // that's an ugly way to learn the capacity, but we've asserted it above.
         let c = &Self::constraint_cell(&self.col, &self.l_first, 0)
             + &Self::constraint_cell(&self.col, &self.l_last, domain_capacity - 1);
         vec![c]

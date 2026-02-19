@@ -6,7 +6,7 @@ use ark_std::{vec, vec::Vec};
 
 use w3f_plonk_common::domain::Domain;
 use w3f_plonk_common::gadgets::VerifierGadget;
-use w3f_plonk_common::FieldColumn;
+use w3f_plonk_common::{Column, FieldColumn};
 
 pub struct CellEqualityPolys<F: FftField> {
     a: FieldColumn<F>,
@@ -22,8 +22,8 @@ pub struct CellEqualityEvals<F: Field> {
 
 impl<F: FftField> CellEqualityPolys<F> {
     pub fn init(a: FieldColumn<F>, b: FieldColumn<F>, domain: &Domain<F>) -> Self {
-        assert_eq!(a.len, domain.capacity);
-        assert_eq!(b.len, domain.capacity);
+        assert_eq!(a.constrained_len(), domain.capacity);
+        assert_eq!(b.constrained_len(), domain.capacity);
         let a_last = a.evals.evals[domain.capacity - 1];
         let b_last = b.evals.evals[domain.capacity - 1];
         assert_eq!(a_last, b_last);

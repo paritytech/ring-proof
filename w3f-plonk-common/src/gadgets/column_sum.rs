@@ -35,8 +35,8 @@ pub struct ColumnSumEvals<F: Field> {
 
 impl<F: FftField> ColumnSumPolys<F> {
     pub fn init(col: FieldColumn<F>, domain: &Domain<F>) -> Self {
-        assert_eq!(col.len, domain.capacity - 1); // last element is not constrained
-        let partial_sums = Self::partial_sums(col.vals());
+        assert_eq!(col.constrained_len(), domain.capacity - 1); // last element is not constrained
+        let partial_sums = Self::partial_sums(col.constrained_vals());
         let mut acc = vec![F::zero()];
         acc.extend(partial_sums);
         let acc = domain.private_column(acc);

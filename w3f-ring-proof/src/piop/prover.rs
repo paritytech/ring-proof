@@ -18,7 +18,7 @@ use w3f_plonk_common::gadgets::fixed_cells::FixedCells;
 use w3f_plonk_common::gadgets::inner_prod::InnerProd;
 use w3f_plonk_common::gadgets::ProverGadget;
 use w3f_plonk_common::piop::ProverPiop;
-use w3f_plonk_common::{Column, FieldColumn};
+use w3f_plonk_common::FieldColumn;
 
 // The 'table': columns representing the execution trace of the computation
 // and the constraints -- polynomials that vanish on every 2 consecutive rows.
@@ -100,7 +100,7 @@ where
         &self,
         commit: Fun,
     ) -> Self::Commitments {
-        let bits = commit(self.bits.as_poly());
+        let bits = commit(self.bits.col.as_poly());
         let cond_add_acc = [
             commit(self.cond_add.acc.xs.as_poly()),
             commit(self.cond_add.acc.ys.as_poly()),
@@ -121,7 +121,7 @@ where
             self.points.xs.as_poly().clone(),
             self.points.ys.as_poly().clone(),
             self.ring_selector.as_poly().clone(),
-            self.bits.as_poly().clone(),
+            self.bits.col.as_poly().clone(),
             self.inner_prod.acc.as_poly().clone(),
             self.cond_add.acc.xs.as_poly().clone(),
             self.cond_add.acc.ys.as_poly().clone(),

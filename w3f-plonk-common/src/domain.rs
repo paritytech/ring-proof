@@ -1,11 +1,11 @@
+use crate::FieldColumn;
 use ark_ff::{batch_inversion, FftField, Zero};
 use ark_poly::univariate::DensePolynomial;
 use ark_poly::{
     DenseUVPolynomial, EvaluationDomain, Evaluations, GeneralEvaluationDomain, Polynomial,
 };
 use ark_std::{vec, vec::Vec};
-
-use crate::FieldColumn;
+use getrandom_or_panic::getrandom_or_panic;
 
 pub const ZK_ROWS: usize = 3;
 
@@ -25,26 +25,28 @@ impl<F: FftField> Domains<F> {
         Self { x1, x4 }
     }
 
-    fn column_from_evals(&self, evals: Vec<F>, len: usize) -> FieldColumn<F> {
+    fn column_from_evals(&self, evals: Vec<F>, constrained_len: usize) -> FieldColumn<F> {
         assert_eq!(evals.len(), self.x1.size());
+        assert!(constrained_len <= evals.len());
         let evals = Evaluations::from_vec_and_domain(evals, self.x1);
         let poly = evals.interpolate_by_ref();
         let evals_4x = poly.evaluate_over_domain_by_ref(self.x4);
         FieldColumn {
-            len,
+            constrained_len,
             poly,
             evals,
             evals_4x,
         }
     }
 
-    fn column_from_poly(&self, poly: DensePolynomial<F>, len: usize) -> FieldColumn<F> {
+    fn column_from_poly(&self, poly: DensePolynomial<F>, constrained_len: usize) -> FieldColumn<F> {
         assert!(poly.degree() < self.x1.size());
+        assert!(constrained_len <= self.x1.size());
         let evals_4x = self.amplify(&poly);
         let evals = evals_4x.evals.iter().step_by(4).cloned().collect();
         let evals = Evaluations::from_vec_and_domain(evals, self.x1);
         FieldColumn {
-            len,
+            constrained_len,
             poly,
             evals,
             evals_4x,
@@ -111,9 +113,10 @@ impl<F: FftField> Domain<F> {
         assert!(len <= self.capacity);
         if self.hiding && hidden && !cfg!(feature = "test-vectors") {
             evals.resize(self.capacity, F::zero());
-            evals.resize_with(self.domains.x1.size(), || {
-                F::rand(&mut getrandom_or_panic::getrandom_or_panic())
-            });
+            evals.resize_with(
+                self.domains.x1.size(),
+                || F::rand(&mut getrandom_or_panic()),
+            );
         } else {
             evals.resize(self.domains.x1.size(), F::zero());
         }

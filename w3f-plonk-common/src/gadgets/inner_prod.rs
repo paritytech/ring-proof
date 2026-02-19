@@ -24,9 +24,9 @@ pub struct InnerProdValues<F: Field> {
 
 impl<F: FftField> InnerProd<F> {
     pub fn init(a: FieldColumn<F>, b: FieldColumn<F>, domain: &Domain<F>) -> Self {
-        assert_eq!(a.len, domain.capacity - 1); // last element is not constrained
-        assert_eq!(b.len, domain.capacity - 1); // last element is not constrained
-        let inner_prods = Self::partial_inner_prods(a.vals(), b.vals());
+        assert_eq!(a.constrained_len(), domain.capacity - 1); // last element is not constrained
+        assert_eq!(b.constrained_len(), domain.capacity - 1); // last element is not constrained
+        let inner_prods = Self::partial_inner_prods(a.constrained_vals(), b.constrained_vals());
         let mut acc = vec![F::zero()];
         acc.extend(inner_prods);
         let acc = domain.private_column(acc);

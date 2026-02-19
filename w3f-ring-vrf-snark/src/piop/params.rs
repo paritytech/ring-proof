@@ -64,7 +64,7 @@ impl<F: PrimeField, Curve: TECurveConfig<BaseField = F>> PiopParams<F, Curve> {
     }
 
     fn doublings_of_g_col(&self) -> AffineColumn<F, Affine<Curve>> {
-        let doublings_of_g = Doubling::doublings_of(self.g, &self.domain);
+        let doublings_of_g = Doubling::doublings_of(self.g, &self.domain.capacity - 1);
         AffineColumn::public_column(doublings_of_g, &self.domain)
     }
 
