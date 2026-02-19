@@ -117,3 +117,12 @@ pub struct CondAddValues<F: Field, P: AffineRepr<BaseField = F>> {
     pub acc: (F, F),
     pub _phantom: PhantomData<P>,
 }
+
+pub struct CondAddEvals<F: Field, P: AffineRepr<BaseField = F>> {
+    pub bitmask_at_z: F,
+    pub points_at_z: (F, F),
+    pub not_last_at_z: F,
+    pub acc_at_z: (F, F),
+    pub acc_at_zw: (F, F),
+    pub _phantom: PhantomData<P>,
+}

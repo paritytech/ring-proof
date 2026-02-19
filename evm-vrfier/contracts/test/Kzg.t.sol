@@ -1,14 +1,44 @@
 pragma solidity ^0.8.24;
 
-import {Test, console} from "forge-std/Test.sol";
-import "../src/SoladyBls.sol";
-import "../src/BlsGenerators.sol";
-import "../src/PlonkKzg.sol";
+import {Test} from "forge-std/Test.sol";
+import {BLS, BlsGenerators, Kzg} from "src/Kzg.sol";
+
+contract KzgExt {
+    // The trapdoor `tau` in G2, part of the standard KZG verification key.
+    BLS.G2Point tau_g2;
+
+    constructor(BLS.G2Point memory tau_g2_) {
+        tau_g2 = tau_g2_;
+    }
+
+    function verify(BLS.G1Point memory c, uint256 z, uint256 v, BLS.G1Point memory proof) public view returns (bool) {
+        return Kzg.verify(c, z, v, proof, tau_g2);
+    }
+
+    function verify_plonk_kzg(
+        BLS.G1Point[] memory polys,
+        uint256[] memory zs,
+        uint256[] memory evals_at_z1,
+        uint256[] memory evals_at_z2,
+        BLS.G1Point[] memory proofs,
+        uint256[] memory nus
+    ) public view returns (bool) {
+        return Kzg.verify_plonk_kzg(polys, zs, evals_at_z1, evals_at_z2, proofs, nus, tau_g2);
+    }
+
+    function pairing2(
+        BLS.G1Point memory g1_1,
+        BLS.G2Point memory g2_1,
+        BLS.G1Point memory g1_2,
+        BLS.G2Point memory g2_2
+    ) public view returns (bool) {
+        return Kzg.pairing2(g1_1, g2_1, g1_2, g2_2);
+    }
+}
 
 contract PlonkKzgTest is Test {
-    PlonkKzg kzg;
+    KzgExt kzg;
     BLS.G1Point[] srs_g1;
-    BLS.G2Point tau_g2;
 
     function setUp() public {
         uint256 n = 3;
@@ -17,8 +47,8 @@ contract PlonkKzgTest is Test {
         for (uint256 i = 1; i < n; i++) {
             srs_g1.push(BlsGenerators.g1_mul(srs_g1[i - 1], tau));
         }
-        tau_g2 = BlsGenerators.g2_mul(BlsGenerators.G2(), tau);
-        kzg = new PlonkKzg(tau_g2);
+        BLS.G2Point memory tau_g2 = BlsGenerators.g2_mul(BlsGenerators.G2(), tau);
+        kzg = new KzgExt(tau_g2);
     }
 
     function commit(bytes32[] memory coeffs) internal view returns (BLS.G1Point memory c) {
@@ -50,14 +80,6 @@ contract PlonkKzgTest is Test {
         }
     }
 
-    function verify_single(BLS.G1Point memory c, uint256 z, uint256 v, BLS.G1Point memory proof)
-        internal
-        view
-        returns (bool)
-    {
-        return kzg.verify(c, z, v, proof);
-    }
-
     function test_div() public pure {
         // 3x^2 + 2x + 1 = [1, 2, 3]
         bytes32[] memory poly = new bytes32[](3);
@@ -81,7 +103,7 @@ contract PlonkKzgTest is Test {
         uint256 z = 777;
         BLS.G1Point memory proof = prove(poly, z);
         uint256 v = eval(poly, z);
-        assert(kzg.verify(c, z, v, proof));
+        assertTrue(kzg.verify(c, z, v, proof));
     }
 
     function test_plonk_kzg() public view {
@@ -89,30 +111,35 @@ contract PlonkKzgTest is Test {
         for (uint256 i = 0; i < poly.length; i++) {
             poly[i] = bytes32(i + 10);
         }
-        BLS.G1Point memory c = commit(poly);
+        BLS.G1Point memory commitment = commit(poly);
         uint256 z1 = 666;
-        uint256 z2 = 777;
+        uint256 z2 = 668;
         BLS.G1Point memory proof_z1 = prove(poly, z1);
         BLS.G1Point memory proof_z2 = prove(poly, z2);
         uint256 eval_at_z1 = eval(poly, z1);
         uint256 eval_at_z2 = eval(poly, z2);
 
-        assert(kzg.verify(c, z1, eval_at_z1, proof_z1));
-        assert(kzg.verify(c, z2, eval_at_z2, proof_z2));
+        assertTrue(kzg.verify(commitment, z1, eval_at_z1, proof_z1));
+        assertTrue(kzg.verify(commitment, z2, eval_at_z2, proof_z2));
 
-        BLS.G1Point[] memory polys_z1 = new BLS.G1Point[](1);
+        BLS.G1Point[] memory commitments = new BLS.G1Point[](1);
         uint256[] memory evals_at_z1 = new uint256[](1);
-        polys_z1[0] = c;
+        uint256[] memory evals_at_z2 = new uint256[](1);
+        commitments[0] = commitment;
         evals_at_z1[0] = eval_at_z1;
-
-        BLS.G1Point memory poly_z2 = c;
-
-        bytes32 nu = bytes32(uint256(123));
-        uint256 r = 345;
-        bytes32[] memory nus = new bytes32[](1);
+        evals_at_z2[0] = eval_at_z2;
+        uint256 nu = 2;
+        uint256[] memory nus = new uint256[](1);
         nus[0] = nu;
-        proof_z1 = BlsGenerators.g1_mul(proof_z1, nu);
-
-        assert(kzg.verify_plonk_kzg(polys_z1, poly_z2, z1, z2, evals_at_z1, eval_at_z2, proof_z1, proof_z2, nus, r));
+        BLS.G1Point[] memory proofs = new BLS.G1Point[](2);
+        proofs[0] = BlsGenerators.g1_mul(proof_z1, bytes32(nu));
+        proofs[1] = BlsGenerators.g1_mul(proof_z2, bytes32(nu));
+        uint256[] memory zs = new uint256[](2);
+        zs[0] = z1;
+        zs[1] = z2;
+        assertTrue(
+            kzg.verify_plonk_kzg(commitments, zs, evals_at_z1, evals_at_z2, proofs, nus),
+            "Batch KZG verification failed"
+        );
     }
 }

@@ -95,7 +95,7 @@ impl<F: FftField> Domain<F> {
         }
     }
 
-    pub(crate) fn divide_by_vanishing_poly(&self, poly: &DensePolynomial<F>) -> DensePolynomial<F> {
+    pub fn divide_by_vanishing_poly(&self, poly: &DensePolynomial<F>) -> DensePolynomial<F> {
         let (quotient, remainder) = if self.hiding {
             let exclude_zk_rows = poly * self.zk_rows_vanishing_poly.as_ref().unwrap();
             exclude_zk_rows.divide_by_vanishing_poly(self.domains.x1)
@@ -131,6 +131,10 @@ impl<F: FftField> Domain<F> {
 
     pub fn omega(&self) -> F {
         self.domains.x1.group_gen()
+    }
+
+    pub fn omega_inv(&self) -> F {
+        self.domains.x1.group_gen_inv()
     }
 
     pub fn domain(&self) -> GeneralEvaluationDomain<F> {

@@ -118,11 +118,20 @@ library BLS {
     /*.•°:°.´+˚.*°.˚:*.´•*.+°.•°:´*.´•*.•°.•°:°.´:•˚°.*°.˚:*.´+°.•*/
 
     /// @dev Adds two G1 points. Returns a new G1 point.
-    function add(G1Point memory point0, G1Point memory point1) internal view returns (G1Point memory result) {
+    function add(G1Point memory point0, G1Point memory point1)
+    internal
+    view
+    returns (G1Point memory result)
+    {
         assembly ("memory-safe") {
             mcopy(result, point0, 0x80)
             mcopy(add(result, 0x80), point1, 0x80)
-            if iszero(and(eq(returndatasize(), 0x80), staticcall(gas(), BLS12_G1ADD, result, 0x100, result, 0x80))) {
+            if iszero(
+                and(
+                    eq(returndatasize(), 0x80),
+                    staticcall(gas(), BLS12_G1ADD, result, 0x100, result, 0x80)
+                )
+            ) {
                 mstore(0x00, 0xd6cc76eb) // `G1AddFailed()`.
                 revert(0x1c, 0x04)
             }
@@ -130,7 +139,11 @@ library BLS {
     }
 
     /// @dev Multi-scalar multiplication of G1 points with scalars. Returns a new G1 point.
-    function msm(G1Point[] memory points, bytes32[] memory scalars) internal view returns (G1Point memory result) {
+    function msm(G1Point[] memory points, bytes32[] memory scalars)
+    internal
+    view
+    returns (G1Point memory result)
+    {
         assembly ("memory-safe") {
             let k := mload(points)
             let d := sub(scalars, points)
@@ -153,11 +166,20 @@ library BLS {
     }
 
     /// @dev Adds two G2 points. Returns a new G2 point.
-    function add(G2Point memory point0, G2Point memory point1) internal view returns (G2Point memory result) {
+    function add(G2Point memory point0, G2Point memory point1)
+    internal
+    view
+    returns (G2Point memory result)
+    {
         assembly ("memory-safe") {
             mcopy(result, point0, 0x100)
             mcopy(add(result, 0x100), point1, 0x100)
-            if iszero(and(eq(returndatasize(), 0x100), staticcall(gas(), BLS12_G2ADD, result, 0x200, result, 0x100))) {
+            if iszero(
+                and(
+                    eq(returndatasize(), 0x100),
+                    staticcall(gas(), BLS12_G2ADD, result, 0x200, result, 0x100)
+                )
+            ) {
                 mstore(0x00, 0xc55e5e33) // `G2AddFailed()`.
                 revert(0x1c, 0x04)
             }
@@ -165,7 +187,11 @@ library BLS {
     }
 
     /// @dev Multi-scalar multiplication of G2 points with scalars. Returns a new G2 point.
-    function msm(G2Point[] memory points, bytes32[] memory scalars) internal view returns (G2Point memory result) {
+    function msm(G2Point[] memory points, bytes32[] memory scalars)
+    internal
+    view
+    returns (G2Point memory result)
+    {
         assembly ("memory-safe") {
             let k := mload(points)
             let d := sub(scalars, points)
@@ -188,7 +214,11 @@ library BLS {
     }
 
     /// @dev Checks the pairing of G1 points with G2 points. Returns whether the pairing is valid.
-    function pairing(G1Point[] memory g1Points, G2Point[] memory g2Points) internal view returns (bool result) {
+    function pairing(G1Point[] memory g1Points, G2Point[] memory g2Points)
+    internal
+    view
+    returns (bool result)
+    {
         assembly ("memory-safe") {
             let k := mload(g1Points)
             let m := mload(0x40)
@@ -216,7 +246,10 @@ library BLS {
     function toG1(Fp memory element) internal view returns (G1Point memory result) {
         assembly ("memory-safe") {
             if iszero(
-                and(eq(returndatasize(), 0x80), staticcall(gas(), BLS12_MAP_FP_TO_G1, element, 0x40, result, 0x80))
+                and(
+                    eq(returndatasize(), 0x80),
+                    staticcall(gas(), BLS12_MAP_FP_TO_G1, element, 0x40, result, 0x80)
+                )
             ) {
                 mstore(0x00, 0x24a289fc) // `MapFpToG1Failed()`.
                 revert(0x1c, 0x04)
@@ -228,7 +261,10 @@ library BLS {
     function toG2(Fp2 memory element) internal view returns (G2Point memory result) {
         assembly ("memory-safe") {
             if iszero(
-                and(eq(returndatasize(), 0x100), staticcall(gas(), BLS12_MAP_FP2_TO_G2, element, 0x80, result, 0x100))
+                and(
+                    eq(returndatasize(), 0x100),
+                    staticcall(gas(), BLS12_MAP_FP2_TO_G2, element, 0x80, result, 0x100)
+                )
             ) {
                 mstore(0x00, 0x89083b91) // `MapFp2ToG2Failed()`.
                 revert(0x1c, 0x04)
@@ -247,22 +283,26 @@ library BLS {
             }
 
             function sha2(data_, n_) -> _h {
-                if iszero(and(eq(returndatasize(), 0x20), staticcall(gas(), 2, data_, n_, 0x00, 0x20))) {
-                    revert(calldatasize(), 0x00)
-                }
+                if iszero(
+                    and(eq(returndatasize(), 0x20), staticcall(gas(), 2, data_, n_, 0x00, 0x20))
+                ) { revert(calldatasize(), 0x00) }
                 _h := mload(0x00)
             }
 
             function modfield(s_, b_) {
                 mcopy(add(s_, 0x60), b_, 0x40)
-                if iszero(and(eq(returndatasize(), 0x40), staticcall(gas(), 5, s_, 0x100, b_, 0x40))) {
-                    revert(calldatasize(), 0x00)
-                }
+                if iszero(
+                    and(eq(returndatasize(), 0x40), staticcall(gas(), 5, s_, 0x100, b_, 0x40))
+                ) { revert(calldatasize(), 0x00) }
             }
 
             function mapToG2(s_, r_) {
-                if iszero(and(eq(returndatasize(), 0x100), staticcall(gas(), BLS12_MAP_FP2_TO_G2, s_, 0x80, r_, 0x100)))
-                {
+                if iszero(
+                    and(
+                        eq(returndatasize(), 0x100),
+                        staticcall(gas(), BLS12_MAP_FP2_TO_G2, s_, 0x80, r_, 0x100)
+                    )
+                ) {
                     mstore(0x00, 0x89083b91) // `MapFp2ToG2Failed()`.
                     revert(0x1c, 0x04)
                 }
@@ -301,7 +341,12 @@ library BLS {
             mapToG2(b, result)
             mapToG2(add(0x80, b), add(0x100, result))
 
-            if iszero(and(eq(returndatasize(), 0x100), staticcall(gas(), BLS12_G2ADD, result, 0x200, result, 0x100))) {
+            if iszero(
+                and(
+                    eq(returndatasize(), 0x100),
+                    staticcall(gas(), BLS12_G2ADD, result, 0x200, result, 0x100)
+                )
+            ) {
                 mstore(0x00, 0xc55e5e33) // `G2AddFailed()`.
                 revert(0x1c, 0x04)
             }
