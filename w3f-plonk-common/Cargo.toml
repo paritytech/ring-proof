@@ -21,6 +21,11 @@ rand_core = "0.6"
 
 [dev-dependencies]
 ark-ed-on-bls12-381-bandersnatch = { version = "0.5", default-features = false }
+criterion = { version = "0.5", features = ["html_reports"] }
+
+[[bench]]
+name = "plonk_common"
+harness = false
 
 [features]
 default = ["std"]
