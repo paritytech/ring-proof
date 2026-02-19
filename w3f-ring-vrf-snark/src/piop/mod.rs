@@ -90,8 +90,7 @@ impl<F: PrimeField> ColumnsEvaluated<F> for RingEvaluations<F> {
 
 // Columns commitment to which the verifier knows (or trusts).
 // TODO: comments
-// #[derive(Clone, CanonicalSerialize, CanonicalDeserialize)]
-#[derive(Clone)]
+#[derive(Clone, CanonicalSerialize, CanonicalDeserialize)]
 pub struct FixedColumns<F: PrimeField, G: AffineRepr<BaseField = F>> {
     pks: AffineColumn<F, G>,
     doublings_of_g: AffineColumn<F, G>,
@@ -147,7 +146,7 @@ impl<F: PrimeField, G: AffineRepr<BaseField = F>> FixedColumns<F, G> {
     }
 }
 
-// #[derive(CanonicalSerialize, CanonicalDeserialize)]
+#[derive(CanonicalSerialize, CanonicalDeserialize)]
 pub struct ProverKey<F: PrimeField, CS: PCS<F>, G: AffineRepr<BaseField = F>> {
     pub(crate) pcs_ck: CS::CK,
     pub(crate) fixed_columns: FixedColumns<F, G>,

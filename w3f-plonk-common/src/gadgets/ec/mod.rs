@@ -4,7 +4,7 @@ use crate::{Column, FieldColumn};
 use ark_ec::{AffineRepr, CurveGroup};
 use ark_ff::{FftField, Field};
 
-// use ark_serialize::{CanonicalDeserialize, CanonicalSerialize};
+use ark_serialize::{CanonicalDeserialize, CanonicalSerialize};
 use ark_std::marker::PhantomData;
 use ark_std::vec::Vec;
 
@@ -15,8 +15,7 @@ pub mod te_doubling;
 // A vec of affine points from the prime-order subgroup of the curve whose base field enables FFTs,
 // and its convenience representation as columns of coordinates over the curve's base field.
 
-// #[derive(Clone, CanonicalSerialize, CanonicalDeserialize)]
-#[derive(Clone)]
+#[derive(Clone, CanonicalSerialize, CanonicalDeserialize)]
 pub struct AffineColumn<F: FftField, P: AffineRepr<BaseField = F>> {
     points: Vec<P>,
     pub xs: FieldColumn<F>,
