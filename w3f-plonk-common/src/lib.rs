@@ -30,8 +30,7 @@ pub trait Column<F: FftField> {
     }
 }
 
-// #[derive(Clone, CanonicalSerialize, CanonicalDeserialize)]
-#[derive(Clone)]
+#[derive(Clone, CanonicalSerialize, CanonicalDeserialize)]
 pub struct FieldColumn<F: FftField> {
     // actual (constrained) len of the input in evaluation form
     pub len: usize,

@@ -1,7 +1,7 @@
 [workspace]
 resolver = "2"
 members = [
-    "evm-vrfier",
+    # "evm-vrfier",
     "w3f-plonk-common",
     "w3f-ring-proof",
     "w3f-ring-vrf-snark",
@@ -14,5 +14,12 @@ ark-ec = { version = "0.5", default-features = false }
 ark-poly = { version = "0.5", default-features = false }
 ark-serialize = { version = "0.5", default-features = false, features = ["derive"] }
 w3f-pcs = { version = "0.0.5", default-features = false }
-#w3f-pcs = { git = "https://github.com/w3f/fflonk", default-features = false }
+w3f-plonk-common = { path = "w3f-plonk-common", default-features = false }
 rayon = { version = "1", default-features = false }
+ark-transcript = { version = "0.0.3", default-features = false }
+blake2 = { version = "0.10", default-features = false }
+ark-bls12-381 = { version = "0.5", default-features = false, features = ["curve"] }
+ark-ed-on-bls12-381-bandersnatch = { version = "0.5", default-features = false }
+criterion = { version = "0.5", features = ["html_reports"] }
+getrandom_or_panic = { version = "0.0.3", default-features = false }
+rand_core = "0.6"

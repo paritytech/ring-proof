@@ -65,8 +65,7 @@ impl<F: PrimeField> ColumnsEvaluated<F> for RingEvaluations<F> {
 }
 
 // Columns commitment to which the verifier knows (or trusts).
-// #[derive(Clone, CanonicalSerialize, CanonicalDeserialize)]
-#[derive(Clone)]
+#[derive(Clone, CanonicalSerialize, CanonicalDeserialize)]
 pub struct FixedColumns<F: PrimeField, G: AffineRepr<BaseField = F>> {
     // Public keys of the ring participants in order,
     // followed by the powers-of-2 multiples of the second Pedersen base.
@@ -126,11 +125,21 @@ impl<F: PrimeField, G: AffineRepr<BaseField = F>> FixedColumns<F, G> {
     }
 }
 
-// #[derive(CanonicalSerialize, CanonicalDeserialize)]
+#[derive(CanonicalSerialize, CanonicalDeserialize)]
 pub struct ProverKey<F: PrimeField, CS: PCS<F>, G: AffineRepr<BaseField = F>> {
     pub(crate) pcs_ck: CS::CK,
     pub(crate) fixed_columns: FixedColumns<F, G>,
     pub(crate) verifier_key: VerifierKey<F, CS>, // used in the Fiat-Shamir transform
+}
+
+impl<F: PrimeField, CS: PCS<F>, G: AffineRepr<BaseField = F>> Clone for ProverKey<F, CS, G> {
+    fn clone(&self) -> Self {
+        Self {
+            pcs_ck: self.pcs_ck.clone(),
+            fixed_columns: self.fixed_columns.clone(),
+            verifier_key: self.verifier_key.clone(),
+        }
+    }
 }
 
 #[derive(Debug, Eq, PartialEq, CanonicalSerialize, CanonicalDeserialize)]
@@ -138,6 +147,15 @@ pub struct VerifierKey<F: PrimeField, CS: PCS<F>> {
     pub(crate) pcs_raw_vk: <CS::Params as PcsParams>::RVK,
     pub(crate) fixed_columns_committed: FixedColumnsCommitted<F, CS::C>,
     //TODO: domain
+}
+
+impl<F: PrimeField, CS: PCS<F>> Clone for VerifierKey<F, CS> {
+    fn clone(&self) -> Self {
+        Self {
+            pcs_raw_vk: self.pcs_raw_vk.clone(),
+            fixed_columns_committed: self.fixed_columns_committed.clone(),
+        }
+    }
 }
 
 impl<E: Pairing> VerifierKey<E::ScalarField, KZG<E>> {
