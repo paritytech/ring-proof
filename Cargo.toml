@@ -14,7 +14,7 @@ ark-ec = { version = "0.5", default-features = false }
 ark-poly = { version = "0.5", default-features = false }
 ark-serialize = { version = "0.5", default-features = false, features = ["derive"] }
 w3f-pcs = { version = "0.0.5", default-features = false }
-w3f-plonk-common = { path = "w3f-plonk-common", default-features = false }
+w3f-plonk-common = { version = "0.0.6", default-features = false }
 rayon = { version = "1", default-features = false }
 ark-transcript = { version = "0.0.3", default-features = false }
 blake2 = { version = "0.10", default-features = false }
