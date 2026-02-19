@@ -73,17 +73,21 @@ where
         assert_eq!(bitmask.bits.len(), domain.capacity - 1);
         // assert_eq!(points.points.len(), domain.capacity - 1); //TODO
         let not_last = domain.not_last_row.clone();
-        let acc = bitmask
+        let mut projective_acc = seed.into_group();
+        let projective_points: Vec<_> = bitmask
             .bits
             .iter()
             .zip(points.points.iter())
-            .scan(seed, |acc, (&b, point)| {
+            .map(|(&b, point)| {
                 if b {
-                    *acc = (*acc + point).into_affine();
+                    projective_acc += point;
                 }
-                Some(*acc)
-            });
-        let acc: Vec<_> = ark_std::iter::once(seed).chain(acc).collect();
+                projective_acc
+            })
+            .collect();
+        let mut acc = Vec::with_capacity(projective_points.len() + 1);
+        acc.push(seed);
+        acc.extend(P::Group::normalize_batch(&projective_points));
         let init_plus_result = acc.last().unwrap();
         let result = init_plus_result.into_group() - seed.into_group();
         let result = result.into_affine();
