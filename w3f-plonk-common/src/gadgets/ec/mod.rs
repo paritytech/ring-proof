@@ -85,8 +85,9 @@ where
                 projective_acc
             })
             .collect();
-        let mut acc = P::Group::normalize_batch(&projective_points);
-        acc.insert(0, seed);
+        let mut acc = Vec::with_capacity(projective_points.len() + 1);
+        acc.push(seed);
+        acc.extend(P::Group::normalize_batch(&projective_points));
         let init_plus_result = acc.last().unwrap();
         let result = init_plus_result.into_group() - seed.into_group();
         let result = result.into_affine();
