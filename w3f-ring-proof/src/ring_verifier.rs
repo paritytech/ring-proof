@@ -22,9 +22,9 @@ where
     Jubjub: TECurveConfig<BaseField = F>,
     T: PlonkTranscript<F, CS>,
 {
-    piop_params: PiopParams<F, Jubjub>,
-    fixed_columns_committed: FixedColumnsCommitted<F, CS::C>,
-    plonk_verifier: PlonkVerifier<F, CS, T>,
+    pub(crate) piop_params: PiopParams<F, Jubjub>,
+    pub(crate) fixed_columns_committed: FixedColumnsCommitted<F, CS::C>,
+    pub(crate) plonk_verifier: PlonkVerifier<F, CS, T>,
 }
 
 impl<F, CS, Jubjub, T> RingVerifier<F, CS, Jubjub, T>
@@ -74,6 +74,10 @@ where
 
     pub fn piop_params(&self) -> &PiopParams<F, Jubjub> {
         &self.piop_params
+    }
+
+    pub fn pcs_vk(&self) -> &CS::VK {
+        &self.plonk_verifier.pcs_vk
     }
 
     pub fn verify_batch(
