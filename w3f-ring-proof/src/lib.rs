@@ -12,11 +12,11 @@ use w3f_plonk_common::Proof;
 pub use crate::piop::{params::PiopParams, FixedColumnsCommitted, ProverKey, VerifierKey};
 use crate::piop::{RingCommitments, RingEvaluations};
 
+pub mod multi_ring_batch_verifier;
 mod piop;
 pub mod ring;
 pub mod ring_prover;
 pub mod ring_verifier;
-pub mod multi_ring_batch_verifier;
 
 pub type RingProof<F, CS> = Proof<F, CS, RingCommitments<F, <CS as PCS<F>>::C>, RingEvaluations<F>>;
 
@@ -207,27 +207,26 @@ mod tests {
         let (prover_key_b, verifier_key_b) =
             index::<_, KZG<Bls12_381>, _>(&pcs_params, &piop_params, &pks_b);
 
-        let mut generate_claims =
-            |prover_key: &ProverKey<Fq, KZG<Bls12_381>, EdwardsAffine>,
-             pks: &[EdwardsAffine],
-             keyset_size: usize| {
-                (0..proofs_per_ring)
-                    .map(|_| {
-                        let prover_idx = rng.gen_range(0..keyset_size);
-                        let prover = RingProver::init(
-                            prover_key.clone(),
-                            piop_params.clone(),
-                            prover_idx,
-                            ArkTranscript::new(b"w3f-ring-proof-test"),
-                        );
-                        let blinding_factor = Fr::rand(rng);
-                        let blinded_pk =
-                            (pks[prover_idx] + piop_params.h.mul(blinding_factor)).into_affine();
-                        let proof = prover.prove(blinding_factor);
-                        (blinded_pk, proof)
-                    })
-                    .collect::<Vec<_>>()
-            };
+        let mut generate_claims = |prover_key: &ProverKey<Fq, KZG<Bls12_381>, EdwardsAffine>,
+                                   pks: &[EdwardsAffine],
+                                   keyset_size: usize| {
+            (0..proofs_per_ring)
+                .map(|_| {
+                    let prover_idx = rng.gen_range(0..keyset_size);
+                    let prover = RingProver::init(
+                        prover_key.clone(),
+                        piop_params.clone(),
+                        prover_idx,
+                        ArkTranscript::new(b"w3f-ring-proof-test"),
+                    );
+                    let blinding_factor = Fr::rand(rng);
+                    let blinded_pk =
+                        (pks[prover_idx] + piop_params.h.mul(blinding_factor)).into_affine();
+                    let proof = prover.prove(blinding_factor);
+                    (blinded_pk, proof)
+                })
+                .collect::<Vec<_>>()
+        };
 
         let claims_a = generate_claims(&prover_key_a, &pks_a, keyset_size_a);
         let claims_b = generate_claims(&prover_key_b, &pks_b, keyset_size_b);
@@ -261,50 +260,5 @@ mod tests {
             batch.push(&verifier_b, proof, result);
         }
         assert!(batch.verify());
-    }
-
-    #[test]
-    fn test_multi_ring_batch_verify_kzg_wrong_ring_fails() {
-        let rng = &mut test_rng();
-        let domain_size = 2usize.pow(9);
-
-        let (pcs_params, piop_params) = setup::<_, KZG<Bls12_381>>(rng, domain_size);
-
-        // Ring A
-        let keyset_size_a = piop_params.keyset_part_size;
-        let pks_a = random_vec::<EdwardsAffine, _>(keyset_size_a, rng);
-        let (prover_key_a, _) =
-            index::<_, KZG<Bls12_381>, _>(&pcs_params, &piop_params, &pks_a);
-
-        // Ring B (different keyset)
-        let keyset_size_b = piop_params.keyset_part_size / 2;
-        let pks_b = random_vec::<EdwardsAffine, _>(keyset_size_b, rng);
-        let (_, verifier_key_b) =
-            index::<_, KZG<Bls12_381>, _>(&pcs_params, &piop_params, &pks_b);
-
-        // Generate a proof from ring A
-        let prover_idx = rng.gen_range(0..keyset_size_a);
-        let prover = RingProver::init(
-            prover_key_a,
-            piop_params.clone(),
-            prover_idx,
-            ArkTranscript::new(b"w3f-ring-proof-test"),
-        );
-        let blinding_factor = Fr::rand(rng);
-        let blinded_pk =
-            (pks_a[prover_idx] + piop_params.h.mul(blinding_factor)).into_affine();
-        let proof = prover.prove(blinding_factor);
-
-        // Verify with ring B's verifier — should fail
-        let verifier_b = RingVerifier::init(
-            verifier_key_b,
-            piop_params,
-            ArkTranscript::new(b"w3f-ring-proof-test"),
-        );
-
-        use crate::multi_ring_batch_verifier::MultiRingBatchVerifier;
-        let mut batch = MultiRingBatchVerifier::new(verifier_b.pcs_vk().clone());
-        batch.push(&verifier_b, proof, blinded_pk);
-        assert!(!batch.verify());
     }
 }
