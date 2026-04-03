@@ -1,5 +1,5 @@
 use ark_ec::pairing::Pairing;
-use ark_ec::twisted_edwards::{ TECurveConfig};
+use ark_ec::twisted_edwards::TECurveConfig;
 use ark_ec::AffineRepr;
 use ark_ff::PrimeField;
 use ark_serialize::{CanonicalDeserialize, CanonicalSerialize};
@@ -15,7 +15,7 @@ pub(crate) use verifier::PiopVerifier;
 use w3f_plonk_common::gadgets::ec::AffineColumn;
 use w3f_plonk_common::{Column, ColumnsCommited, ColumnsEvaluated, FieldColumn};
 
-use crate::ring::Ring;
+// use crate::ring::Ring;
 use crate::PiopParams;
 
 pub mod params;
@@ -96,21 +96,21 @@ impl<F: PrimeField, C: Commitment<F>> FixedColumnsCommitted<F, C> {
     }
 }
 
-impl<E: Pairing> FixedColumnsCommitted<E::ScalarField, KzgCommitment<E>> {
-    pub fn from_ring<VrfCurve: AffineRepr>(ring: &Ring<E::ScalarField, E, VrfCurve>) -> Self
-    where
-        VrfCurve: AffineRepr<BaseField=E::ScalarField>,
-        <VrfCurve as AffineRepr>::Config: TECurveConfig<BaseField=E::ScalarField>,
-    {
-        let cx = KzgCommitment(ring.cx);
-        let cy = KzgCommitment(ring.cy);
-        Self {
-            points: [cx, cy],
-            ring_selector: KzgCommitment(ring.selector),
-            phantom: Default::default(),
-        }
-    }
-}
+// impl<F: PrimeField, C: Commitment<F>> FixedColumnsCommitted<F, C> {
+//     pub fn from_ring<G: AffineRepr>(ring: &Ring<F, C, G>) -> Self
+//     where
+//         G: AffineRepr<BaseField=F>,
+//         <G as AffineRepr>::Config: TECurveConfig<BaseField=F>,
+//     {
+//         let cx = ring.cx;
+//         let cy = ring.cy;
+//         Self {
+//             points: [cx, cy],
+//             ring_selector: ring.selector,
+//             phantom: Default::default(),
+//         }
+//     }
+// }
 
 impl<F: PrimeField, G: AffineRepr<BaseField=F>> FixedColumns<F, G> {
     fn commit<CS: PCS<F>>(&self, ck: &CS::CK) -> FixedColumnsCommitted<F, CS::C> {
@@ -161,16 +161,13 @@ impl<F: PrimeField, CS: PCS<F>> Clone for VerifierKey<F, CS> {
 }
 
 impl<E: Pairing> VerifierKey<E::ScalarField, KZG<E>> {
-    pub fn from_ring_and_kzg_vk<VrfCurve>(
-        ring: &Ring<E::ScalarField, E, VrfCurve>,
-        kzg_vk: RawKzgVerifierKey<E>,
-    ) -> Self
-    where
-        VrfCurve: AffineRepr<BaseField=E::ScalarField>,
-        <VrfCurve as AffineRepr>::Config: TECurveConfig<BaseField=E::ScalarField>,
-    {
-        Self::from_commitment_and_kzg_vk(FixedColumnsCommitted::from_ring(ring), kzg_vk)
-    }
+    // pub fn from_ring_and_kzg_vk<G>(ring: &Ring<E::ScalarField, KzgCommitment<E>, G>, kzg_vk: RawKzgVerifierKey<E>) -> Self
+    // where
+    //     G: AffineRepr<BaseField=E::ScalarField>,
+    //     <G as AffineRepr>::Config: TECurveConfig<BaseField=E::ScalarField>,
+    // {
+    //     Self::from_commitment_and_kzg_vk(FixedColumnsCommitted::from_ring(ring), kzg_vk)
+    // }
 
     pub fn from_commitment_and_kzg_vk(
         commitment: FixedColumnsCommitted<E::ScalarField, KzgCommitment<E>>,

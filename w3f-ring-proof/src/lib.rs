@@ -14,7 +14,7 @@ use crate::piop::{RingCommitments, RingEvaluations};
 
 pub mod multi_ring_batch_verifier;
 mod piop;
-pub mod ring;
+// pub mod ring;
 pub mod ring_prover;
 pub mod ring_verifier;
 

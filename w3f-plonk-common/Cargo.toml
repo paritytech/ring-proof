@@ -9,12 +9,12 @@ keywords = ["cryptography", "plonk"]
 repository = "https://github.com/w3f/ring-proof"
 
 [dependencies]
+w3f-pcs.workspace = true
 ark-std.workspace = true
 ark-ff.workspace = true
 ark-ec.workspace = true
 ark-poly.workspace = true
 ark-serialize.workspace = true
-w3f-pcs.workspace = true
 rayon = { workspace = true, optional = true }
 getrandom_or_panic.workspace = true
 rand_core.workspace = true
