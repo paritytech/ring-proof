@@ -1,5 +1,5 @@
 use ark_ec::pairing::Pairing;
-use ark_ec::twisted_edwards::{Affine, TECurveConfig};
+use ark_ec::twisted_edwards::{TECurveConfig};
 use ark_ec::{AffineRepr, CurveGroup, VariableBaseMSM};
 use ark_ff::PrimeField;
 use ark_poly::EvaluationDomain;
@@ -35,8 +35,8 @@ const IDLE_ROWS: usize = ZK_ROWS + 1;
 #[derive(Clone, PartialEq, Eq, CanonicalSerialize, CanonicalDeserialize)]
 pub struct Ring<
     F: PrimeField,
-    KzgCurve: Pairing<ScalarField = F>,
-    VrfCurveConfig: TECurveConfig<BaseField = F>,
+    KzgCurve: Pairing<ScalarField=F>,
+    VrfCurve: AffineRepr<BaseField=F>,
 > {
     /// KZG commitment to the x coordinates of the described vector.
     pub cx: KzgCurve::G1Affine,
@@ -49,14 +49,14 @@ pub struct Ring<
     /// Number of keys "stored" in this commitment.
     pub curr_keys: usize,
     // Padding point.
-    pub padding: Affine<VrfCurveConfig>,
+    pub padding: VrfCurve,
 }
 
 impl<
-        F: PrimeField,
-        KzgCurve: Pairing<ScalarField = F>,
-        VrfCurveConfig: TECurveConfig<BaseField = F>,
-    > fmt::Debug for Ring<F, KzgCurve, VrfCurveConfig>
+    F: PrimeField,
+    KzgCurve: Pairing<ScalarField=F>,
+    VrfCurve: AffineRepr<BaseField=F>,
+> fmt::Debug for Ring<F, KzgCurve, VrfCurve>
 {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         write!(
@@ -68,10 +68,12 @@ impl<
 }
 
 impl<
-        F: PrimeField,
-        KzgCurve: Pairing<ScalarField = F>,
-        VrfCurveConfig: TECurveConfig<BaseField = F>,
-    > Ring<F, KzgCurve, VrfCurveConfig>
+    F: PrimeField,
+    KzgCurve: Pairing<ScalarField=F>,
+    VrfCurve: AffineRepr<BaseField=F>,
+> Ring<F, KzgCurve, VrfCurve>
+where
+    <VrfCurve as AffineRepr>::Config: TECurveConfig<BaseField=F>,
 {
     /// Builds the commitment to the vector
     /// `padding, ..., padding, H, 2H, ..., 2^(s-1)H, 0, 0, 0, 0`.
@@ -85,7 +87,7 @@ impl<
     /// - `srs`: Should return `srs[range]` for `range = (piop_params.keyset_part_size..domain_size)`
     /// - `g`: Generator used in the SRS
     pub fn empty(
-        piop_params: &PiopParams<F, VrfCurveConfig>,
+        piop_params: &PiopParams<F, VrfCurve>,
         srs: impl Fn(Range<usize>) -> Result<Vec<KzgCurve::G1Affine>, ()>,
         g: KzgCurve::G1,
     ) -> Self {
@@ -130,7 +132,7 @@ impl<
     /// - `srs`: Should return `srs[range]` for `range = (self.curr_keys..self.curr_keys + keys.len())`
     pub fn append(
         &mut self,
-        keys: &[Affine<VrfCurveConfig>],
+        keys: &[VrfCurve],
         srs: impl Fn(Range<usize>) -> Result<Vec<KzgCurve::G1Affine>, ()>,
     ) {
         let new_size = self.curr_keys + keys.len();
@@ -162,8 +164,8 @@ impl<
     /// - `piop_params`: SNARK parameters.
     /// - `srs`: full-size Lagrangian SRS.
     pub fn with_keys(
-        piop_params: &PiopParams<F, VrfCurveConfig>,
-        keys: &[Affine<VrfCurveConfig>],
+        piop_params: &PiopParams<F, VrfCurve>,
+        keys: &[VrfCurve],
         srs: &RingBuilderKey<F, KzgCurve>,
     ) -> Self {
         let (padding_x, padding_y) = piop_params.padding.xy().unwrap(); // panics on inf, never happens
@@ -189,7 +191,7 @@ impl<
             &srs.lis_in_g1[piop_params.keyset_part_size..],
             &[srs.g1.into()],
         ]
-        .concat();
+            .concat();
 
         let cx = KzgCurve::G1::msm(&bases, &xs).unwrap();
         let cy = KzgCurve::G1::msm(&bases, &ys).unwrap();
@@ -222,10 +224,10 @@ impl<
         cx: KzgCurve::G1Affine,
         cy: KzgCurve::G1Affine,
         selector: KzgCurve::G1Affine,
-        padding: Affine<VrfCurveConfig>,
+        padding: VrfCurve,
     ) -> Self {
         let max_keys =
-            domain_size - (VrfCurveConfig::ScalarField::MODULUS_BIT_SIZE as usize + IDLE_ROWS);
+            domain_size - (VrfCurve::ScalarField::MODULUS_BIT_SIZE as usize + IDLE_ROWS);
         Self {
             cx,
             cy,
@@ -238,14 +240,14 @@ impl<
 }
 
 #[derive(Clone, CanonicalSerialize, CanonicalDeserialize)]
-pub struct RingBuilderKey<F: PrimeField, KzgCurve: Pairing<ScalarField = F>> {
+pub struct RingBuilderKey<F: PrimeField, KzgCurve: Pairing<ScalarField=F>> {
     // Lagrangian SRS
     pub lis_in_g1: Vec<KzgCurve::G1Affine>,
     // generator used in the SRS
     pub g1: KzgCurve::G1,
 }
 
-impl<F: PrimeField, KzgCurve: Pairing<ScalarField = F>> RingBuilderKey<F, KzgCurve> {
+impl<F: PrimeField, KzgCurve: Pairing<ScalarField=F>> RingBuilderKey<F, KzgCurve> {
     pub fn from_srs(srs: &URS<KzgCurve>, domain_size: usize) -> Self {
         let g1 = srs.powers_in_g1[0].into_group();
         let ck = srs.ck_with_lagrangian(domain_size);

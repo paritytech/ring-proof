@@ -22,10 +22,10 @@ use w3f_plonk_common::{Column, FieldColumn};
 
 // The 'table': columns representing the execution trace of the computation
 // and the constraints -- polynomials that vanish on every 2 consecutive rows.
-pub struct PiopProver<F: PrimeField, Curve: TECurveConfig<BaseField = F>> {
+pub struct PiopProver<F: PrimeField, CC: TECurveConfig<BaseField = F>> {
     domain: Domain<F>,
     /// Advice (public input) columns
-    points: AffineColumn<F, Affine<Curve>>,
+    points: AffineColumn<F, Affine<CC>>,
     ring_selector: FieldColumn<F>,
     // Private input column.
     bits: BitColumn<F>,
@@ -33,17 +33,17 @@ pub struct PiopProver<F: PrimeField, Curve: TECurveConfig<BaseField = F>> {
     booleanity: Booleanity<F>,
     inner_prod: InnerProd<F>,
     inner_prod_acc: FixedCells<F>,
-    cond_add: CondAdd<F, Affine<Curve>>,
+    cond_add: CondAdd<F, Affine<CC>>,
     cond_add_acc_x: FixedCells<F>,
     cond_add_acc_y: FixedCells<F>,
 }
 
-impl<F: PrimeField, Curve: TECurveConfig<BaseField = F>> PiopProver<F, Curve> {
+impl<F: PrimeField, CC: TECurveConfig<BaseField = F>> PiopProver<F, CC> {
     pub fn build(
-        params: &PiopParams<F, Curve>,
-        fixed_columns: FixedColumns<F, Affine<Curve>>,
+        params: &PiopParams<F, Affine<CC>>,
+        fixed_columns: FixedColumns<F, Affine<CC>>,
         prover_index_in_keys: usize,
-        secret: Curve::ScalarField,
+        secret: CC::ScalarField,
     ) -> Self {
         let domain = params.domain.clone();
         let FixedColumns {
@@ -73,9 +73,9 @@ impl<F: PrimeField, Curve: TECurveConfig<BaseField = F>> PiopProver<F, Curve> {
 
     // TODO: move to params?
     fn bits_column(
-        params: &PiopParams<F, Curve>,
+        params: &PiopParams<F, Affine<CC>>,
         index_in_keys: usize,
-        secret: Curve::ScalarField,
+        secret: CC::ScalarField,
     ) -> BitColumn<F> {
         let mut keyset_part = vec![false; params.keyset_part_size];
         keyset_part[index_in_keys] = true;
@@ -86,15 +86,15 @@ impl<F: PrimeField, Curve: TECurveConfig<BaseField = F>> PiopProver<F, Curve> {
     }
 }
 
-impl<F, C, Curve> ProverPiop<F, C> for PiopProver<F, Curve>
+impl<F, C, CC> ProverPiop<F, C> for PiopProver<F, CC>
 where
     F: PrimeField,
     C: Commitment<F>,
-    Curve: TECurveConfig<BaseField = F>,
+    CC: TECurveConfig<BaseField = F>,
 {
     type Commitments = RingCommitments<F, C>;
     type Evaluations = RingEvaluations<F>;
-    type Instance = Affine<Curve>;
+    type Instance = Affine<CC>;
 
     fn committed_columns<Fun: Fn(&DensePolynomial<F>) -> C>(
         &self,

@@ -15,28 +15,28 @@ use crate::piop::{FixedColumnsCommitted, PiopVerifier, VerifierKey};
 use crate::{ArkTranscript, RingProof};
 use ark_std::vec::Vec;
 
-pub struct RingVerifier<F, CS, Jubjub, T = ArkTranscript>
+pub struct RingVerifier<F, CS, CC, T = ArkTranscript>
 where
     F: PrimeField,
     CS: PCS<F>,
-    Jubjub: TECurveConfig<BaseField = F>,
+    CC: TECurveConfig<BaseField = F>,
     T: PlonkTranscript<F, CS>,
 {
-    pub(crate) piop_params: PiopParams<F, Jubjub>,
+    pub(crate) piop_params: PiopParams<F, Affine<CC>>,
     pub(crate) fixed_columns_committed: FixedColumnsCommitted<F, CS::C>,
     pub(crate) plonk_verifier: PlonkVerifier<F, CS, T>,
 }
 
-impl<F, CS, Jubjub, T> RingVerifier<F, CS, Jubjub, T>
+impl<F, CS, CC, T> RingVerifier<F, CS, CC, T>
 where
     F: PrimeField,
     CS: PCS<F>,
-    Jubjub: TECurveConfig<BaseField = F>,
+    CC: TECurveConfig<BaseField = F>,
     T: PlonkTranscript<F, CS>,
 {
     pub fn init(
         verifier_key: VerifierKey<F, CS>,
-        piop_params: PiopParams<F, Jubjub>,
+        piop_params: PiopParams<F, Affine<CC>>,
         empty_transcript: T,
     ) -> Self {
         let pcs_vk = verifier_key.pcs_raw_vk.prepare();
@@ -48,18 +48,18 @@ where
         }
     }
 
-    pub fn verify(&self, proof: RingProof<F, CS>, result: Affine<Jubjub>) -> bool {
+    pub fn verify(&self, proof: RingProof<F, CS>, result: Affine<CC>) -> bool {
         let (challenges, mut rng) = self.plonk_verifier.restore_challenges(
             &result,
             &proof,
             // '1' accounts for the quotient polynomial that is aggregated together with the columns
-            PiopVerifier::<F, CS::C, Affine<Jubjub>>::N_COLUMNS + 1,
-            PiopVerifier::<F, CS::C, Affine<Jubjub>>::N_CONSTRAINTS,
+            PiopVerifier::<F, CS::C, Affine<CC>>::N_COLUMNS + 1,
+            PiopVerifier::<F, CS::C, Affine<CC>>::N_CONSTRAINTS,
         );
         let seed = self.piop_params.seed;
         let seed_plus_result = (seed + result).into_affine();
         let domain_at_zeta = self.piop_params.domain.evaluate(challenges.zeta);
-        let piop = PiopVerifier::<_, _, Affine<Jubjub>>::init(
+        let piop = PiopVerifier::<_, _, Affine<CC>>::init(
             domain_at_zeta,
             self.fixed_columns_committed.clone(),
             proof.column_commitments.clone(),
@@ -72,7 +72,7 @@ where
             .verify(piop, proof, challenges, &mut rng)
     }
 
-    pub fn piop_params(&self) -> &PiopParams<F, Jubjub> {
+    pub fn piop_params(&self) -> &PiopParams<F, Affine<CC>> {
         &self.piop_params
     }
 
@@ -83,7 +83,7 @@ where
     pub fn verify_batch(
         &self,
         proofs: Vec<RingProof<F, CS>>,
-        results: Vec<Affine<Jubjub>>,
+        results: Vec<Affine<CC>>,
     ) -> bool {
         for (proof, result) in proofs.into_iter().zip(results) {
             let res = self.verify(proof, result);

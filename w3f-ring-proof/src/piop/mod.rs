@@ -1,5 +1,5 @@
 use ark_ec::pairing::Pairing;
-use ark_ec::twisted_edwards::{Affine, TECurveConfig};
+use ark_ec::twisted_edwards::{ TECurveConfig};
 use ark_ec::AffineRepr;
 use ark_ff::PrimeField;
 use ark_serialize::{CanonicalDeserialize, CanonicalSerialize};
@@ -66,7 +66,7 @@ impl<F: PrimeField> ColumnsEvaluated<F> for RingEvaluations<F> {
 
 // Columns commitment to which the verifier knows (or trusts).
 #[derive(Clone, CanonicalSerialize, CanonicalDeserialize)]
-pub struct FixedColumns<F: PrimeField, G: AffineRepr<BaseField = F>> {
+pub struct FixedColumns<F: PrimeField, G: AffineRepr<BaseField=F>> {
     // Public keys of the ring participants in order,
     // followed by the powers-of-2 multiples of the second Pedersen base.
     // pk_1, ..., pk_n, H, 2H, 4H, ..., 2^sH
@@ -97,9 +97,11 @@ impl<F: PrimeField, C: Commitment<F>> FixedColumnsCommitted<F, C> {
 }
 
 impl<E: Pairing> FixedColumnsCommitted<E::ScalarField, KzgCommitment<E>> {
-    pub fn from_ring<G: TECurveConfig<BaseField = E::ScalarField>>(
-        ring: &Ring<E::ScalarField, E, G>,
-    ) -> Self {
+    pub fn from_ring<VrfCurve: AffineRepr>(ring: &Ring<E::ScalarField, E, VrfCurve>) -> Self
+    where
+        VrfCurve: AffineRepr<BaseField=E::ScalarField>,
+        <VrfCurve as AffineRepr>::Config: TECurveConfig<BaseField=E::ScalarField>,
+    {
         let cx = KzgCommitment(ring.cx);
         let cy = KzgCommitment(ring.cy);
         Self {
@@ -110,7 +112,7 @@ impl<E: Pairing> FixedColumnsCommitted<E::ScalarField, KzgCommitment<E>> {
     }
 }
 
-impl<F: PrimeField, G: AffineRepr<BaseField = F>> FixedColumns<F, G> {
+impl<F: PrimeField, G: AffineRepr<BaseField=F>> FixedColumns<F, G> {
     fn commit<CS: PCS<F>>(&self, ck: &CS::CK) -> FixedColumnsCommitted<F, CS::C> {
         let points = [
             CS::commit(ck, self.points.xs.as_poly()).unwrap(),
@@ -126,13 +128,13 @@ impl<F: PrimeField, G: AffineRepr<BaseField = F>> FixedColumns<F, G> {
 }
 
 #[derive(CanonicalSerialize, CanonicalDeserialize)]
-pub struct ProverKey<F: PrimeField, CS: PCS<F>, G: AffineRepr<BaseField = F>> {
+pub struct ProverKey<F: PrimeField, CS: PCS<F>, G: AffineRepr<BaseField=F>> {
     pub(crate) pcs_ck: CS::CK,
     pub(crate) fixed_columns: FixedColumns<F, G>,
     pub(crate) verifier_key: VerifierKey<F, CS>, // used in the Fiat-Shamir transform
 }
 
-impl<F: PrimeField, CS: PCS<F>, G: AffineRepr<BaseField = F>> Clone for ProverKey<F, CS, G> {
+impl<F: PrimeField, CS: PCS<F>, G: AffineRepr<BaseField=F>> Clone for ProverKey<F, CS, G> {
     fn clone(&self) -> Self {
         Self {
             pcs_ck: self.pcs_ck.clone(),
@@ -159,10 +161,14 @@ impl<F: PrimeField, CS: PCS<F>> Clone for VerifierKey<F, CS> {
 }
 
 impl<E: Pairing> VerifierKey<E::ScalarField, KZG<E>> {
-    pub fn from_ring_and_kzg_vk<G: TECurveConfig<BaseField = E::ScalarField>>(
-        ring: &Ring<E::ScalarField, E, G>,
+    pub fn from_ring_and_kzg_vk<VrfCurve>(
+        ring: &Ring<E::ScalarField, E, VrfCurve>,
         kzg_vk: RawKzgVerifierKey<E>,
-    ) -> Self {
+    ) -> Self
+    where
+        VrfCurve: AffineRepr<BaseField=E::ScalarField>,
+        <VrfCurve as AffineRepr>::Config: TECurveConfig<BaseField=E::ScalarField>,
+    {
         Self::from_commitment_and_kzg_vk(FixedColumnsCommitted::from_ring(ring), kzg_vk)
     }
 
@@ -181,11 +187,11 @@ impl<E: Pairing> VerifierKey<E::ScalarField, KZG<E>> {
     }
 }
 
-pub fn index<F: PrimeField, CS: PCS<F>, Curve: TECurveConfig<BaseField = F>>(
+pub fn index<F: PrimeField, CS: PCS<F>, G: AffineRepr<BaseField=F>>(
     pcs_params: &CS::Params,
-    piop_params: &PiopParams<F, Curve>,
-    keys: &[Affine<Curve>],
-) -> (ProverKey<F, CS, Affine<Curve>>, VerifierKey<F, CS>) {
+    piop_params: &PiopParams<F, G>,
+    keys: &[G],
+) -> (ProverKey<F, CS, G>, VerifierKey<F, CS>) {
     let pcs_ck = pcs_params.ck();
     let pcs_raw_vk = pcs_params.raw_vk();
     let fixed_columns = piop_params.fixed_columns(&keys);

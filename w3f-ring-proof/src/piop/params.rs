@@ -1,4 +1,4 @@
-use ark_ec::twisted_edwards::{Affine, TECurveConfig};
+
 use ark_ec::{AdditiveGroup, AffineRepr, CurveGroup};
 use ark_ff::{BigInteger, PrimeField};
 use ark_std::{vec, vec::Vec};
@@ -10,22 +10,22 @@ use crate::piop::FixedColumns;
 
 /// Plonk Interactive Oracle Proofs (PIOP) parameters.
 #[derive(Clone)]
-pub struct PiopParams<F: PrimeField, Curve: TECurveConfig<BaseField = F>> {
+pub struct PiopParams<F: PrimeField, G: AffineRepr<BaseField = F>> {
     /// Domain over which the piop is represented.
     pub(crate) domain: Domain<F>,
-    /// Number of bits used to represent a jubjub scalar.
+    /// Number of bits used to represent a G scalar.
     pub(crate) scalar_bitlen: usize,
     /// Length of the part of the column representing the public keys (including the padding).
     pub keyset_part_size: usize,
     /// Blinding base point.
-    pub(crate) h: Affine<Curve>,
+    pub(crate) h: G,
     /// Summation base point.
-    pub(crate) seed: Affine<Curve>,
+    pub(crate) seed: G,
     /// The point used to pad the list of public keys.
-    pub(crate) padding: Affine<Curve>,
+    pub(crate) padding: G,
 }
 
-impl<F: PrimeField, Curve: TECurveConfig<BaseField = F>> PiopParams<F, Curve> {
+impl<F: PrimeField, G: AffineRepr<BaseField = F>> PiopParams<F, G> {
     /// Initialize PIOP parameters.
     ///
     /// - `domain`: polynomials evaluation domain.
@@ -36,11 +36,11 @@ impl<F: PrimeField, Curve: TECurveConfig<BaseField = F>> PiopParams<F, Curve> {
     /// All points should be of an unknown discrete log.
     pub fn setup(
         domain: Domain<F>,
-        h: Affine<Curve>,
-        seed: Affine<Curve>,
-        padding: Affine<Curve>,
+        h: G,
+        seed: G,
+        padding: G,
     ) -> Self {
-        let scalar_bitlen = Curve::ScalarField::MODULUS_BIT_SIZE as usize;
+        let scalar_bitlen = G::ScalarField::MODULUS_BIT_SIZE as usize;
         // 1 accounts for the last cells of the points and bits columns that remain unconstrained
         let keyset_part_size = domain.capacity - scalar_bitlen - 1;
         Self {
@@ -53,7 +53,7 @@ impl<F: PrimeField, Curve: TECurveConfig<BaseField = F>> PiopParams<F, Curve> {
         }
     }
 
-    pub fn fixed_columns(&self, keys: &[Affine<Curve>]) -> FixedColumns<F, Affine<Curve>> {
+    pub fn fixed_columns(&self, keys: &[G]) -> FixedColumns<F, G> {
         let ring_selector = self.keyset_part_selector();
         let ring_selector = self.domain.public_column(ring_selector);
         let points = self.points_column(&keys);
@@ -63,7 +63,7 @@ impl<F: PrimeField, Curve: TECurveConfig<BaseField = F>> PiopParams<F, Curve> {
         }
     }
 
-    pub fn points_column(&self, keys: &[Affine<Curve>]) -> AffineColumn<F, Affine<Curve>> {
+    pub fn points_column(&self, keys: &[G]) -> AffineColumn<F, G> {
         assert!(keys.len() <= self.keyset_part_size);
         let padding_len = self.keyset_part_size - keys.len();
         let padding = vec![self.padding; padding_len];
@@ -72,7 +72,7 @@ impl<F: PrimeField, Curve: TECurveConfig<BaseField = F>> PiopParams<F, Curve> {
         AffineColumn::public_column(points, &self.domain)
     }
 
-    pub fn power_of_2_multiples_of_h(&self) -> Vec<Affine<Curve>> {
+    pub fn power_of_2_multiples_of_h(&self) -> Vec<G> {
         let mut h = self.h.into_group();
         let mut multiples = Vec::with_capacity(self.scalar_bitlen);
         multiples.push(h);
@@ -83,7 +83,7 @@ impl<F: PrimeField, Curve: TECurveConfig<BaseField = F>> PiopParams<F, Curve> {
         CurveGroup::normalize_batch(&multiples)
     }
 
-    pub fn scalar_part(&self, e: Curve::ScalarField) -> Vec<bool> {
+    pub fn scalar_part(&self, e: G::ScalarField) -> Vec<bool> {
         let bits_with_trailing_zeroes = e.into_bigint().to_bits_le();
         let significant_bits = &bits_with_trailing_zeroes[..self.scalar_bitlen];
         significant_bits.to_vec()

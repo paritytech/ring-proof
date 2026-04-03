@@ -10,29 +10,29 @@ use crate::piop::params::PiopParams;
 use crate::piop::{FixedColumns, PiopProver, ProverKey};
 use crate::{ArkTranscript, RingProof};
 
-pub struct RingProver<F, CS, Curve, T = ArkTranscript>
+pub struct RingProver<F, CS, CC, T = ArkTranscript>
 where
     F: PrimeField,
     CS: PCS<F>,
-    Curve: TECurveConfig<BaseField = F>,
+    CC: TECurveConfig<BaseField = F>,
     T: PlonkTranscript<F, CS>,
 {
-    piop_params: PiopParams<F, Curve>,
-    fixed_columns: FixedColumns<F, Affine<Curve>>,
+    piop_params: PiopParams<F, Affine<CC>>,
+    fixed_columns: FixedColumns<F, Affine<CC>>,
     k: usize,
     plonk_prover: PlonkProver<F, CS, T>,
 }
 
-impl<F, CS, Curve, T> RingProver<F, CS, Curve, T>
+impl<F, CS, CC, T> RingProver<F, CS, CC, T>
 where
     F: PrimeField,
     CS: PCS<F>,
-    Curve: TECurveConfig<BaseField = F>,
+    CC: TECurveConfig<BaseField = F>,
     T: PlonkTranscript<F, CS>,
 {
     pub fn init(
-        prover_key: ProverKey<F, CS, Affine<Curve>>,
-        piop_params: PiopParams<F, Curve>,
+        prover_key: ProverKey<F, CS, Affine<CC>>,
+        piop_params: PiopParams<F, Affine<CC>>,
         k: usize,
         empty_transcript: T,
     ) -> Self {
@@ -52,14 +52,14 @@ where
         }
     }
 
-    pub fn prove(&self, t: Curve::ScalarField) -> RingProof<F, CS> {
+    pub fn prove(&self, t: CC::ScalarField) -> RingProof<F, CS> {
         let t_witgen = start_timer!(|| "witgen");
         let piop = PiopProver::build(&self.piop_params, self.fixed_columns.clone(), self.k, t);
         end_timer!(t_witgen);
         self.plonk_prover.prove(piop)
     }
 
-    pub fn piop_params(&self) -> &PiopParams<F, Curve> {
+    pub fn piop_params(&self) -> &PiopParams<F, Affine<CC>> {
         &self.piop_params
     }
 }
