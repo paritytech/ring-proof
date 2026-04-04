@@ -12,7 +12,8 @@ members = [
 #w3f-plonk-common = { version = "0.0.6", default-features = false }
 w3f-plonk-common = { path = "w3f-plonk-common", default-features = false }
 #w3f-pcs = { version = "0.0.5", default-features = false }
-w3f-pcs = { git = "https://github.com/paritytech/fflonk", branch = "ipa-pcs", default-features = false }
+#w3f-pcs = { git = "https://github.com/paritytech/fflonk", branch = "ipa-pcs", default-features = false }
+w3f-pcs = { path = "../fflonk", default-features = false }
 ark-transcript = { version = "0.0.3", default-features = false }
 
 ark-std = { version = "0.5", default-features = false }

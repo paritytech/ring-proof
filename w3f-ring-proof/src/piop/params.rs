@@ -100,8 +100,7 @@ impl<F: PrimeField, G: AffineRepr<BaseField = F>> PiopParams<F, G> {
 
 #[cfg(test)]
 mod tests {
-    use ark_ed_on_bls12_381_bandersnatch::{BandersnatchConfig, EdwardsAffine, Fq, Fr};
-    use ark_std::ops::Mul;
+    use ark_ed_on_bls12_381_bandersnatch::{EdwardsAffine, Fq, Fr};
     use ark_std::{test_rng, UniformRand};
 
     use w3f_plonk_common::domain::Domain;
@@ -117,10 +116,10 @@ mod tests {
         let padding = EdwardsAffine::rand(rng);
         let domain = Domain::new(1024, false);
 
-        let params = PiopParams::<Fq, BandersnatchConfig>::setup(domain, h, seed, padding);
+        let params = PiopParams::<Fq, EdwardsAffine>::setup(domain, h, seed, padding);
         let t = Fr::rand(rng);
         let t_bits = params.scalar_part(t);
         let th = cond_sum(&t_bits, &params.power_of_2_multiples_of_h());
-        assert_eq!(th, params.h.mul(t));
+        assert_eq!(th, params.h * t);
     }
 }

@@ -1,0 +1,19 @@
+[package]
+name = "pasta-tree"
+version = "0.1.0"
+edition = "2024"
+
+[dependencies]
+w3f-pcs.workspace = true
+w3f-plonk-common.workspace = true
+ark-std.workspace = true
+ark-ff.workspace = true
+ark-ec.workspace = true
+ark-poly.workspace = true
+ark-serialize.workspace = true
+
+
+#w3f-pcs = { package = "fflonk", git = "https://github.com/paritytech/fflonk", branch = "ipa-pc", default-features = false }
+w3f-ring-proof = { path = "../w3f-ring-proof", default-features = false }
+ark-pallas = { version = "0.5", default-features = false, features = ["curve"] }
+ark-vesta = { version = "0.5", default-features = false }
