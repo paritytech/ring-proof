@@ -18,7 +18,7 @@ pub struct PiopParams<F: PrimeField, Curve: SWCurveConfig<BaseField = F>> {
     /// Length of the part of the column representing the public keys (including the padding).
     pub keyset_part_size: usize,
     /// Blinding base point.
-    pub(crate) h: Affine<Curve>,
+    pub h: Affine<Curve>, //TODO: make a method
     /// Summation base point.
     pub(crate) seed: Affine<Curve>,
     /// The point used to pad the list of public keys.
