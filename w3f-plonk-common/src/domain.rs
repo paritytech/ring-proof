@@ -4,7 +4,7 @@ use ark_poly::{
     DenseUVPolynomial, EvaluationDomain, Evaluations, GeneralEvaluationDomain, Polynomial,
 };
 use ark_std::{vec, vec::Vec};
-
+use getrandom_or_panic::getrandom_or_panic;
 use crate::FieldColumn;
 
 pub const ZK_ROWS: usize = 3;
@@ -25,29 +25,29 @@ impl<F: FftField> Domains<F> {
         Self { x1, x4 }
     }
 
-    fn column_from_evals(&self, evals: Vec<F>, len: usize) -> FieldColumn<F> {
-        assert_eq!(evals.len(), self.x1.size());
-        let evals = Evaluations::from_vec_and_domain(evals, self.x1);
+    fn column_from_evals(&self, padded_evals: Vec<F>, payload_len: usize) -> FieldColumn<F> {
+        debug_assert_eq!(padded_evals.len(), self.x1.size());
+        let evals = Evaluations::from_vec_and_domain(padded_evals, self.x1);
         let poly = evals.interpolate_by_ref();
         let evals_4x = poly.evaluate_over_domain_by_ref(self.x4);
         FieldColumn {
-            len,
             poly,
             evals,
             evals_4x,
+            payload_len,
         }
     }
 
-    fn column_from_poly(&self, poly: DensePolynomial<F>, len: usize) -> FieldColumn<F> {
-        assert!(poly.degree() < self.x1.size());
+    fn column_from_poly(&self, poly: DensePolynomial<F>) -> FieldColumn<F> {
+        debug_assert!(poly.degree() + 1 <= self.x1.size());
         let evals_4x = self.amplify(&poly);
         let evals = evals_4x.evals.iter().step_by(4).cloned().collect();
         let evals = Evaluations::from_vec_and_domain(evals, self.x1);
         FieldColumn {
-            len,
             poly,
             evals,
             evals_4x,
+            payload_len: self.x1.size(),
         }
     }
 
@@ -71,23 +71,23 @@ pub struct Domain<F: FftField> {
 impl<F: FftField> Domain<F> {
     pub fn new(n: usize, hiding: bool) -> Self {
         let domains = Domains::new(n);
-        let size = domains.x1.size();
-        let capacity = if hiding { size - ZK_ROWS } else { size };
-        let last_row_index = capacity - 1;
+        let domain_size = domains.x1.size();
+        let domain_capacity = if hiding { domain_size - ZK_ROWS } else { domain_size };
+        let last_row_index = domain_capacity - 1;
 
-        let l_first = l_i(0, size);
-        let l_first = domains.column_from_evals(l_first, capacity);
-        let l_last = l_i(last_row_index, size);
-        let l_last = domains.column_from_evals(l_last, capacity);
+        let l_first = l_i(0, domain_size);
+        let l_first = domains.column_from_evals(l_first, 0);
+        let l_last = l_i(last_row_index, domain_size);
+        let l_last = domains.column_from_evals(l_last, 0);
         let not_last_row = vanishes_on_row(last_row_index, domains.x1);
-        let not_last_row = domains.column_from_poly(not_last_row, capacity);
+        let not_last_row = domains.column_from_poly(not_last_row);
 
         let zk_rows_vanishing_poly = hiding.then(|| vanishes_on_last_3_rows(domains.x1));
 
         Self {
             domains,
             hiding,
-            capacity,
+            capacity: domain_capacity,
             not_last_row,
             l_first,
             l_last,
@@ -106,22 +106,20 @@ impl<F: FftField> Domain<F> {
         quotient
     }
 
-    pub(crate) fn column(&self, mut evals: Vec<F>, hidden: bool) -> FieldColumn<F> {
-        let len = evals.len();
-        assert!(len <= self.capacity);
+    pub(crate) fn column(&self, mut values: Vec<F>, hidden: bool) -> FieldColumn<F> {
+        let payload_len = values.len();
+        debug_assert!(payload_len <= self.capacity);
+        values.resize(self.capacity, F::zero());
         if self.hiding && hidden && !cfg!(feature = "test-vectors") {
-            evals.resize(self.capacity, F::zero());
-            evals.resize_with(self.domains.x1.size(), || {
-                F::rand(&mut getrandom_or_panic::getrandom_or_panic())
-            });
+            values.resize_with(self.domains.x1.size(), || F::rand(&mut getrandom_or_panic()));
         } else {
-            evals.resize(self.domains.x1.size(), F::zero());
+            values.resize(self.domains.x1.size(), F::zero());
         }
-        self.domains.column_from_evals(evals, len)
+        self.domains.column_from_evals(values, payload_len)
     }
 
-    pub fn private_column(&self, evals: Vec<F>) -> FieldColumn<F> {
-        self.column(evals, true)
+    pub fn private_column(&self, values: Vec<F>) -> FieldColumn<F> {
+        self.column(values, true)
     }
 
     // public column

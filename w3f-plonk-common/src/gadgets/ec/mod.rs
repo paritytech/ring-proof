@@ -3,7 +3,7 @@ use crate::gadgets::booleanity::BitColumn;
 use crate::{Column, FieldColumn};
 use ark_ec::{AffineRepr, CurveGroup};
 use ark_ff::{FftField, Field};
-
+use ark_poly::GeneralEvaluationDomain;
 use ark_serialize::{CanonicalDeserialize, CanonicalSerialize};
 use ark_std::marker::PhantomData;
 use ark_std::vec::Vec;
@@ -14,7 +14,6 @@ pub mod te_doubling;
 
 // A vec of affine points from the prime-order subgroup of the curve whose base field enables FFTs,
 // and its convenience representation as columns of coordinates over the curve's base field.
-
 #[derive(Clone, CanonicalSerialize, CanonicalDeserialize)]
 pub struct AffineColumn<F: FftField, P: AffineRepr<BaseField = F>> {
     points: Vec<P>,
@@ -40,6 +39,20 @@ impl<F: FftField, P: AffineRepr<BaseField = F>> AffineColumn<F, P> {
 
     pub fn evaluate(&self, z: &F) -> (F, F) {
         (self.xs.evaluate(z), self.ys.evaluate(z))
+    }
+}
+
+impl<F: FftField, P: AffineRepr<BaseField = F>> Column<F, P> for AffineColumn<F, P> {
+    fn domain(&self) -> GeneralEvaluationDomain<F> {
+        self.xs.domain()
+    }
+
+    fn domain_4x(&self) -> GeneralEvaluationDomain<F> {
+        self.xs.domain_4x()
+    }
+
+    fn payload(&self) -> &[P] {
+        &self.points
     }
 }
 
