@@ -18,7 +18,7 @@ use w3f_plonk_common::gadgets::fixed_cells::FixedCells;
 use w3f_plonk_common::gadgets::inner_prod::InnerProd;
 use w3f_plonk_common::gadgets::ProverGadget;
 use w3f_plonk_common::piop::ProverPiop;
-use w3f_plonk_common::{Column, FieldColumn};
+use w3f_plonk_common::FieldColumn;
 
 // The 'table': columns representing the execution trace of the computation
 // and the constraints -- polynomials that vanish on every 2 consecutive rows.
@@ -175,6 +175,6 @@ where
     }
 
     fn result(&self) -> Self::Instance {
-        self.cond_add.result
+        self.cond_add.result()
     }
 }

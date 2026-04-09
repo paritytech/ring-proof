@@ -23,8 +23,12 @@ impl<F: FftField> BitColumn<F> {
         Self { bits, col }
     }
 
+    pub fn as_poly(&self) -> &DensePolynomial<F> {
+        self.col.as_poly()
+    }
+
     pub fn evaluate(&self, z: &F) -> F {
-        self.col.as_poly().evaluate(z)
+        self.as_poly().evaluate(z)
     }
 }
 

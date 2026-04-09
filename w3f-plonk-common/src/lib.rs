@@ -45,10 +45,11 @@ impl<F: FftField> FieldColumn<F> {
         Evaluations::from_vec_and_domain(evals_4x, self.domain_4x())
     }
 
-    fn as_poly(&self) -> &DensePolynomial<F> {
+    pub fn as_poly(&self) -> &DensePolynomial<F> {
         &self.poly
     }
-    fn evaluate(&self, z: &F) -> F {
+
+    pub fn evaluate(&self, z: &F) -> F {
         self.as_poly().evaluate(z)
     }
 }

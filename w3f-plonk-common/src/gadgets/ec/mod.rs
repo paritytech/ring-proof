@@ -66,7 +66,6 @@ pub struct CondAdd<F: FftField, P: AffineRepr<BaseField = F>> {
     not_last: FieldColumn<F>,
     // Accumulates the (conditional) rolling sum of the points
     pub acc: AffineColumn<F, P>,
-    pub result: P,
 }
 
 impl<F, P: AffineRepr<BaseField = F>> CondAdd<F, P>
@@ -83,8 +82,8 @@ where
         seed: P,
         domain: &Domain<F>,
     ) -> Self {
-        assert_eq!(bitmask.bits.len(), domain.capacity - 1);
-        // assert_eq!(points.points.len(), domain.capacity - 1); //TODO
+        debug_assert_eq!(bitmask.payload_len(), domain.capacity - 1);
+        debug_assert_eq!(points.payload_len(), domain.capacity - 1);
         let not_last = domain.not_last_row.clone();
         let mut projective_acc = seed.into_group();
         let projective_points: Vec<_> = bitmask
@@ -101,17 +100,13 @@ where
         let mut acc = Vec::with_capacity(projective_points.len() + 1);
         acc.push(seed);
         acc.extend(P::Group::normalize_batch(&projective_points));
-        let init_plus_result = acc.last().unwrap();
-        let result = init_plus_result.into_group() - seed.into_group();
-        let result = result.into_affine();
         let acc = AffineColumn::private_column(acc, domain);
-
+        debug_assert_eq!(acc.payload_len(), domain.capacity);
         Self {
             bitmask,
             points,
             acc,
             not_last,
-            result,
         }
     }
 
@@ -123,6 +118,20 @@ where
             acc: self.acc.evaluate(z),
             _phantom: PhantomData,
         }
+    }
+
+    pub fn seed(&self) -> P {
+        self.acc.payload()[0]
+    }
+
+    pub fn seed_plus_sum(&self) -> P {
+        let len = self.acc.payload_len();
+        self.acc.payload()[len - 1]
+    }
+
+    pub fn result(&self) -> P {
+        let sum = self.seed_plus_sum() - self.seed();
+        sum.into_affine()
     }
 }
 
