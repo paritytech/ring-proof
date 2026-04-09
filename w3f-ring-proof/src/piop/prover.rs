@@ -1,4 +1,4 @@
-use ark_ec::twisted_edwards::{Affine, TECurveConfig};
+use ark_ec::short_weierstrass::{Affine, SWCurveConfig};
 use ark_ff::PrimeField;
 use ark_poly::univariate::DensePolynomial;
 use ark_poly::Evaluations;
@@ -22,7 +22,7 @@ use w3f_plonk_common::{Column, FieldColumn};
 
 // The 'table': columns representing the execution trace of the computation
 // and the constraints -- polynomials that vanish on every 2 consecutive rows.
-pub struct PiopProver<F: PrimeField, Curve: TECurveConfig<BaseField = F>> {
+pub struct PiopProver<F: PrimeField, Curve: SWCurveConfig<BaseField = F>> {
     domain: Domain<F>,
     /// Advice (public input) columns
     points: AffineColumn<F, Affine<Curve>>,
@@ -38,7 +38,7 @@ pub struct PiopProver<F: PrimeField, Curve: TECurveConfig<BaseField = F>> {
     cond_add_acc_y: FixedCells<F>,
 }
 
-impl<F: PrimeField, Curve: TECurveConfig<BaseField = F>> PiopProver<F, Curve> {
+impl<F: PrimeField, Curve: SWCurveConfig<BaseField = F>> PiopProver<F, Curve> {
     pub fn build(
         params: &PiopParams<F, Curve>,
         fixed_columns: FixedColumns<F, Affine<Curve>>,
@@ -90,7 +90,7 @@ impl<F, C, Curve> ProverPiop<F, C> for PiopProver<F, Curve>
 where
     F: PrimeField,
     C: Commitment<F>,
-    Curve: TECurveConfig<BaseField = F>,
+    Curve: SWCurveConfig<BaseField = F>,
 {
     type Commitments = RingCommitments<F, C>;
     type Evaluations = RingEvaluations<F>;

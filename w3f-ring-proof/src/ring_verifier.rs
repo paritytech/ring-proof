@@ -1,5 +1,5 @@
 use ark_ec::pairing::Pairing;
-use ark_ec::twisted_edwards::{Affine, TECurveConfig};
+use ark_ec::short_weierstrass::{Affine, SWCurveConfig};
 use ark_ec::CurveGroup;
 use ark_ff::PrimeField;
 use ark_std::rand::RngCore;
@@ -19,7 +19,7 @@ pub struct RingVerifier<F, CS, Jubjub, T = ArkTranscript>
 where
     F: PrimeField,
     CS: PCS<F>,
-    Jubjub: TECurveConfig<BaseField = F>,
+    Jubjub: SWCurveConfig<BaseField = F>,
     T: PlonkTranscript<F, CS>,
 {
     pub(crate) piop_params: PiopParams<F, Jubjub>,
@@ -31,7 +31,7 @@ impl<F, CS, Jubjub, T> RingVerifier<F, CS, Jubjub, T>
 where
     F: PrimeField,
     CS: PCS<F>,
-    Jubjub: TECurveConfig<BaseField = F>,
+    Jubjub: SWCurveConfig<BaseField = F>,
     T: PlonkTranscript<F, CS>,
 {
     pub fn init(
@@ -99,7 +99,7 @@ where
 pub struct KzgBatchVerifier<E, J, T = ArkTranscript>
 where
     E: Pairing,
-    J: TECurveConfig<BaseField = E::ScalarField>,
+    J: SWCurveConfig<BaseField = E::ScalarField>,
     T: PlonkTranscript<E::ScalarField, KZG<E>>,
 {
     pub acc: KzgAccumulator<E>,
@@ -110,7 +110,7 @@ where
 pub struct PreparedBatchItem<E, J>
 where
     E: Pairing,
-    J: TECurveConfig<BaseField = E::ScalarField>,
+    J: SWCurveConfig<BaseField = E::ScalarField>,
 {
     piop: PiopVerifier<E::ScalarField, <KZG<E> as PCS<E::ScalarField>>::C, Affine<J>>,
     proof: RingProof<E::ScalarField, KZG<E>>,
@@ -121,7 +121,7 @@ where
 impl<E, J, T> KzgBatchVerifier<E, J, T>
 where
     E: Pairing,
-    J: TECurveConfig<BaseField = E::ScalarField>,
+    J: SWCurveConfig<BaseField = E::ScalarField>,
     T: PlonkTranscript<E::ScalarField, KZG<E>>,
 {
     /// Prepares a ring proof for batch verification without accumulating it.
@@ -200,7 +200,7 @@ where
 impl<E, J, T> RingVerifier<E::ScalarField, KZG<E>, J, T>
 where
     E: Pairing,
-    J: TECurveConfig<BaseField = E::ScalarField>,
+    J: SWCurveConfig<BaseField = E::ScalarField>,
     T: PlonkTranscript<E::ScalarField, KZG<E>>,
 {
     /// Build a new batch verifier.
