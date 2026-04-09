@@ -1,0 +1,54 @@
+[package]
+name = "pasta-tree"
+version = "0.0.1"
+edition = "2024"
+authors = ["Sergey Vasilyev <swasilyev@gmail.com>"]
+license = "MIT/Apache-2.0"
+description = "Hiding Verkle Tree over Pasta Curves"
+keywords = ["cryptography", "accumulator", "verkle", "ring-vrf"]
+repository = "https://github.com/w3f/ring-proof"
+
+[dependencies]
+w3f-pcs.workspace = true
+w3f-plonk-common.workspace = true
+w3f-ring-proof = { path = "../w3f-ring-proof" }
+ark-pallas = { version = "0.5", default-features = false, features = ["curve"] }
+ark-vesta = { version = "0.5", default-features = false }
+ark-transcript.workspace = true
+ark-std.workspace = true
+ark-ff.workspace = true
+ark-ec.workspace = true
+ark-poly.workspace = true
+ark-serialize.workspace = true
+rayon = { workspace = true, optional = true }
+
+[dev-dependencies]
+criterion.workspace = true
+
+[features]
+default = [ "std" ]
+std = [
+    "ark-std/std",
+    "ark-ff/std",
+    "ark-ec/std",
+    "ark-poly/std",
+    "ark-serialize/std",
+    "w3f-pcs/std",
+    "w3f-plonk-common/std",
+    "w3f-ring-proof/std",
+]
+parallel = [
+    "std",
+    "rayon",
+    "ark-std/parallel",
+    "ark-ff/parallel",
+    "ark-ec/parallel",
+    "ark-poly/parallel",
+    "w3f-pcs/parallel",
+    "w3f-plonk-common/parallel",
+    "w3f-ring-proof/parallel",
+]
+print-trace = [
+    "ark-std/print-trace",
+]
+asm = [ "w3f-pcs/asm" ]

@@ -5,7 +5,7 @@ use ark_ff::PrimeField;
 use ark_serialize::{CanonicalDeserialize, CanonicalSerialize};
 use ark_std::marker::PhantomData;
 use ark_std::{vec, vec::Vec};
-use w3f_pcs::pcs::kzg::commitment::KzgCommitment;
+use w3f_pcs::pcs::kzg::commitment::WrappedAffine;
 use w3f_pcs::pcs::kzg::params::RawKzgVerifierKey;
 use w3f_pcs::pcs::kzg::KZG;
 use w3f_pcs::pcs::{Commitment, PcsParams, PCS};
@@ -96,15 +96,15 @@ impl<F: PrimeField, C: Commitment<F>> FixedColumnsCommitted<F, C> {
     }
 }
 
-impl<E: Pairing> FixedColumnsCommitted<E::ScalarField, KzgCommitment<E>> {
-    pub fn from_ring<G: SWCurveConfig<BaseField = E::ScalarField>>(
-        ring: &Ring<E::ScalarField, E, G>,
+impl<F: PrimeField, C: AffineRepr<ScalarField=F>> FixedColumnsCommitted<F, WrappedAffine<C>> {
+    pub fn from_ring<E: Pairing<ScalarField=F, G1Affine=C>, G: SWCurveConfig<BaseField = F>>(
+        ring: &Ring<F, E, G>,
     ) -> Self {
-        let cx = KzgCommitment(ring.cx);
-        let cy = KzgCommitment(ring.cy);
+        let cx = WrappedAffine(ring.cx);
+        let cy = WrappedAffine(ring.cy);
         Self {
             points: [cx, cy],
-            ring_selector: KzgCommitment(ring.selector),
+            ring_selector: WrappedAffine(ring.selector),
             phantom: Default::default(),
         }
     }
@@ -167,7 +167,7 @@ impl<E: Pairing> VerifierKey<E::ScalarField, KZG<E>> {
     }
 
     pub fn from_commitment_and_kzg_vk(
-        commitment: FixedColumnsCommitted<E::ScalarField, KzgCommitment<E>>,
+        commitment: FixedColumnsCommitted<E::ScalarField, WrappedAffine<E::G1Affine>>,
         kzg_vk: RawKzgVerifierKey<E>,
     ) -> Self {
         Self {
@@ -176,7 +176,7 @@ impl<E: Pairing> VerifierKey<E::ScalarField, KZG<E>> {
         }
     }
 
-    pub fn commitment(&self) -> FixedColumnsCommitted<E::ScalarField, KzgCommitment<E>> {
+    pub fn commitment(&self) -> FixedColumnsCommitted<E::ScalarField, WrappedAffine<E::G1Affine>> {
         self.fixed_columns_committed.clone()
     }
 }
