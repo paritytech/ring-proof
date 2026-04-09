@@ -1,8 +1,10 @@
 #![cfg_attr(not(feature = "std"), no_std)]
 
+use ark_ec::short_weierstrass::{Affine, SWCurveConfig};
 use ark_ff::PrimeField;
 use ark_serialize::CanonicalSerialize;
-use ark_std::rand::RngCore;
+use ark_std::rand::{Rng, RngCore};
+use ark_std::UniformRand;
 use w3f_pcs::pcs::PCS;
 
 pub use piop::index;
@@ -27,7 +29,7 @@ pub use w3f_pcs::pcs;
 pub struct ArkTranscript(ark_transcript::Transcript);
 
 impl<F: PrimeField, CS: PCS<F>> w3f_plonk_common::transcript::PlonkTranscript<F, CS>
-    for ArkTranscript
+for ArkTranscript
 {
     fn _128_bit_point(&mut self, label: &'static [u8]) -> F {
         self.0.challenge(label).read_reduce()
@@ -47,6 +49,17 @@ impl ArkTranscript {
     pub fn new(label: &'static [u8]) -> Self {
         Self(ark_transcript::Transcript::new_labeled(label))
     }
+}
+
+pub fn test_setup<R: Rng, F: PrimeField, CS: PCS<F>, G: SWCurveConfig<BaseField=F>>(rng: &mut R, domain_size: usize) -> (CS::Params, PiopParams<F, G>) {
+    let setup_degree = 3 * domain_size;
+    let pcs_params = CS::setup(setup_degree, rng);
+    let domain = Domain::new(domain_size, true);
+    let h = Affine::<G>::rand(rng);
+    let seed = Affine::<G>::rand(rng);
+    let padding = Affine::<G>::rand(rng);
+    let piop_params = PiopParams::setup(domain, h, seed, padding);
+    (pcs_params, piop_params)
 }
 
 #[cfg(test)]
@@ -77,7 +90,7 @@ mod tests {
     ) {
         let rng = &mut test_rng();
 
-        let (pcs_params, piop_params) = setup::<_, CS>(rng, domain_size);
+        let (pcs_params, piop_params) = test_setup::<_, _, CS, BandersnatchConfig>(rng, domain_size);
         let keyset_size = piop_params.keyset_part_size;
         let pks = random_vec::<SWAffine, _>(keyset_size, rng);
         let (prover_key, verifier_key) = index::<_, CS, _>(&pcs_params, &piop_params, &pks);
@@ -120,7 +133,7 @@ mod tests {
 
         let domain_size = 2usize.pow(9);
 
-        let (pcs_params, piop_params) = setup::<_, KZG<Bls12_381>>(rng, domain_size);
+        let (pcs_params, piop_params) = test_setup::<_, Fq, KZG<Bls12_381>, BandersnatchConfig>(rng, domain_size);
         let ring_builder_key = RingBuilderKey::from_srs(&pcs_params, domain_size);
 
         let max_keyset_size = piop_params.keyset_part_size;
@@ -136,22 +149,6 @@ mod tests {
             fixed_columns_committed,
             verifier_key.fixed_columns_committed
         );
-    }
-
-    fn setup<R: Rng, CS: PCS<Fq>>(
-        rng: &mut R,
-        domain_size: usize,
-    ) -> (CS::Params, PiopParams<Fq, BandersnatchConfig>) {
-        let setup_degree = 3 * domain_size;
-        let pcs_params = CS::setup(setup_degree, rng);
-
-        let domain = Domain::new(domain_size, true);
-        let h = SWAffine::rand(rng);
-        let seed = SWAffine::rand(rng);
-        let padding = SWAffine::rand(rng);
-        let piop_params = PiopParams::setup(domain, h, seed, padding);
-
-        (pcs_params, piop_params)
     }
 
     // cargo test test_ring_proof_kzg --release --features="print-trace" -- --show-output
@@ -193,7 +190,7 @@ mod tests {
         let domain_size = 2usize.pow(9);
         let proofs_per_ring = 4;
 
-        let (pcs_params, piop_params) = setup::<_, KZG<Bls12_381>>(rng, domain_size);
+        let (pcs_params, piop_params) = test_setup::<_, Fq, KZG<Bls12_381>, BandersnatchConfig>(rng, domain_size);
 
         // Ring A
         let keyset_size_a = piop_params.keyset_part_size;
