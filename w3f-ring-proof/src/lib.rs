@@ -53,7 +53,7 @@ impl ArkTranscript {
 mod tests {
     use ark_bls12_381::Bls12_381;
     use ark_ec::CurveGroup;
-    use ark_ed_on_bls12_381_bandersnatch::{BandersnatchConfig, SWAffine, Fq, Fr};
+    use ark_ed_on_bls12_381_bandersnatch::{BandersnatchConfig, Fq, Fr, SWAffine};
     use ark_std::ops::Mul;
     use ark_std::rand::Rng;
     use ark_std::{end_timer, start_timer, test_rng, UniformRand};

@@ -100,9 +100,9 @@ impl<F: PrimeField, Curve: SWCurveConfig<BaseField = F>> PiopParams<F, Curve> {
 
 #[cfg(test)]
 mod tests {
-    use ark_ed_on_bls12_381_bandersnatch::{BandersnatchConfig, SWAffine, Fq, Fr};
-    use ark_std::{test_rng, UniformRand};
+    use ark_ed_on_bls12_381_bandersnatch::{BandersnatchConfig, Fq, Fr, SWAffine};
     use ark_std::ops::Mul;
+    use ark_std::{test_rng, UniformRand};
 
     use w3f_plonk_common::domain::Domain;
     use w3f_plonk_common::test_helpers::cond_sum;

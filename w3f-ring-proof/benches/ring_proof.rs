@@ -2,7 +2,7 @@ use criterion::{criterion_group, criterion_main, BatchSize, BenchmarkId, Criteri
 
 use ark_bls12_381::Bls12_381;
 use ark_ec::CurveGroup;
-use ark_ed_on_bls12_381_bandersnatch::{BandersnatchConfig, SWAffine, Fq, Fr};
+use ark_ed_on_bls12_381_bandersnatch::{BandersnatchConfig, Fq, Fr, SWAffine};
 use ark_serialize::CanonicalSerialize;
 use ark_std::ops::Mul;
 use ark_std::rand::Rng;
