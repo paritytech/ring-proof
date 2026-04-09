@@ -53,7 +53,7 @@ impl ArkTranscript {
 mod tests {
     use ark_bls12_381::Bls12_381;
     use ark_ec::CurveGroup;
-    use ark_ed_on_bls12_381_bandersnatch::{BandersnatchConfig, EdwardsAffine, Fq, Fr};
+    use ark_ed_on_bls12_381_bandersnatch::{BandersnatchConfig, Fq, Fr, SWAffine};
     use ark_std::ops::Mul;
     use ark_std::rand::Rng;
     use ark_std::{end_timer, start_timer, test_rng, UniformRand};
@@ -73,17 +73,17 @@ mod tests {
         batch_size: usize,
     ) -> (
         RingVerifier<Fq, CS, BandersnatchConfig>,
-        Vec<(EdwardsAffine, RingProof<Fq, CS>)>,
+        Vec<(SWAffine, RingProof<Fq, CS>)>,
     ) {
         let rng = &mut test_rng();
 
         let (pcs_params, piop_params) = setup::<_, CS>(rng, domain_size);
         let keyset_size = piop_params.keyset_part_size;
-        let pks = random_vec::<EdwardsAffine, _>(keyset_size, rng);
+        let pks = random_vec::<SWAffine, _>(keyset_size, rng);
         let (prover_key, verifier_key) = index::<_, CS, _>(&pcs_params, &piop_params, &pks);
 
         let t_prove = start_timer!(|| "Prove");
-        let claims: Vec<(EdwardsAffine, RingProof<Fq, CS>)> = (0..batch_size)
+        let claims: Vec<(SWAffine, RingProof<Fq, CS>)> = (0..batch_size)
             .map(|_| {
                 let prover_idx = rng.gen_range(0..keyset_size);
                 let prover = RingProver::init(
@@ -125,7 +125,7 @@ mod tests {
 
         let max_keyset_size = piop_params.keyset_part_size;
         let keyset_size: usize = rng.gen_range(0..max_keyset_size);
-        let pks = random_vec::<EdwardsAffine, _>(keyset_size, rng);
+        let pks = random_vec::<SWAffine, _>(keyset_size, rng);
 
         let (_, verifier_key) = index::<_, KZG<Bls12_381>, _>(&pcs_params, &piop_params, &pks);
 
@@ -146,9 +146,9 @@ mod tests {
         let pcs_params = CS::setup(setup_degree, rng);
 
         let domain = Domain::new(domain_size, true);
-        let h = EdwardsAffine::rand(rng);
-        let seed = EdwardsAffine::rand(rng);
-        let padding = EdwardsAffine::rand(rng);
+        let h = SWAffine::rand(rng);
+        let seed = SWAffine::rand(rng);
+        let padding = SWAffine::rand(rng);
         let piop_params = PiopParams::setup(domain, h, seed, padding);
 
         (pcs_params, piop_params)
@@ -197,18 +197,18 @@ mod tests {
 
         // Ring A
         let keyset_size_a = piop_params.keyset_part_size;
-        let pks_a = random_vec::<EdwardsAffine, _>(keyset_size_a, rng);
+        let pks_a = random_vec::<SWAffine, _>(keyset_size_a, rng);
         let (prover_key_a, verifier_key_a) =
             index::<_, KZG<Bls12_381>, _>(&pcs_params, &piop_params, &pks_a);
 
         // Ring B (smaller keyset)
         let keyset_size_b = piop_params.keyset_part_size / 2;
-        let pks_b = random_vec::<EdwardsAffine, _>(keyset_size_b, rng);
+        let pks_b = random_vec::<SWAffine, _>(keyset_size_b, rng);
         let (prover_key_b, verifier_key_b) =
             index::<_, KZG<Bls12_381>, _>(&pcs_params, &piop_params, &pks_b);
 
-        let mut generate_claims = |prover_key: &ProverKey<Fq, KZG<Bls12_381>, EdwardsAffine>,
-                                   pks: &[EdwardsAffine],
+        let mut generate_claims = |prover_key: &ProverKey<Fq, KZG<Bls12_381>, SWAffine>,
+                                   pks: &[SWAffine],
                                    keyset_size: usize| {
             (0..proofs_per_ring)
                 .map(|_| {
