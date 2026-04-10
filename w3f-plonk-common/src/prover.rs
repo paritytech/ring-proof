@@ -1,7 +1,7 @@
 use ark_ff::PrimeField;
 use ark_poly::{Evaluations, Polynomial};
 use ark_serialize::CanonicalSerialize;
-use ark_std::vec;
+use ark_std::{end_timer, start_timer, vec};
 use w3f_pcs::aggregation::single::aggregate_polys;
 use w3f_pcs::pcs::PCS;
 
@@ -40,7 +40,13 @@ impl<F: PrimeField, CS: PCS<F>, T: PlonkTranscript<F, CS>> PlonkProver<F, CS, T>
         transcript.add_instance(&piop.result());
         // ROUND 1
         // The prover commits to the columns.
-        let column_commitments = piop.committed_columns(|p| CS::commit(&self.pcs_ck, p).unwrap());
+
+        let column_commitments = piop.committed_columns(|p| {
+            let _t_commit_col = start_timer!(|| format!("Committing to deg(f)={}", p.degree()));
+            let c = CS::commit(&self.pcs_ck, p).unwrap();
+            end_timer!(_t_commit_col);
+            c
+        });
         transcript.add_committed_cols(&column_commitments);
 
         // ROUND 2
@@ -52,7 +58,9 @@ impl<F: PrimeField, CS: PCS<F>, T: PlonkTranscript<F, CS>> PlonkProver<F, CS, T>
         let agg_constraint_poly = agg_constraint_poly.interpolate();
         let quotient_poly = piop.domain().divide_by_vanishing_poly(&agg_constraint_poly);
         // The prover commits to the quotient polynomial...
+        let _t_commit_q = start_timer!(|| format!("Committing to deg(f)={}", quotient_poly.degree()));
         let quotient_commitment = CS::commit(&self.pcs_ck, &quotient_poly).unwrap();
+        end_timer!(_t_commit_q);
         transcript.add_quotient_commitment(&quotient_commitment);
 
         // and receives the evaluation point in response
@@ -71,8 +79,12 @@ impl<F: PrimeField, CS: PCS<F>, T: PlonkTranscript<F, CS>> PlonkProver<F, CS, T>
         let polys_at_zeta = [columns_to_open, vec![quotient_poly]].concat();
         let nus = transcript.get_kzg_aggregation_challenges(polys_at_zeta.len());
         let agg_at_zeta = aggregate_polys(&polys_at_zeta, &nus);
+        let _t_open_zeta = start_timer!(|| format!("Opening deg(f)={}", agg_at_zeta.degree()));
         let agg_at_zeta_proof = CS::open(&self.pcs_ck, &agg_at_zeta, zeta).unwrap();
+        end_timer!(_t_open_zeta);
+        let _t_open_zeta_omega = start_timer!(|| format!("Opening deg(f)={}", lin.degree()));
         let lin_at_zeta_omega_proof = CS::open(&self.pcs_ck, &lin, zeta_omega).unwrap();
+        end_timer!(_t_open_zeta_omega);
         Proof {
             column_commitments,
             quotient_commitment,
@@ -83,7 +95,7 @@ impl<F: PrimeField, CS: PCS<F>, T: PlonkTranscript<F, CS>> PlonkProver<F, CS, T>
         }
     }
 
-    fn aggregate_evaluations(polys: &[Evaluations<F>], coeffs: &[F]) -> Evaluations<F> {
+    pub fn aggregate_evaluations(polys: &[Evaluations<F>], coeffs: &[F]) -> Evaluations<F> {
         assert_eq!(coeffs.len(), polys.len());
         polys
             .iter()

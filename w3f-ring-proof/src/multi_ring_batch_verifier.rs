@@ -1,5 +1,5 @@
 use ark_ec::pairing::Pairing;
-use ark_ec::twisted_edwards::{Affine, TECurveConfig};
+use ark_ec::short_weierstrass::{Affine, SWCurveConfig};
 use ark_ec::CurveGroup;
 use ark_std::rand::RngCore;
 use w3f_pcs::pcs::kzg::params::KzgVerifierKey;
@@ -21,7 +21,7 @@ use crate::RingProof;
 pub struct PreparedMultiRingItem<'a, E, J, T>
 where
     E: Pairing,
-    J: TECurveConfig<BaseField = E::ScalarField>,
+    J: SWCurveConfig<BaseField = E::ScalarField>,
     T: PlonkTranscript<E::ScalarField, KZG<E>>,
 {
     verifier: &'a RingVerifier<E::ScalarField, KZG<E>, J, T>,
@@ -61,7 +61,7 @@ impl<E: Pairing> MultiRingBatchVerifier<E> {
         result: Affine<J>,
     ) -> PreparedMultiRingItem<'a, E, J, T>
     where
-        J: TECurveConfig<BaseField = E::ScalarField>,
+        J: SWCurveConfig<BaseField = E::ScalarField>,
         T: PlonkTranscript<E::ScalarField, KZG<E>>,
     {
         let (challenges, mut rng) = verifier.plonk_verifier.restore_challenges(
@@ -101,7 +101,7 @@ impl<E: Pairing> MultiRingBatchVerifier<E> {
     /// 2. `push_prepared` - must be called sequentially (mutates the accumulator)
     pub fn push_prepared<J, T>(&mut self, item: PreparedMultiRingItem<'_, E, J, T>)
     where
-        J: TECurveConfig<BaseField = E::ScalarField>,
+        J: SWCurveConfig<BaseField = E::ScalarField>,
         T: PlonkTranscript<E::ScalarField, KZG<E>>,
     {
         let mut ts = item.verifier.plonk_verifier.transcript_prelude.clone();
@@ -117,7 +117,7 @@ impl<E: Pairing> MultiRingBatchVerifier<E> {
         proof: RingProof<E::ScalarField, KZG<E>>,
         result: Affine<J>,
     ) where
-        J: TECurveConfig<BaseField = E::ScalarField>,
+        J: SWCurveConfig<BaseField = E::ScalarField>,
         T: PlonkTranscript<E::ScalarField, KZG<E>>,
     {
         let item = Self::prepare(verifier, proof, result);
