@@ -4,7 +4,6 @@ pub fn add(left: u64, right: u64) -> u64 {
 
 #[cfg(test)]
 mod tests {
-    use ark_ec::CurveGroup;
     use ark_ff::PrimeField;
     use ark_poly::Polynomial;
     use ark_std::iterable::Iterable;
@@ -41,18 +40,15 @@ mod tests {
         let (prover_key, verifier_key) = index::<_, PallasIPA, _>(&pcs_params, &piop_params, &pks);
         let blinding = ark_vesta::Fr::rand(rng);
         let pk_idx = rng.gen_range(0..keyset_size);
-        let blinded_pk = {
-            let prover_pk = pks[pk_idx].clone();
-            let blinded_pk = prover_pk + piop_params.h * blinding;
-            blinded_pk.into_affine()
-        };
+        let blinded_pk = piop_params.blind_pk(pks[pk_idx], blinding);
 
         // prover
         let fs = ArkTranscript::new(b"pasta-ring-proof-test");
-        let prover = RingProver::init(prover_key, piop_params.clone(), pk_idx, fs.clone());
+        let prover = RingProver::init(prover_key, piop_params.clone(), 0, fs.clone());
         let t_prove = start_timer!(|| format!("Proving IPA ring-proof with plonk, domain_size={domain_size}, keyset_size={keyset_size}"));
-        let proof = prover.prove(blinding);
+        let (blinded_pk_, proof) = prover.rerandomize_pk(pk_idx, blinding);
         end_timer!(t_prove);
+        assert_eq!(blinded_pk_, blinded_pk);
 
         // verifier
         let ring_verifier = RingVerifier::init(verifier_key, piop_params, fs);
