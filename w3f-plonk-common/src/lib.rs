@@ -18,25 +18,24 @@ pub mod test_helpers;
 pub mod transcript;
 pub mod verifier;
 
-pub trait Column<F: FftField> {
+pub trait Column<F: FftField, V> {
     fn domain(&self) -> GeneralEvaluationDomain<F>;
     fn domain_4x(&self) -> GeneralEvaluationDomain<F>;
-    fn as_poly(&self) -> &DensePolynomial<F>;
-    fn size(&self) -> usize {
-        self.domain().size()
-    }
-    fn evaluate(&self, z: &F) -> F {
-        self.as_poly().evaluate(z)
+    fn payload(&self) -> &[V];
+    fn payload_len(&self) -> usize {
+        self.payload().len()
     }
 }
 
 #[derive(Clone, CanonicalSerialize, CanonicalDeserialize)]
 pub struct FieldColumn<F: FftField> {
-    // actual (constrained) len of the input in evaluation form
-    pub len: usize,
     pub poly: DensePolynomial<F>,
     pub evals: Evaluations<F>,
     pub evals_4x: Evaluations<F>,
+    // We require all the evaluations padded to the domain size
+    // (as we need to add blinding cells aka zk_rows) at the end of the vector.
+    // `payload_len` keeps the original length of the data.
+    payload_len: usize,
 }
 
 impl<F: FftField> FieldColumn<F> {
@@ -46,12 +45,16 @@ impl<F: FftField> FieldColumn<F> {
         Evaluations::from_vec_and_domain(evals_4x, self.domain_4x())
     }
 
-    pub fn vals(&self) -> &[F] {
-        &self.evals.evals[..self.len]
+    pub fn as_poly(&self) -> &DensePolynomial<F> {
+        &self.poly
+    }
+
+    pub fn evaluate(&self, z: &F) -> F {
+        self.as_poly().evaluate(z)
     }
 }
 
-impl<F: FftField> Column<F> for FieldColumn<F> {
+impl<F: FftField> Column<F, F> for FieldColumn<F> {
     fn domain(&self) -> GeneralEvaluationDomain<F> {
         self.evals.domain()
     }
@@ -60,8 +63,8 @@ impl<F: FftField> Column<F> for FieldColumn<F> {
         self.evals_4x.domain()
     }
 
-    fn as_poly(&self) -> &DensePolynomial<F> {
-        &self.poly
+    fn payload(&self) -> &[F] {
+        &self.evals.evals[..self.payload_len]
     }
 }
 

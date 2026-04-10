@@ -82,36 +82,49 @@ mod tests {
         let pks = random_vec::<EdwardsAffine, _>(keyset_size, rng);
         let (prover_key, verifier_key) = index::<_, CS, _>(&pcs_params, &piop_params, &pks);
 
-        let t_prove = start_timer!(|| "Prove");
+        let prover = RingProver::init(
+            prover_key.clone(),
+            piop_params.clone(),
+            0,
+            ArkTranscript::new(b"w3f-ring-proof-test"),
+        );
+
+        let ring_verifier = RingVerifier::init(
+            verifier_key,
+            piop_params.clone(),
+            ArkTranscript::new(b"w3f-ring-proof-test"),
+        );
+        let t_prove = start_timer!(|| {
+            format!("Proving {batch_size} KZG ring-proofs with plonk, domain={domain_size}, max_keys={keyset_size}")
+        });
         let claims: Vec<(EdwardsAffine, RingProof<Fq, CS>)> = (0..batch_size)
             .map(|_| {
-                let prover_idx = rng.gen_range(0..keyset_size);
-                let prover = RingProver::init(
-                    prover_key.clone(),
-                    piop_params.clone(),
-                    prover_idx,
-                    ArkTranscript::new(b"w3f-ring-proof-test"),
-                );
-                let prover_pk = pks[prover_idx].clone();
-                let blinding_factor = Fr::rand(rng);
-                let blinded_pk = prover_pk + piop_params.h.mul(blinding_factor);
-                let blinded_pk = blinded_pk.into_affine();
-                let proof = prover.prove(blinding_factor);
-                (blinded_pk, proof)
+                let pk_idx = rng.gen_range(0..keyset_size);
+                let r = Fr::rand(rng);
+                let (blinded_pk, mem_proof) = prover.rerandomize_pk(pk_idx, r);
+                assert_eq!(blinded_pk, piop_params.blind_pk(pks[pk_idx], r));
+                (blinded_pk, mem_proof)
             })
             .collect();
         end_timer!(t_prove);
 
-        let ring_verifier = RingVerifier::init(
-            verifier_key,
-            piop_params,
-            ArkTranscript::new(b"w3f-ring-proof-test"),
-        );
-        let t_verify = start_timer!(|| "Verify");
+        let t_verify =
+            start_timer!(|| format!("Verifying {batch_size} KZG ring-proofs with plonk"));
         let (blinded_pks, proofs) = claims.iter().cloned().unzip();
         assert!(ring_verifier.verify_batch(proofs, blinded_pks));
         end_timer!(t_verify);
         (ring_verifier, claims)
+    }
+
+    #[test]
+    // cargo test test_ring_proof_kzg --release --features="print-trace" -- --show-output
+    fn test_ring_proof_kzg() {
+        _test_ring_proof::<KZG<Bls12_381>>(2usize.pow(9), 1);
+    }
+
+    #[test]
+    fn test_ring_proof_id() {
+        _test_ring_proof::<pcs::IdentityCommitment>(2usize.pow(10), 1);
     }
 
     #[test]
@@ -154,7 +167,7 @@ mod tests {
         (pcs_params, piop_params)
     }
 
-    // cargo test test_ring_proof_kzg --release --features="print-trace" -- --show-output
+    // cargo test test_ring_proof_batch_kzg_verification --release --features="print-trace" -- --show-output
     //
     // Batch vs sequential verification times (ms):
     //
@@ -173,18 +186,15 @@ mod tests {
     // Sequential verification scales linearly with proof count.
     // Batch verification scales sub-linearly.
     #[test]
-    fn test_ring_proof_kzg() {
-        let batch_size: usize = 16;
-        let (verifier, claims) = _test_ring_proof::<KZG<Bls12_381>>(2usize.pow(10), batch_size);
-        let t_verify_batch = start_timer!(|| format!("Verify Batch KZG (batch={batch_size})"));
+    fn test_ring_proof_batch_kzg_verification() {
+        let batch_size: usize = 2;
+        let domain_size = 2usize.pow(9);
+        let (verifier, claims) = _test_ring_proof::<KZG<Bls12_381>>(domain_size, batch_size);
         let (blinded_pks, proofs) = claims.into_iter().unzip();
+        let t_batch_verify =
+            start_timer!(|| format!("Batch-verifying {batch_size} KZG ring-proofs with plonk"));
         assert!(verifier.verify_batch_kzg(proofs, blinded_pks));
-        end_timer!(t_verify_batch);
-    }
-
-    #[test]
-    fn test_ring_proof_id() {
-        _test_ring_proof::<w3f_pcs::pcs::IdentityCommitment>(2usize.pow(10), 1);
+        end_timer!(t_batch_verify);
     }
 
     #[test]

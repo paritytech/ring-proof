@@ -1,6 +1,6 @@
 use ark_ff::{FftField, Field, Zero};
 use ark_poly::univariate::DensePolynomial;
-use ark_poly::{Evaluations, GeneralEvaluationDomain};
+use ark_poly::{Evaluations, GeneralEvaluationDomain, Polynomial};
 
 use ark_std::{vec, vec::Vec};
 
@@ -23,9 +23,17 @@ impl<F: FftField> BitColumn<F> {
         let col = domain.private_column(bits_as_field_elements);
         Self { bits, col }
     }
+
+    pub fn as_poly(&self) -> &DensePolynomial<F> {
+        self.col.as_poly()
+    }
+
+    pub fn evaluate(&self, z: &F) -> F {
+        self.as_poly().evaluate(z)
+    }
 }
 
-impl<F: FftField> Column<F> for BitColumn<F> {
+impl<F: FftField> Column<F, bool> for BitColumn<F> {
     fn domain(&self) -> GeneralEvaluationDomain<F> {
         self.col.domain()
     }
@@ -34,8 +42,8 @@ impl<F: FftField> Column<F> for BitColumn<F> {
         self.col.domain_4x()
     }
 
-    fn as_poly(&self) -> &DensePolynomial<F> {
-        self.col.as_poly()
+    fn payload(&self) -> &[bool] {
+        self.bits.as_slice()
     }
 }
 
