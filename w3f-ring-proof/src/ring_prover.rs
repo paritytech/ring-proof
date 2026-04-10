@@ -14,12 +14,12 @@ pub struct RingProver<F, CS, Curve, T = ArkTranscript>
 where
     F: PrimeField,
     CS: PCS<F>,
-    Curve: TECurveConfig<BaseField=F>,
+    Curve: TECurveConfig<BaseField = F>,
     T: PlonkTranscript<F, CS>,
 {
     piop_params: PiopParams<F, Curve>,
     fixed_columns: FixedColumns<F, Affine<Curve>>,
-    // TODO: We could have a prover that as an optimization stores the commitment to the part of the trace 
+    // TODO: We could have a prover that as an optimization stores the commitment to the part of the trace
     // TODO: that depends on the prover's index but not the blinding. That would save some computation,
     // TODO: but the quotient is `O(ring-size)` anyway.
     k: usize,
@@ -30,7 +30,7 @@ impl<F, CS, Curve, T> RingProver<F, CS, Curve, T>
 where
     F: PrimeField,
     CS: PCS<F>,
-    Curve: TECurveConfig<BaseField=F>,
+    Curve: TECurveConfig<BaseField = F>,
     T: PlonkTranscript<F, CS>,
 {
     pub fn init(
@@ -64,7 +64,11 @@ where
 
     /// Proof membership of `C_k`, given its index `k`, in the ring `pk.fixed_columns.points` identified by
     /// `vk.fixed_columns_committed.points` and re-randomize the `C_k` to `C' = C_k + rH` with the given `r`.
-    pub fn rerandomize_pk(&self, k: usize, r: Curve::ScalarField) -> (Affine<Curve>, RingProof<F, CS>) {
+    pub fn rerandomize_pk(
+        &self,
+        k: usize,
+        r: Curve::ScalarField,
+    ) -> (Affine<Curve>, RingProof<F, CS>) {
         let piop = PiopProver::build(&self.piop_params, self.fixed_columns.clone(), k, r);
         let blinded_pk = <PiopProver<F, Curve> as ProverPiop<F, CS::C>>::result(&piop);
         let proof = self.plonk_prover.prove(piop);

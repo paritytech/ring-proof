@@ -16,7 +16,8 @@ pub struct BitColumn<F: FftField> {
 
 impl<F: FftField> BitColumn<F> {
     pub fn init(bits: Vec<bool>, domain: &Domain<F>) -> Self {
-        let bits_as_field_elements = bits.iter()
+        let bits_as_field_elements = bits
+            .iter()
             .map(|&b| if b { F::one() } else { F::zero() })
             .collect();
         let col = domain.private_column(bits_as_field_elements);

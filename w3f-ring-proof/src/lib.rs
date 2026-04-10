@@ -23,12 +23,11 @@ pub type RingProof<F, CS> = Proof<F, CS, RingCommitments<F, <CS as PCS<F>>::C>, 
 /// Polynomial Commitment Schemes.
 pub use w3f_pcs::pcs;
 
-
 #[derive(Clone)]
 pub struct ArkTranscript(ark_transcript::Transcript);
 
 impl<F: PrimeField, CS: PCS<F>> w3f_plonk_common::transcript::PlonkTranscript<F, CS>
-for ArkTranscript
+    for ArkTranscript
 {
     fn _128_bit_point(&mut self, label: &'static [u8]) -> F {
         self.0.challenge(label).read_reduce()
@@ -95,17 +94,22 @@ mod tests {
             piop_params.clone(),
             ArkTranscript::new(b"w3f-ring-proof-test"),
         );
-        let t_prove = start_timer!(|| format!("Proving {batch_size} KZG ring-proofs with plonk, domain={domain_size}, max_keys={keyset_size}"));
-        let claims: Vec<(EdwardsAffine, RingProof<Fq, CS>)> = (0..batch_size).map(|_| {
-            let pk_idx = rng.gen_range(0..keyset_size);
-            let r = Fr::rand(rng);
-            let (blinded_pk, mem_proof) = prover.rerandomize_pk(pk_idx, r);
-            assert_eq!(blinded_pk, piop_params.blind_pk(pks[pk_idx], r));
-            (blinded_pk, mem_proof)
-        }).collect();
+        let t_prove = start_timer!(|| {
+            format!("Proving {batch_size} KZG ring-proofs with plonk, domain={domain_size}, max_keys={keyset_size}")
+        });
+        let claims: Vec<(EdwardsAffine, RingProof<Fq, CS>)> = (0..batch_size)
+            .map(|_| {
+                let pk_idx = rng.gen_range(0..keyset_size);
+                let r = Fr::rand(rng);
+                let (blinded_pk, mem_proof) = prover.rerandomize_pk(pk_idx, r);
+                assert_eq!(blinded_pk, piop_params.blind_pk(pks[pk_idx], r));
+                (blinded_pk, mem_proof)
+            })
+            .collect();
         end_timer!(t_prove);
 
-        let t_verify = start_timer!(|| format!("Verifying {batch_size} KZG ring-proofs with plonk"));
+        let t_verify =
+            start_timer!(|| format!("Verifying {batch_size} KZG ring-proofs with plonk"));
         let (blinded_pks, proofs) = claims.iter().cloned().unzip();
         assert!(ring_verifier.verify_batch(proofs, blinded_pks));
         end_timer!(t_verify);
@@ -187,7 +191,8 @@ mod tests {
         let domain_size = 2usize.pow(9);
         let (verifier, claims) = _test_ring_proof::<KZG<Bls12_381>>(domain_size, batch_size);
         let (blinded_pks, proofs) = claims.into_iter().unzip();
-        let t_batch_verify = start_timer!(|| format!("Batch-verifying {batch_size} KZG ring-proofs with plonk"));
+        let t_batch_verify =
+            start_timer!(|| format!("Batch-verifying {batch_size} KZG ring-proofs with plonk"));
         assert!(verifier.verify_batch_kzg(proofs, blinded_pks));
         end_timer!(t_batch_verify);
     }

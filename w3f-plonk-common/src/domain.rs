@@ -1,3 +1,4 @@
+use crate::FieldColumn;
 use ark_ff::{batch_inversion, FftField, Zero};
 use ark_poly::univariate::DensePolynomial;
 use ark_poly::{
@@ -5,7 +6,6 @@ use ark_poly::{
 };
 use ark_std::{vec, vec::Vec};
 use getrandom_or_panic::getrandom_or_panic;
-use crate::FieldColumn;
 
 pub const ZK_ROWS: usize = 3;
 
@@ -72,7 +72,11 @@ impl<F: FftField> Domain<F> {
     pub fn new(n: usize, hiding: bool) -> Self {
         let domains = Domains::new(n);
         let domain_size = domains.x1.size();
-        let domain_capacity = if hiding { domain_size - ZK_ROWS } else { domain_size };
+        let domain_capacity = if hiding {
+            domain_size - ZK_ROWS
+        } else {
+            domain_size
+        };
         let last_row_index = domain_capacity - 1;
 
         let l_first = l_i(0, domain_size);
@@ -111,7 +115,10 @@ impl<F: FftField> Domain<F> {
         debug_assert!(payload_len <= self.capacity);
         values.resize(self.capacity, F::zero());
         if self.hiding && hidden && !cfg!(feature = "test-vectors") {
-            values.resize_with(self.domains.x1.size(), || F::rand(&mut getrandom_or_panic()));
+            values.resize_with(
+                self.domains.x1.size(),
+                || F::rand(&mut getrandom_or_panic()),
+            );
         } else {
             values.resize(self.domains.x1.size(), F::zero());
         }
