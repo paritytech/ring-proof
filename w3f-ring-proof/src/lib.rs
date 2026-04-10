@@ -29,7 +29,7 @@ pub use w3f_pcs::pcs;
 pub struct ArkTranscript(ark_transcript::Transcript);
 
 impl<F: PrimeField, CS: PCS<F>> w3f_plonk_common::transcript::PlonkTranscript<F, CS>
-for ArkTranscript
+    for ArkTranscript
 {
     fn _128_bit_point(&mut self, label: &'static [u8]) -> F {
         self.0.challenge(label).read_reduce()
@@ -66,7 +66,7 @@ pub fn test_setup<R: Rng, F: PrimeField, CS: PCS<F>, G: SWCurveConfig<BaseField=
 mod tests {
     use ark_bls12_381::Bls12_381;
     use ark_ec::CurveGroup;
-    use ark_ed_on_bls12_381_bandersnatch::{BandersnatchConfig, Fq, Fr, SWAffine};
+    use ark_ed_on_bls12_381_bandersnatch::{BandersnatchConfig, SWAffine, Fq, Fr};
     use ark_std::ops::Mul;
     use ark_std::rand::Rng;
     use ark_std::{end_timer, start_timer, test_rng, UniformRand};
@@ -90,41 +90,54 @@ mod tests {
     ) {
         let rng = &mut test_rng();
 
-        let (pcs_params, piop_params) = test_setup::<_, _, CS, BandersnatchConfig>(rng, domain_size);
+        let (pcs_params, piop_params) = setup::<_, CS>(rng, domain_size);
         let keyset_size = piop_params.keyset_part_size;
         let pks = random_vec::<SWAffine, _>(keyset_size, rng);
         let (prover_key, verifier_key) = index::<_, CS, _>(&pcs_params, &piop_params, &pks);
 
-        let t_prove = start_timer!(|| "Prove");
+        let prover = RingProver::init(
+            prover_key.clone(),
+            piop_params.clone(),
+            0,
+            ArkTranscript::new(b"w3f-ring-proof-test"),
+        );
+
+        let ring_verifier = RingVerifier::init(
+            verifier_key,
+            piop_params.clone(),
+            ArkTranscript::new(b"w3f-ring-proof-test"),
+        );
+        let t_prove = start_timer!(|| {
+            format!("Proving {batch_size} KZG ring-proofs with plonk, domain={domain_size}, max_keys={keyset_size}")
+        });
         let claims: Vec<(SWAffine, RingProof<Fq, CS>)> = (0..batch_size)
             .map(|_| {
-                let prover_idx = rng.gen_range(0..keyset_size);
-                let prover = RingProver::init(
-                    prover_key.clone(),
-                    piop_params.clone(),
-                    prover_idx,
-                    ArkTranscript::new(b"w3f-ring-proof-test"),
-                );
-                let prover_pk = pks[prover_idx].clone();
-                let blinding_factor = Fr::rand(rng);
-                let blinded_pk = prover_pk + piop_params.h.mul(blinding_factor);
-                let blinded_pk = blinded_pk.into_affine();
-                let proof = prover.prove(blinding_factor);
-                (blinded_pk, proof)
+                let pk_idx = rng.gen_range(0..keyset_size);
+                let r = Fr::rand(rng);
+                let (blinded_pk, mem_proof) = prover.rerandomize_pk(pk_idx, r);
+                assert_eq!(blinded_pk, piop_params.blind_pk(pks[pk_idx], r));
+                (blinded_pk, mem_proof)
             })
             .collect();
         end_timer!(t_prove);
 
-        let ring_verifier = RingVerifier::init(
-            verifier_key,
-            piop_params,
-            ArkTranscript::new(b"w3f-ring-proof-test"),
-        );
-        let t_verify = start_timer!(|| "Verify");
+        let t_verify =
+            start_timer!(|| format!("Verifying {batch_size} KZG ring-proofs with plonk"));
         let (blinded_pks, proofs) = claims.iter().cloned().unzip();
         assert!(ring_verifier.verify_batch(proofs, blinded_pks));
         end_timer!(t_verify);
         (ring_verifier, claims)
+    }
+
+    #[test]
+    // cargo test test_ring_proof_kzg --release --features="print-trace" -- --show-output
+    fn test_ring_proof_kzg() {
+        _test_ring_proof::<KZG<Bls12_381>>(2usize.pow(9), 1);
+    }
+
+    #[test]
+    fn test_ring_proof_id() {
+        _test_ring_proof::<pcs::IdentityCommitment>(2usize.pow(10), 1);
     }
 
     #[test]
@@ -133,7 +146,7 @@ mod tests {
 
         let domain_size = 2usize.pow(9);
 
-        let (pcs_params, piop_params) = test_setup::<_, Fq, KZG<Bls12_381>, BandersnatchConfig>(rng, domain_size);
+        let (pcs_params, piop_params) = setup::<_, KZG<Bls12_381>>(rng, domain_size);
         let ring_builder_key = RingBuilderKey::from_srs(&pcs_params, domain_size);
 
         let max_keyset_size = piop_params.keyset_part_size;
@@ -151,7 +164,23 @@ mod tests {
         );
     }
 
-    // cargo test test_ring_proof_kzg --release --features="print-trace" -- --show-output
+    fn setup<R: Rng, CS: PCS<Fq>>(
+        rng: &mut R,
+        domain_size: usize,
+    ) -> (CS::Params, PiopParams<Fq, BandersnatchConfig>) {
+        let setup_degree = 3 * domain_size;
+        let pcs_params = CS::setup(setup_degree, rng);
+
+        let domain = Domain::new(domain_size, true);
+        let h = SWAffine::rand(rng);
+        let seed = SWAffine::rand(rng);
+        let padding = SWAffine::rand(rng);
+        let piop_params = PiopParams::setup(domain, h, seed, padding);
+
+        (pcs_params, piop_params)
+    }
+
+    // cargo test test_ring_proof_batch_kzg_verification --release --features="print-trace" -- --show-output
     //
     // Batch vs sequential verification times (ms):
     //
@@ -170,18 +199,15 @@ mod tests {
     // Sequential verification scales linearly with proof count.
     // Batch verification scales sub-linearly.
     #[test]
-    fn test_ring_proof_kzg() {
-        let batch_size: usize = 1;
-        let (verifier, claims) = _test_ring_proof::<KZG<Bls12_381>>(2usize.pow(9), batch_size);
-        let t_verify_batch = start_timer!(|| format!("Verify Batch KZG (batch={batch_size})"));
+    fn test_ring_proof_batch_kzg_verification() {
+        let batch_size: usize = 2;
+        let domain_size = 2usize.pow(9);
+        let (verifier, claims) = _test_ring_proof::<KZG<Bls12_381>>(domain_size, batch_size);
         let (blinded_pks, proofs) = claims.into_iter().unzip();
+        let t_batch_verify =
+            start_timer!(|| format!("Batch-verifying {batch_size} KZG ring-proofs with plonk"));
         assert!(verifier.verify_batch_kzg(proofs, blinded_pks));
-        end_timer!(t_verify_batch);
-    }
-
-    #[test]
-    fn test_ring_proof_id() {
-        _test_ring_proof::<w3f_pcs::pcs::IdentityCommitment>(2usize.pow(10), 1);
+        end_timer!(t_batch_verify);
     }
 
     #[test]
@@ -190,7 +216,7 @@ mod tests {
         let domain_size = 2usize.pow(9);
         let proofs_per_ring = 4;
 
-        let (pcs_params, piop_params) = test_setup::<_, Fq, KZG<Bls12_381>, BandersnatchConfig>(rng, domain_size);
+        let (pcs_params, piop_params) = setup::<_, KZG<Bls12_381>>(rng, domain_size);
 
         // Ring A
         let keyset_size_a = piop_params.keyset_part_size;

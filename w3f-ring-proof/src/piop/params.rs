@@ -96,6 +96,11 @@ impl<F: PrimeField, Curve: SWCurveConfig<BaseField = F>> PiopParams<F, Curve> {
         ]
         .concat()
     }
+
+    pub fn blind_pk(&self, pk_k: Affine<Curve>, blinding: Curve::ScalarField) -> Affine<Curve> {
+        let blinded_pk = pk_k + self.h * blinding;
+        blinded_pk.into_affine()
+    }
 }
 
 #[cfg(test)]
