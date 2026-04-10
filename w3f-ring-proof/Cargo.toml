@@ -49,9 +49,6 @@ parallel = [
   "w3f-plonk-common/parallel",
   "w3f-pcs/parallel"
 ]
-print-trace = [
-  "ark-std/print-trace",
-  "w3f-plonk-common/print-trace"
-]
+print-trace = ["ark-std/print-trace"]
 asm = [ "w3f-pcs/asm" ]
 test-vectors = [ "w3f-plonk-common/test-vectors" ]

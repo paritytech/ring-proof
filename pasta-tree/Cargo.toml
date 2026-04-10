@@ -26,7 +26,7 @@ rayon = { workspace = true, optional = true }
 criterion.workspace = true
 
 [features]
-default = [ "std" ]
+default = ["std"]
 std = [
     "ark-std/std",
     "ark-ff/std",
@@ -48,7 +48,5 @@ parallel = [
     "w3f-plonk-common/parallel",
     "w3f-ring-proof/parallel",
 ]
-print-trace = [
-    "ark-std/print-trace",
-]
-asm = [ "w3f-pcs/asm" ]
+print-trace = ["ark-std/print-trace", ]
+asm = ["w3f-pcs/asm"]
