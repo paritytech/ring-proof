@@ -19,8 +19,8 @@ use crate::ring::Ring;
 use crate::PiopParams;
 
 pub mod params;
-mod prover;
-mod verifier;
+pub mod prover;
+pub mod verifier;
 
 #[derive(Clone, CanonicalSerialize, CanonicalDeserialize)]
 pub struct RingCommitments<F: PrimeField, C: Commitment<F>> {
@@ -87,7 +87,7 @@ pub struct FixedColumnsCommitted<F: PrimeField, C: Commitment<F>> {
 }
 
 impl<F: PrimeField, C: Commitment<F>> FixedColumnsCommitted<F, C> {
-    fn as_vec(&self) -> Vec<C> {
+    pub fn as_vec(&self) -> Vec<C> {
         vec![
             self.points[0].clone(),
             self.points[1].clone(),
@@ -127,9 +127,9 @@ impl<F: PrimeField, G: AffineRepr<BaseField = F>> FixedColumns<F, G> {
 
 #[derive(CanonicalSerialize, CanonicalDeserialize)]
 pub struct ProverKey<F: PrimeField, CS: PCS<F>, G: AffineRepr<BaseField = F>> {
-    pub(crate) pcs_ck: CS::CK,
-    pub(crate) fixed_columns: FixedColumns<F, G>,
-    pub(crate) verifier_key: VerifierKey<F, CS>, // used in the Fiat-Shamir transform
+    pub pcs_ck: CS::CK,
+    pub fixed_columns: FixedColumns<F, G>,
+    pub verifier_key: VerifierKey<F, CS>, // used in the Fiat-Shamir transform
 }
 
 impl<F: PrimeField, CS: PCS<F>, G: AffineRepr<BaseField = F>> Clone for ProverKey<F, CS, G> {
@@ -144,8 +144,8 @@ impl<F: PrimeField, CS: PCS<F>, G: AffineRepr<BaseField = F>> Clone for ProverKe
 
 #[derive(Debug, Eq, PartialEq, CanonicalSerialize, CanonicalDeserialize)]
 pub struct VerifierKey<F: PrimeField, CS: PCS<F>> {
-    pub(crate) pcs_raw_vk: <CS::Params as PcsParams>::RVK,
-    pub(crate) fixed_columns_committed: FixedColumnsCommitted<F, CS::C>,
+    pub pcs_raw_vk: <CS::Params as PcsParams>::RVK,
+    pub fixed_columns_committed: FixedColumnsCommitted<F, CS::C>,
     //TODO: domain
 }
 

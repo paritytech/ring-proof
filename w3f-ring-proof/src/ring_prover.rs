@@ -1,6 +1,5 @@
 use ark_ec::short_weierstrass::{Affine, SWCurveConfig};
 use ark_ff::PrimeField;
-use ark_std::{end_timer, start_timer};
 use w3f_pcs::pcs::PCS;
 
 use w3f_plonk_common::prover::PlonkProver;
@@ -53,9 +52,7 @@ where
     }
 
     pub fn prove(&self, t: Curve::ScalarField) -> RingProof<F, CS> {
-        let t_witgen = start_timer!(|| "witgen");
         let piop = PiopProver::build(&self.piop_params, self.fixed_columns.clone(), self.k, t);
-        end_timer!(t_witgen);
         self.plonk_prover.prove(piop)
     }
 

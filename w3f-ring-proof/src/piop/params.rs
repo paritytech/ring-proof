@@ -12,7 +12,7 @@ use crate::piop::FixedColumns;
 #[derive(Clone)]
 pub struct PiopParams<F: PrimeField, Curve: SWCurveConfig<BaseField = F>> {
     /// Domain over which the piop is represented.
-    pub(crate) domain: Domain<F>,
+    pub domain: Domain<F>,
     /// Number of bits used to represent a jubjub scalar.
     pub(crate) scalar_bitlen: usize,
     /// Length of the part of the column representing the public keys (including the padding).

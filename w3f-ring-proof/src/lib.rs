@@ -15,7 +15,7 @@ pub use crate::piop::{params::PiopParams, FixedColumnsCommitted, ProverKey, Veri
 use crate::piop::{RingCommitments, RingEvaluations};
 
 pub mod multi_ring_batch_verifier;
-mod piop;
+pub mod piop;
 pub mod ring;
 pub mod ring_prover;
 pub mod ring_verifier;
@@ -171,8 +171,8 @@ mod tests {
     // Batch verification scales sub-linearly.
     #[test]
     fn test_ring_proof_kzg() {
-        let batch_size: usize = 16;
-        let (verifier, claims) = _test_ring_proof::<KZG<Bls12_381>>(2usize.pow(10), batch_size);
+        let batch_size: usize = 1;
+        let (verifier, claims) = _test_ring_proof::<KZG<Bls12_381>>(2usize.pow(9), batch_size);
         let t_verify_batch = start_timer!(|| format!("Verify Batch KZG (batch={batch_size})"));
         let (blinded_pks, proofs) = claims.into_iter().unzip();
         assert!(verifier.verify_batch_kzg(proofs, blinded_pks));

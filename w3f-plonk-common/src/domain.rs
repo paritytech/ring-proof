@@ -95,7 +95,7 @@ impl<F: FftField> Domain<F> {
         }
     }
 
-    pub(crate) fn divide_by_vanishing_poly(&self, poly: &DensePolynomial<F>) -> DensePolynomial<F> {
+    pub fn divide_by_vanishing_poly(&self, poly: &DensePolynomial<F>) -> DensePolynomial<F> {
         let (quotient, remainder) = if self.hiding {
             let exclude_zk_rows = poly * self.zk_rows_vanishing_poly.as_ref().unwrap();
             exclude_zk_rows.divide_by_vanishing_poly(self.domains.x1)
