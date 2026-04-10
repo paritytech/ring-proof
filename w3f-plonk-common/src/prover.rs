@@ -1,4 +1,4 @@
-use ark_ff::PrimeField;
+use ark_ff::{FftField, PrimeField};
 use ark_poly::{Evaluations, Polynomial};
 use ark_serialize::CanonicalSerialize;
 use ark_std::vec;
@@ -47,7 +47,7 @@ impl<F: PrimeField, CS: PCS<F>, T: PlonkTranscript<F, CS>> PlonkProver<F, CS, T>
         let constraint_polys = piop.constraints();
         let alphas = transcript.get_constraints_aggregation_coeffs(constraint_polys.len());
         // Aggregate constraint polynomials in evaluation form...
-        let agg_constraint_poly = Self::aggregate_evaluations(&constraint_polys, &alphas);
+        let agg_constraint_poly = aggregate_evaluations(&constraint_polys, &alphas);
         // ...and then interpolate (to save some FFTs).
         let agg_constraint_poly = agg_constraint_poly.interpolate();
         let quotient_poly = piop.domain().divide_by_vanishing_poly(&agg_constraint_poly);
@@ -82,14 +82,17 @@ impl<F: PrimeField, CS: PCS<F>, T: PlonkTranscript<F, CS>> PlonkProver<F, CS, T>
             lin_at_zeta_omega_proof,
         }
     }
+}
 
-    fn aggregate_evaluations(polys: &[Evaluations<F>], coeffs: &[F]) -> Evaluations<F> {
-        assert_eq!(coeffs.len(), polys.len());
-        polys
-            .iter()
-            .zip(coeffs.iter())
-            .map(|(p, &c)| p * c)
-            .reduce(|acc, p| &acc + &p)
-            .unwrap()
-    }
+pub fn aggregate_evaluations<F: FftField>(
+    polys: &[Evaluations<F>],
+    coeffs: &[F],
+) -> Evaluations<F> {
+    assert_eq!(coeffs.len(), polys.len());
+    polys
+        .iter()
+        .zip(coeffs.iter())
+        .map(|(p, &c)| p * c)
+        .reduce(|acc, p| &acc + &p)
+        .unwrap()
 }
