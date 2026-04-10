@@ -167,7 +167,7 @@ mod tests {
         (pcs_params, piop_params)
     }
 
-    // cargo test test_ring_proof__batch_kzg_verification --release --features="print-trace" -- --show-output
+    // cargo test test_ring_proof_batch_kzg_verification --release --features="print-trace" -- --show-output
     //
     // Batch vs sequential verification times (ms):
     //
@@ -186,7 +186,7 @@ mod tests {
     // Sequential verification scales linearly with proof count.
     // Batch verification scales sub-linearly.
     #[test]
-    fn test_ring_proof__batch_kzg_verification() {
+    fn test_ring_proof_batch_kzg_verification() {
         let batch_size: usize = 2;
         let domain_size = 2usize.pow(9);
         let (verifier, claims) = _test_ring_proof::<KZG<Bls12_381>>(domain_size, batch_size);
