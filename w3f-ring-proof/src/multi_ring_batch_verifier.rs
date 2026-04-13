@@ -15,7 +15,7 @@ use crate::ring_verifier::RingVerifier;
 use crate::RingProof;
 
 /// A ring proof preprocessed for multi-ring batch verification.
-pub struct PreparedMultiRingItem<E, J>
+pub struct BatchItem<E, J>
 where
     E: Pairing,
     J: TECurveConfig<BaseField = E::ScalarField>,
@@ -24,6 +24,54 @@ where
     proof: RingProof<E::ScalarField, KZG<E>>,
     challenges: Challenges<E::ScalarField>,
     entropy: [u8; 32],
+}
+
+impl<E, J> BatchItem<E, J>
+where
+    E: Pairing,
+    J: TECurveConfig<BaseField = E::ScalarField>,
+{
+    /// Prepares a ring proof for batch verification without accumulating it.
+    ///
+    /// The returned item is independent of both any accumulator state and
+    /// the originating `RingVerifier`, so multiple proofs (even from
+    /// different rings) can be prepared in parallel.
+    pub fn new<T>(
+        verifier: &RingVerifier<E::ScalarField, KZG<E>, J, T>,
+        proof: RingProof<E::ScalarField, KZG<E>>,
+        result: Affine<J>,
+    ) -> Self
+    where
+        T: PlonkTranscript<E::ScalarField, KZG<E>>,
+    {
+        let (challenges, mut rng) = verifier.plonk_verifier.restore_challenges(
+            &result,
+            &proof,
+            PiopVerifier::<E::ScalarField, <KZG<E> as PCS<_>>::C, Affine<J>>::N_COLUMNS + 1,
+            PiopVerifier::<E::ScalarField, <KZG<E> as PCS<_>>::C, Affine<J>>::N_CONSTRAINTS,
+        );
+        let seed = verifier.piop_params.seed;
+        let seed_plus_result = (seed + result).into_affine();
+        let domain_at_zeta = verifier.piop_params.domain.evaluate(challenges.zeta);
+        let piop = PiopVerifier::<_, _, Affine<J>>::init(
+            domain_at_zeta,
+            verifier.fixed_columns_committed.clone(),
+            proof.column_commitments.clone(),
+            proof.columns_at_zeta.clone(),
+            (seed.x, seed.y),
+            (seed_plus_result.x, seed_plus_result.y),
+        );
+
+        let mut entropy = [0_u8; 32];
+        rng.fill_bytes(&mut entropy);
+
+        Self {
+            piop,
+            proof,
+            challenges,
+            entropy,
+        }
+    }
 }
 
 /// Accumulating batch verifier for ring proofs across one or more rings.
@@ -55,54 +103,8 @@ where
         }
     }
 
-    /// Prepares a ring proof for batch verification without accumulating it.
-    ///
-    /// The returned item is independent of both the accumulator state and
-    /// the originating `RingVerifier`, so multiple proofs (even from
-    /// different rings) can be prepared in parallel.
-    pub fn prepare<J>(
-        verifier: &RingVerifier<E::ScalarField, KZG<E>, J, T>,
-        proof: RingProof<E::ScalarField, KZG<E>>,
-        result: Affine<J>,
-    ) -> PreparedMultiRingItem<E, J>
-    where
-        J: TECurveConfig<BaseField = E::ScalarField>,
-    {
-        let (challenges, mut rng) = verifier.plonk_verifier.restore_challenges(
-            &result,
-            &proof,
-            PiopVerifier::<E::ScalarField, <KZG<E> as PCS<_>>::C, Affine<J>>::N_COLUMNS + 1,
-            PiopVerifier::<E::ScalarField, <KZG<E> as PCS<_>>::C, Affine<J>>::N_CONSTRAINTS,
-        );
-        let seed = verifier.piop_params.seed;
-        let seed_plus_result = (seed + result).into_affine();
-        let domain_at_zeta = verifier.piop_params.domain.evaluate(challenges.zeta);
-        let piop = PiopVerifier::<_, _, Affine<J>>::init(
-            domain_at_zeta,
-            verifier.fixed_columns_committed.clone(),
-            proof.column_commitments.clone(),
-            proof.columns_at_zeta.clone(),
-            (seed.x, seed.y),
-            (seed_plus_result.x, seed_plus_result.y),
-        );
-
-        let mut entropy = [0_u8; 32];
-        rng.fill_bytes(&mut entropy);
-
-        PreparedMultiRingItem {
-            piop,
-            proof,
-            challenges,
-            entropy,
-        }
-    }
-
-    /// Accumulates a previously prepared proof into the batch.
-    ///
-    /// This is the second step of the two-phase batch verification workflow:
-    /// 1. `prepare` - can be parallelized across multiple proofs
-    /// 2. `push_prepared` - must be called sequentially (mutates the accumulator)
-    pub fn push_prepared<J>(&mut self, item: PreparedMultiRingItem<E, J>)
+    /// Accumulates a prepared `BatchItem` into the batch.
+    pub fn push<J>(&mut self, item: BatchItem<E, J>)
     where
         J: TECurveConfig<BaseField = E::ScalarField>,
     {
@@ -112,8 +114,15 @@ where
             .accumulate(item.piop, item.proof, item.challenges, &mut ts.to_rng());
     }
 
-    /// Adds a ring proof to the batch, preparing and accumulating it immediately.
-    pub fn push<J>(
+    /// Adds a raw ring proof to the batch.
+    ///
+    /// Equivalent to `self.push(BatchItem::new(verifier, proof, result))`:
+    /// preparation (transcript replay, challenge derivation, PIOP setup) and
+    /// accumulation happen internally. Use the two-step form directly when
+    /// preparation should be parallelized — `BatchItem::new` is independent
+    /// of the accumulator state, so multiple items can be built in parallel
+    /// and then pushed sequentially via [`push`](Self::push).
+    pub fn push_raw<J>(
         &mut self,
         verifier: &RingVerifier<E::ScalarField, KZG<E>, J, T>,
         proof: RingProof<E::ScalarField, KZG<E>>,
@@ -121,8 +130,7 @@ where
     ) where
         J: TECurveConfig<BaseField = E::ScalarField>,
     {
-        let item = Self::prepare(verifier, proof, result);
-        self.push_prepared(item);
+        self.push(BatchItem::new(verifier, proof, result));
     }
 
     /// Verifies all accumulated proofs in a single batched pairing check.

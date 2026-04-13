@@ -267,10 +267,10 @@ mod tests {
             verifier_a.plonk_verifier.transcript_prelude.clone(),
         );
         for (result, proof) in claims_a {
-            batch.push(&verifier_a, proof, result);
+            batch.push_raw(&verifier_a, proof, result);
         }
         for (result, proof) in claims_b {
-            batch.push(&verifier_b, proof, result);
+            batch.push_raw(&verifier_b, proof, result);
         }
         assert!(batch.verify());
     }
