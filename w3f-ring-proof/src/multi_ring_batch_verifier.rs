@@ -26,12 +26,10 @@ where
     entropy: [u8; 32],
 }
 
-/// Accumulating batch verifier for ring proofs across multiple rings.
+/// Accumulating batch verifier for ring proofs across one or more rings.
 ///
-/// Unlike `KzgBatchVerifier` which is tied to a single ring, this verifier
-/// accumulates proofs from different rings (keysets) into a single batched
-/// pairing check. All rings must share the same KZG SRS and the same
-/// transcript type `T`.
+/// Accumulates proofs from one or more rings (keysets) into a single batched
+/// pairing check. All rings must share the same KZG SRS.
 ///
 /// Holds its own transcript instance, cloned on each `push_prepared` so the
 /// per-proof entropy can be folded in without touching the originating
