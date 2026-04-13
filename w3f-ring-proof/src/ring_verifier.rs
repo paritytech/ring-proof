@@ -112,7 +112,7 @@ where
             self.plonk_verifier.transcript_prelude.clone(),
         );
         for (proof, result) in proofs.into_iter().zip(results) {
-            batch.push_raw(self, proof, result);
+            batch.push(self, proof, result);
         }
         batch.verify()
     }

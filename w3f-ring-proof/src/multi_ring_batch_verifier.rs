@@ -79,8 +79,8 @@ where
 /// Accumulates proofs from one or more rings (keysets) into a single batched
 /// pairing check. All rings must share the same KZG SRS.
 ///
-/// Holds its own transcript instance, cloned on each `push_prepared` so the
-/// per-proof entropy can be folded in without touching the originating
+/// Holds its own transcript instance, cloned on each `push_prepared` call so
+/// the per-proof entropy can be folded in without touching the originating
 /// `RingVerifier`. The transcript's initial state is not load-bearing; any
 /// valid `T` works (e.g. the prelude of any ring verifier being batched).
 pub struct BatchVerifier<E: Pairing, T>
@@ -103,26 +103,8 @@ where
         }
     }
 
-    /// Accumulates a prepared `BatchItem` into the batch.
-    pub fn push<J>(&mut self, item: BatchItem<E, J>)
-    where
-        J: TECurveConfig<BaseField = E::ScalarField>,
-    {
-        let mut ts = self.transcript.clone();
-        ts._add_serializable(b"batch-entropy", &item.entropy);
-        self.acc
-            .accumulate(item.piop, item.proof, item.challenges, &mut ts.to_rng());
-    }
-
-    /// Adds a raw ring proof to the batch.
-    ///
-    /// Equivalent to `self.push(BatchItem::new(verifier, proof, result))`:
-    /// preparation (transcript replay, challenge derivation, PIOP setup) and
-    /// accumulation happen internally. Use the two-step form directly when
-    /// preparation should be parallelized — `BatchItem::new` is independent
-    /// of the accumulator state, so multiple items can be built in parallel
-    /// and then pushed sequentially via [`push`](Self::push).
-    pub fn push_raw<J>(
+    /// Adds a ring proof to the batch.
+    pub fn push<J>(
         &mut self,
         verifier: &RingVerifier<E::ScalarField, KZG<E>, J, T>,
         proof: RingProof<E::ScalarField, KZG<E>>,
@@ -130,7 +112,25 @@ where
     ) where
         J: TECurveConfig<BaseField = E::ScalarField>,
     {
-        self.push(BatchItem::new(verifier, proof, result));
+        self.push_prepared(BatchItem::new(verifier, proof, result));
+    }
+
+    /// Accumulates a prepared [`BatchItem`] into the batch.
+    ///
+    /// Equivalent to [`push`](Self::push), but splits the work: the caller
+    /// builds the [`BatchItem`] (transcript replay, challenge derivation,
+    /// PIOP setup) separately from accumulation. Useful when preparation
+    /// should be parallelized. `BatchItem::new` is independent of the
+    /// accumulator state, so multiple items can be built in parallel and
+    /// then pushed sequentially here.
+    pub fn push_prepared<J>(&mut self, item: BatchItem<E, J>)
+    where
+        J: TECurveConfig<BaseField = E::ScalarField>,
+    {
+        let mut ts = self.transcript.clone();
+        ts._add_serializable(b"batch-entropy", &item.entropy);
+        self.acc
+            .accumulate(item.piop, item.proof, item.challenges, &mut ts.to_rng());
     }
 
     /// Verifies all accumulated proofs in a single batched pairing check.
