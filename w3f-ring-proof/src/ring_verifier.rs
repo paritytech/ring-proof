@@ -8,7 +8,7 @@ use w3f_plonk_common::piop::VerifierPiop;
 use w3f_plonk_common::transcript::PlonkTranscript;
 use w3f_plonk_common::verifier::PlonkVerifier;
 
-use crate::multi_ring_batch_verifier::MultiRingBatchVerifier;
+use crate::multi_ring_batch_verifier::BatchVerifier;
 use crate::piop::params::PiopParams;
 use crate::piop::{FixedColumnsCommitted, PiopVerifier, VerifierKey};
 use crate::{ArkTranscript, RingProof};
@@ -107,7 +107,7 @@ where
         proofs: Vec<RingProof<E::ScalarField, KZG<E>>>,
         results: Vec<Affine<J>>,
     ) -> bool {
-        let mut batch = MultiRingBatchVerifier::new(
+        let mut batch = BatchVerifier::new(
             self.plonk_verifier.pcs_vk.clone(),
             self.plonk_verifier.transcript_prelude.clone(),
         );

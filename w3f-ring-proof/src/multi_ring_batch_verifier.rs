@@ -83,7 +83,7 @@ where
 /// per-proof entropy can be folded in without touching the originating
 /// `RingVerifier`. The transcript's initial state is not load-bearing; any
 /// valid `T` works (e.g. the prelude of any ring verifier being batched).
-pub struct MultiRingBatchVerifier<E: Pairing, T>
+pub struct BatchVerifier<E: Pairing, T>
 where
     T: PlonkTranscript<E::ScalarField, KZG<E>>,
 {
@@ -91,7 +91,7 @@ where
     transcript: T,
 }
 
-impl<E: Pairing, T> MultiRingBatchVerifier<E, T>
+impl<E: Pairing, T> BatchVerifier<E, T>
 where
     T: PlonkTranscript<E::ScalarField, KZG<E>>,
 {
