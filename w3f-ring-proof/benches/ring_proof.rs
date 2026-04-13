@@ -195,6 +195,9 @@ fn bench_verify_batch_kzg(c: &mut Criterion) {
         .map(|_| generate_proof(&piop_params, &pcs_params, &pks, rng))
         .collect();
 
+    let (_, verifier_key) = index::<_, CS, _>(&pcs_params, &piop_params, &pks);
+    let verifier = RingVerifier::init(verifier_key, piop_params, make_transcript());
+
     for batch_size in [1, 4, 16, 32] {
         let (results, proofs): (Vec<_>, Vec<_>) = claims[..batch_size].iter().cloned().unzip();
 
@@ -202,15 +205,9 @@ fn bench_verify_batch_kzg(c: &mut Criterion) {
             BenchmarkId::new("kzg_accumulator", batch_size),
             &batch_size,
             |b, _| {
-                // Recreate verifier each iteration since verify_batch_kzg consumes self.
                 b.iter_batched(
-                    || {
-                        let (_, vk) = index::<_, CS, _>(&pcs_params, &piop_params, &pks);
-                        let verifier =
-                            RingVerifier::init(vk, piop_params.clone(), make_transcript());
-                        (verifier, proofs.clone(), results.clone())
-                    },
-                    |(verifier, proofs, results)| verifier.verify_batch_kzg(proofs, results),
+                    || (proofs.clone(), results.clone()),
+                    |(proofs, results)| verifier.verify_batch_kzg(proofs, results),
                     BatchSize::LargeInput,
                 );
             },
