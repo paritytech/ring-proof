@@ -15,16 +15,11 @@ use crate::ring_verifier::RingVerifier;
 use crate::RingProof;
 
 /// A ring proof preprocessed for multi-ring batch verification.
-///
-/// Holds a reference to the `RingVerifier` that was used during preparation,
-/// so that `push_prepared` can access the correct ring's transcript prelude.
-pub struct PreparedMultiRingItem<'a, E, J, T>
+pub struct PreparedMultiRingItem<E, J>
 where
     E: Pairing,
     J: TECurveConfig<BaseField = E::ScalarField>,
-    T: PlonkTranscript<E::ScalarField, KZG<E>>,
 {
-    verifier: &'a RingVerifier<E::ScalarField, KZG<E>, J, T>,
     piop: PiopVerifier<E::ScalarField, <KZG<E> as PCS<E::ScalarField>>::C, Affine<J>>,
     proof: RingProof<E::ScalarField, KZG<E>>,
     challenges: Challenges<E::ScalarField>,
@@ -33,36 +28,47 @@ where
 
 /// Accumulating batch verifier for ring proofs across multiple rings.
 ///
-/// Unlike `KzgBatchVerifier` which is tied to a single ring,
-/// this verifier can accumulate proofs from different rings (keysets)
-/// into a single batched pairing check.
+/// Unlike `KzgBatchVerifier` which is tied to a single ring, this verifier
+/// accumulates proofs from different rings (keysets) into a single batched
+/// pairing check. All rings must share the same KZG SRS and the same
+/// transcript type `T`.
 ///
-/// All rings must share the same KZG SRS (same `KzgVerifierKey`).
-pub struct MultiRingBatchVerifier<E: Pairing> {
+/// Holds its own transcript instance, cloned on each `push_prepared` so the
+/// per-proof entropy can be folded in without touching the originating
+/// `RingVerifier`. The transcript's initial state is not load-bearing; any
+/// valid `T` works (e.g. the prelude of any ring verifier being batched).
+pub struct MultiRingBatchVerifier<E: Pairing, T>
+where
+    T: PlonkTranscript<E::ScalarField, KZG<E>>,
+{
     acc: KzgAccumulator<E>,
+    transcript: T,
 }
 
-impl<E: Pairing> MultiRingBatchVerifier<E> {
+impl<E: Pairing, T> MultiRingBatchVerifier<E, T>
+where
+    T: PlonkTranscript<E::ScalarField, KZG<E>>,
+{
     /// Creates a new multi-ring batch verifier.
-    pub fn new(kzg_vk: KzgVerifierKey<E>) -> Self {
+    pub fn new(kzg_vk: KzgVerifierKey<E>, transcript: T) -> Self {
         Self {
             acc: KzgAccumulator::<E>::new(kzg_vk),
+            transcript,
         }
     }
 
     /// Prepares a ring proof for batch verification without accumulating it.
     ///
-    /// The returned item holds a reference to the `verifier` and is independent
-    /// of the accumulator state, so multiple proofs (even from different rings)
-    /// can be prepared in parallel.
-    pub fn prepare<'a, J, T>(
-        verifier: &'a RingVerifier<E::ScalarField, KZG<E>, J, T>,
+    /// The returned item is independent of both the accumulator state and
+    /// the originating `RingVerifier`, so multiple proofs (even from
+    /// different rings) can be prepared in parallel.
+    pub fn prepare<J>(
+        verifier: &RingVerifier<E::ScalarField, KZG<E>, J, T>,
         proof: RingProof<E::ScalarField, KZG<E>>,
         result: Affine<J>,
-    ) -> PreparedMultiRingItem<'a, E, J, T>
+    ) -> PreparedMultiRingItem<E, J>
     where
         J: TECurveConfig<BaseField = E::ScalarField>,
-        T: PlonkTranscript<E::ScalarField, KZG<E>>,
     {
         let (challenges, mut rng) = verifier.plonk_verifier.restore_challenges(
             &result,
@@ -86,7 +92,6 @@ impl<E: Pairing> MultiRingBatchVerifier<E> {
         rng.fill_bytes(&mut entropy);
 
         PreparedMultiRingItem {
-            verifier,
             piop,
             proof,
             challenges,
@@ -99,26 +104,24 @@ impl<E: Pairing> MultiRingBatchVerifier<E> {
     /// This is the second step of the two-phase batch verification workflow:
     /// 1. `prepare` - can be parallelized across multiple proofs
     /// 2. `push_prepared` - must be called sequentially (mutates the accumulator)
-    pub fn push_prepared<J, T>(&mut self, item: PreparedMultiRingItem<'_, E, J, T>)
+    pub fn push_prepared<J>(&mut self, item: PreparedMultiRingItem<E, J>)
     where
         J: TECurveConfig<BaseField = E::ScalarField>,
-        T: PlonkTranscript<E::ScalarField, KZG<E>>,
     {
-        let mut ts = item.verifier.plonk_verifier.transcript_prelude.clone();
+        let mut ts = self.transcript.clone();
         ts._add_serializable(b"batch-entropy", &item.entropy);
         self.acc
             .accumulate(item.piop, item.proof, item.challenges, &mut ts.to_rng());
     }
 
     /// Adds a ring proof to the batch, preparing and accumulating it immediately.
-    pub fn push<J, T>(
+    pub fn push<J>(
         &mut self,
         verifier: &RingVerifier<E::ScalarField, KZG<E>, J, T>,
         proof: RingProof<E::ScalarField, KZG<E>>,
         result: Affine<J>,
     ) where
         J: TECurveConfig<BaseField = E::ScalarField>,
-        T: PlonkTranscript<E::ScalarField, KZG<E>>,
     {
         let item = Self::prepare(verifier, proof, result);
         self.push_prepared(item);

@@ -262,7 +262,10 @@ mod tests {
 
         // Multi-ring batch verification
         use crate::multi_ring_batch_verifier::MultiRingBatchVerifier;
-        let mut batch = MultiRingBatchVerifier::new(verifier_a.pcs_vk().clone());
+        let mut batch = MultiRingBatchVerifier::new(
+            verifier_a.pcs_vk().clone(),
+            verifier_a.plonk_verifier.transcript_prelude.clone(),
+        );
         for (result, proof) in claims_a {
             batch.push(&verifier_a, proof, result);
         }
