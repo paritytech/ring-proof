@@ -101,7 +101,7 @@ where
     T: PlonkTranscript<E::ScalarField, KZG<E>>,
 {
     /// Verifies a batch of proofs against this ring in a single batched
-    /// pairing check, using a `MultiRingBatchVerifier` under the hood.
+    /// pairing check, using a [`BatchVerifier`] under the hood.
     pub fn verify_batch_kzg(
         &self,
         proofs: Vec<RingProof<E::ScalarField, KZG<E>>>,

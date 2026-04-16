@@ -81,8 +81,10 @@ where
 ///
 /// Holds its own transcript instance, cloned on each `push_prepared` call so
 /// the per-proof entropy can be folded in without touching the originating
-/// `RingVerifier`. The transcript's initial state is not load-bearing; any
-/// valid `T` works (e.g. the prelude of any ring verifier being batched).
+/// `RingVerifier`. Per-proof independence is ensured by the entropy derived
+/// during preparation (which absorbs the full proof via the per-ring
+/// transcript), so the base transcript only needs to be deterministic, not
+/// proof-specific.
 pub struct BatchVerifier<E: Pairing, T>
 where
     T: PlonkTranscript<E::ScalarField, KZG<E>>,
