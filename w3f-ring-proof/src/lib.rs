@@ -51,7 +51,10 @@ impl ArkTranscript {
     }
 }
 
-pub fn test_setup<R: Rng, F: PrimeField, CS: PCS<F>, G: SWCurveConfig<BaseField=F>>(rng: &mut R, domain_size: usize) -> (CS::Params, PiopParams<F, G>) {
+pub fn test_setup<R: Rng, F: PrimeField, CS: PCS<F>, G: SWCurveConfig<BaseField = F>>(
+    rng: &mut R,
+    domain_size: usize,
+) -> (CS::Params, PiopParams<F, G>) {
     let setup_degree = 3 * domain_size;
     let pcs_params = CS::setup(setup_degree, rng);
     let domain = Domain::new(domain_size, true);
@@ -66,7 +69,7 @@ pub fn test_setup<R: Rng, F: PrimeField, CS: PCS<F>, G: SWCurveConfig<BaseField=
 mod tests {
     use ark_bls12_381::Bls12_381;
     use ark_ec::CurveGroup;
-    use ark_ed_on_bls12_381_bandersnatch::{BandersnatchConfig, SWAffine, Fq, Fr};
+    use ark_ed_on_bls12_381_bandersnatch::{BandersnatchConfig, Fq, Fr, SWAffine};
     use ark_std::ops::Mul;
     use ark_std::rand::Rng;
     use ark_std::{end_timer, start_timer, test_rng, UniformRand};

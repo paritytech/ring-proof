@@ -96,8 +96,8 @@ impl<F: PrimeField, C: Commitment<F>> FixedColumnsCommitted<F, C> {
     }
 }
 
-impl<F: PrimeField, C: AffineRepr<ScalarField=F>> FixedColumnsCommitted<F, WrappedAffine<C>> {
-    pub fn from_ring<E: Pairing<ScalarField=F, G1Affine=C>, G: SWCurveConfig<BaseField = F>>(
+impl<F: PrimeField, C: AffineRepr<ScalarField = F>> FixedColumnsCommitted<F, WrappedAffine<C>> {
+    pub fn from_ring<E: Pairing<ScalarField = F, G1Affine = C>, G: SWCurveConfig<BaseField = F>>(
         ring: &Ring<F, E, G>,
     ) -> Self {
         let cx = WrappedAffine(ring.cx);
