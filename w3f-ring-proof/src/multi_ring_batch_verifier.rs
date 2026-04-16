@@ -1,5 +1,5 @@
 use ark_ec::pairing::Pairing;
-use ark_ec::twisted_edwards::{Affine, TECurveConfig};
+use ark_ec::short_weierstrass::{Affine, SWCurveConfig};
 use ark_ec::CurveGroup;
 use ark_std::rand::RngCore;
 use w3f_pcs::pcs::kzg::params::KzgVerifierKey;
@@ -18,7 +18,7 @@ use crate::RingProof;
 pub struct BatchItem<E, J>
 where
     E: Pairing,
-    J: TECurveConfig<BaseField = E::ScalarField>,
+    J: SWCurveConfig<BaseField = E::ScalarField>,
 {
     piop: PiopVerifier<E::ScalarField, <KZG<E> as PCS<E::ScalarField>>::C, Affine<J>>,
     proof: RingProof<E::ScalarField, KZG<E>>,
@@ -29,7 +29,7 @@ where
 impl<E, J> BatchItem<E, J>
 where
     E: Pairing,
-    J: TECurveConfig<BaseField = E::ScalarField>,
+    J: SWCurveConfig<BaseField = E::ScalarField>,
 {
     /// Prepares a ring proof for batch verification without accumulating it.
     ///
@@ -112,7 +112,7 @@ where
         proof: RingProof<E::ScalarField, KZG<E>>,
         result: Affine<J>,
     ) where
-        J: TECurveConfig<BaseField = E::ScalarField>,
+        J: SWCurveConfig<BaseField = E::ScalarField>,
     {
         self.push_prepared(BatchItem::new(verifier, proof, result));
     }
@@ -127,7 +127,7 @@ where
     /// then pushed sequentially here.
     pub fn push_prepared<J>(&mut self, item: BatchItem<E, J>)
     where
-        J: TECurveConfig<BaseField = E::ScalarField>,
+        J: SWCurveConfig<BaseField = E::ScalarField>,
     {
         let mut ts = self.transcript.clone();
         ts._add_serializable(b"batch-entropy", &item.entropy);

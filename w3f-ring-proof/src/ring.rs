@@ -1,5 +1,5 @@
 use ark_ec::pairing::Pairing;
-use ark_ec::twisted_edwards::{Affine, TECurveConfig};
+use ark_ec::short_weierstrass::{Affine, SWCurveConfig};
 use ark_ec::{AffineRepr, CurveGroup, VariableBaseMSM};
 use ark_ff::PrimeField;
 use ark_poly::EvaluationDomain;
@@ -36,7 +36,7 @@ const IDLE_ROWS: usize = ZK_ROWS + 1;
 pub struct Ring<
     F: PrimeField,
     KzgCurve: Pairing<ScalarField = F>,
-    VrfCurveConfig: TECurveConfig<BaseField = F>,
+    VrfCurveConfig: SWCurveConfig<BaseField = F>,
 > {
     /// KZG commitment to the x coordinates of the described vector.
     pub cx: KzgCurve::G1Affine,
@@ -55,7 +55,7 @@ pub struct Ring<
 impl<
         F: PrimeField,
         KzgCurve: Pairing<ScalarField = F>,
-        VrfCurveConfig: TECurveConfig<BaseField = F>,
+        VrfCurveConfig: SWCurveConfig<BaseField = F>,
     > fmt::Debug for Ring<F, KzgCurve, VrfCurveConfig>
 {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
@@ -70,7 +70,7 @@ impl<
 impl<
         F: PrimeField,
         KzgCurve: Pairing<ScalarField = F>,
-        VrfCurveConfig: TECurveConfig<BaseField = F>,
+        VrfCurveConfig: SWCurveConfig<BaseField = F>,
     > Ring<F, KzgCurve, VrfCurveConfig>
 {
     /// Builds the commitment to the vector
@@ -257,7 +257,7 @@ impl<F: PrimeField, KzgCurve: Pairing<ScalarField = F>> RingBuilderKey<F, KzgCur
 #[cfg(test)]
 mod tests {
     use ark_bls12_381::{Bls12_381, Fr, G1Affine};
-    use ark_ed_on_bls12_381_bandersnatch::{BandersnatchConfig, EdwardsAffine};
+    use ark_ed_on_bls12_381_bandersnatch::{BandersnatchConfig, SWAffine};
     use ark_std::{test_rng, UniformRand};
     use w3f_pcs::pcs::kzg::urs::URS;
     use w3f_pcs::pcs::kzg::KZG;
@@ -284,9 +284,9 @@ mod tests {
         let srs = |range: Range<usize>| Ok(ring_builder_key.lis_in_g1[range].to_vec());
 
         // piop params
-        let h = EdwardsAffine::rand(rng);
-        let seed = EdwardsAffine::rand(rng);
-        let padding = EdwardsAffine::rand(rng);
+        let h = SWAffine::rand(rng);
+        let seed = SWAffine::rand(rng);
+        let padding = SWAffine::rand(rng);
         let domain = Domain::new(domain_size, true);
         let piop_params = PiopParams::setup(domain, h, seed, padding);
 
@@ -295,7 +295,7 @@ mod tests {
         assert_eq!(ring.cx, monimial_cx);
         assert_eq!(ring.cy, monimial_cy);
 
-        let keys = random_vec::<EdwardsAffine, _>(ring.max_keys, rng);
+        let keys = random_vec::<SWAffine, _>(ring.max_keys, rng);
         ring.append(&keys, srs);
         let (monimial_cx, monimial_cy) = get_monomial_commitment(&pcs_params, &piop_params, &keys);
         assert_eq!(ring.cx, monimial_cx);
@@ -316,9 +316,9 @@ mod tests {
         let srs = |range: Range<usize>| Ok(ring_builder_key.lis_in_g1[range].to_vec());
 
         // piop params
-        let h = EdwardsAffine::rand(rng);
-        let seed = EdwardsAffine::rand(rng);
-        let padding = EdwardsAffine::rand(rng);
+        let h = SWAffine::rand(rng);
+        let seed = SWAffine::rand(rng);
+        let padding = SWAffine::rand(rng);
         let domain = Domain::new(domain_size, true);
         let piop_params = PiopParams::setup(domain, h, seed, padding);
 
@@ -330,7 +330,7 @@ mod tests {
     fn get_monomial_commitment(
         pcs_params: &URS<Bls12_381>,
         piop_params: &PiopParams<Fr, BandersnatchConfig>,
-        keys: &[EdwardsAffine],
+        keys: &[SWAffine],
     ) -> (G1Affine, G1Affine) {
         let (_, verifier_key) =
             crate::piop::index::<_, KZG<Bls12_381>, _>(pcs_params, piop_params, keys);

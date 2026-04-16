@@ -1,5 +1,5 @@
 use ark_ec::pairing::Pairing;
-use ark_ec::twisted_edwards::{Affine, TECurveConfig};
+use ark_ec::short_weierstrass::{Affine, SWCurveConfig};
 use ark_ec::CurveGroup;
 use ark_ff::PrimeField;
 use w3f_pcs::pcs::kzg::KZG;
@@ -18,7 +18,7 @@ pub struct RingVerifier<F, CS, Jubjub, T = ArkTranscript>
 where
     F: PrimeField,
     CS: PCS<F>,
-    Jubjub: TECurveConfig<BaseField = F>,
+    Jubjub: SWCurveConfig<BaseField = F>,
     T: PlonkTranscript<F, CS>,
 {
     pub(crate) piop_params: PiopParams<F, Jubjub>,
@@ -30,7 +30,7 @@ impl<F, CS, Jubjub, T> RingVerifier<F, CS, Jubjub, T>
 where
     F: PrimeField,
     CS: PCS<F>,
-    Jubjub: TECurveConfig<BaseField = F>,
+    Jubjub: SWCurveConfig<BaseField = F>,
     T: PlonkTranscript<F, CS>,
 {
     pub fn init(
@@ -97,7 +97,7 @@ where
 impl<E, J, T> RingVerifier<E::ScalarField, KZG<E>, J, T>
 where
     E: Pairing,
-    J: TECurveConfig<BaseField = E::ScalarField>,
+    J: SWCurveConfig<BaseField = E::ScalarField>,
     T: PlonkTranscript<E::ScalarField, KZG<E>>,
 {
     /// Verifies a batch of proofs against this ring in a single batched

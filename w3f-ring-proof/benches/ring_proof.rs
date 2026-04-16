@@ -2,7 +2,7 @@ use criterion::{criterion_group, criterion_main, BatchSize, BenchmarkId, Criteri
 
 use ark_bls12_381::Bls12_381;
 use ark_ec::CurveGroup;
-use ark_ed_on_bls12_381_bandersnatch::{BandersnatchConfig, EdwardsAffine, Fq, Fr};
+use ark_ed_on_bls12_381_bandersnatch::{BandersnatchConfig, Fq, Fr, SWAffine};
 use ark_serialize::CanonicalSerialize;
 use ark_std::ops::Mul;
 use ark_std::rand::Rng;
@@ -25,9 +25,9 @@ fn setup(
     let setup_degree = 3 * domain_size;
     let pcs_params = CS::setup(setup_degree, rng);
     let domain = Domain::new(domain_size, true);
-    let h = EdwardsAffine::rand(rng);
-    let seed = EdwardsAffine::rand(rng);
-    let padding = EdwardsAffine::rand(rng);
+    let h = SWAffine::rand(rng);
+    let seed = SWAffine::rand(rng);
+    let padding = SWAffine::rand(rng);
     let piop_params = PiopParams::setup(domain, h, seed, padding);
     (pcs_params, piop_params)
 }
@@ -37,7 +37,7 @@ fn make_transcript() -> ArkTranscript {
 }
 
 /// Get the Pedersen blinding base H from the PIOP params (first element of the power-of-2 multiples).
-fn get_h(piop_params: &PiopParams<Fq, BandersnatchConfig>) -> EdwardsAffine {
+fn get_h(piop_params: &PiopParams<Fq, BandersnatchConfig>) -> SWAffine {
     piop_params.power_of_2_multiples_of_h()[0]
 }
 
@@ -45,9 +45,9 @@ fn get_h(piop_params: &PiopParams<Fq, BandersnatchConfig>) -> EdwardsAffine {
 fn generate_proof(
     piop_params: &PiopParams<Fq, BandersnatchConfig>,
     pcs_params: &<CS as PCS<Fq>>::Params,
-    pks: &[EdwardsAffine],
+    pks: &[SWAffine],
     rng: &mut impl Rng,
-) -> (EdwardsAffine, RingProof<Fq, CS>) {
+) -> (SWAffine, RingProof<Fq, CS>) {
     let h = get_h(piop_params);
     let prover_idx = rng.gen_range(0..pks.len());
     let (prover_key, _) = index::<_, CS, _>(pcs_params, piop_params, pks);
@@ -86,7 +86,7 @@ fn bench_index(c: &mut Criterion) {
         let n = 1usize << log_n;
         let (pcs_params, piop_params) = setup(rng, n);
         let keyset_size = piop_params.keyset_part_size;
-        let pks = random_vec::<EdwardsAffine, _>(keyset_size, rng);
+        let pks = random_vec::<SWAffine, _>(keyset_size, rng);
 
         group.bench_with_input(BenchmarkId::new("full_keyset", n), &n, |b, _| {
             b.iter(|| index::<_, CS, _>(&pcs_params, &piop_params, &pks));
@@ -104,7 +104,7 @@ fn bench_prove(c: &mut Criterion) {
         let n = 1usize << log_n;
         let (pcs_params, piop_params) = setup(rng, n);
         let keyset_size = piop_params.keyset_part_size;
-        let pks = random_vec::<EdwardsAffine, _>(keyset_size, rng);
+        let pks = random_vec::<SWAffine, _>(keyset_size, rng);
         let (prover_key, _) = index::<_, CS, _>(&pcs_params, &piop_params, &pks);
 
         let prover_idx = rng.gen_range(0..keyset_size);
@@ -132,7 +132,7 @@ fn bench_verify(c: &mut Criterion) {
         let n = 1usize << log_n;
         let (pcs_params, piop_params) = setup(rng, n);
         let keyset_size = piop_params.keyset_part_size;
-        let pks = random_vec::<EdwardsAffine, _>(keyset_size, rng);
+        let pks = random_vec::<SWAffine, _>(keyset_size, rng);
 
         let (blinded_pk, proof) = generate_proof(&piop_params, &pcs_params, &pks, rng);
         let (_, verifier_key) = index::<_, CS, _>(&pcs_params, &piop_params, &pks);
@@ -154,11 +154,11 @@ fn bench_verify_batch_sequential(c: &mut Criterion) {
     let n = 1usize << log_n;
     let (pcs_params, piop_params) = setup(rng, n);
     let keyset_size = piop_params.keyset_part_size;
-    let pks = random_vec::<EdwardsAffine, _>(keyset_size, rng);
+    let pks = random_vec::<SWAffine, _>(keyset_size, rng);
 
     // Pre-generate proofs for the largest batch.
     let max_batch = 32;
-    let claims: Vec<(EdwardsAffine, RingProof<Fq, CS>)> = (0..max_batch)
+    let claims: Vec<(SWAffine, RingProof<Fq, CS>)> = (0..max_batch)
         .map(|_| generate_proof(&piop_params, &pcs_params, &pks, rng))
         .collect();
 
@@ -188,10 +188,10 @@ fn bench_verify_batch_kzg(c: &mut Criterion) {
     let n = 1usize << log_n;
     let (pcs_params, piop_params) = setup(rng, n);
     let keyset_size = piop_params.keyset_part_size;
-    let pks = random_vec::<EdwardsAffine, _>(keyset_size, rng);
+    let pks = random_vec::<SWAffine, _>(keyset_size, rng);
 
     let max_batch = 32;
-    let claims: Vec<(EdwardsAffine, RingProof<Fq, CS>)> = (0..max_batch)
+    let claims: Vec<(SWAffine, RingProof<Fq, CS>)> = (0..max_batch)
         .map(|_| generate_proof(&piop_params, &pcs_params, &pks, rng))
         .collect();
 
@@ -224,7 +224,7 @@ fn bench_proof_size(c: &mut Criterion) {
     let n = 1usize << 10;
     let (pcs_params, piop_params) = setup(rng, n);
     let keyset_size = piop_params.keyset_part_size;
-    let pks = random_vec::<EdwardsAffine, _>(keyset_size, rng);
+    let pks = random_vec::<SWAffine, _>(keyset_size, rng);
 
     let (_, proof) = generate_proof(&piop_params, &pcs_params, &pks, rng);
 
