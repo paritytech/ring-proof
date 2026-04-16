@@ -1,7 +1,6 @@
 use ark_ec::pairing::Pairing;
 use ark_ec::twisted_edwards::{Affine, TECurveConfig};
 use ark_ec::CurveGroup;
-use ark_std::rand::RngCore;
 use w3f_pcs::pcs::kzg::params::KzgVerifierKey;
 use w3f_pcs::pcs::kzg::KZG;
 use w3f_pcs::pcs::PCS;
@@ -14,7 +13,7 @@ use crate::piop::PiopVerifier;
 use crate::ring_verifier::RingVerifier;
 use crate::RingProof;
 
-/// A ring proof preprocessed for multi-ring batch verification.
+/// A prepared batch item.
 pub struct BatchItem<E, J>
 where
     E: Pairing,
@@ -23,7 +22,7 @@ where
     piop: PiopVerifier<E::ScalarField, <KZG<E> as PCS<E::ScalarField>>::C, Affine<J>>,
     proof: RingProof<E::ScalarField, KZG<E>>,
     challenges: Challenges<E::ScalarField>,
-    entropy: [u8; 32],
+    r: E::ScalarField,
 }
 
 impl<E, J> BatchItem<E, J>
@@ -62,14 +61,14 @@ where
             (seed_plus_result.x, seed_plus_result.y),
         );
 
-        let mut entropy = [0_u8; 32];
-        rng.fill_bytes(&mut entropy);
+        use ark_std::UniformRand;
+        let r = E::ScalarField::rand(&mut rng);
 
         Self {
             piop,
             proof,
             challenges,
-            entropy,
+            r,
         }
     }
 }
@@ -79,36 +78,25 @@ where
 /// Accumulates proofs from one or more rings (keysets) into a single batched
 /// pairing check. All rings must share the same KZG SRS.
 ///
-/// Holds its own transcript instance, cloned on each `push_prepared` call so
-/// the per-proof entropy can be folded in without touching the originating
-/// `RingVerifier`. Per-proof independence is ensured by the entropy derived
-/// during preparation (which absorbs the full proof via the per-ring
-/// transcript), so the base transcript only needs to be deterministic, not
-/// proof-specific.
-pub struct BatchVerifier<E: Pairing, T>
-where
-    T: PlonkTranscript<E::ScalarField, KZG<E>>,
-{
+/// Per-proof independence is ensured by the accumulation randomizer derived
+/// during [`BatchItem`] preparation (which replays the full proof transcript
+/// via the per-ring verifier).
+pub struct BatchVerifier<E: Pairing> {
     acc: KzgAccumulator<E>,
-    transcript: T,
 }
 
-impl<E: Pairing, T> BatchVerifier<E, T>
-where
-    T: PlonkTranscript<E::ScalarField, KZG<E>>,
-{
+impl<E: Pairing> BatchVerifier<E> {
     /// Creates a new multi-ring batch verifier.
-    pub fn new(kzg_vk: KzgVerifierKey<E>, transcript: T) -> Self {
+    pub fn new(kzg_vk: KzgVerifierKey<E>) -> Self {
         Self {
             acc: KzgAccumulator::<E>::new(kzg_vk),
-            transcript,
         }
     }
 
     /// Adds a ring proof to the batch.
     pub fn push<J>(
         &mut self,
-        verifier: &RingVerifier<E::ScalarField, KZG<E>, J, T>,
+        verifier: &RingVerifier<E::ScalarField, KZG<E>, J>,
         proof: RingProof<E::ScalarField, KZG<E>>,
         result: Affine<J>,
     ) where
@@ -129,10 +117,8 @@ where
     where
         J: TECurveConfig<BaseField = E::ScalarField>,
     {
-        let mut ts = self.transcript.clone();
-        ts._add_serializable(b"batch-entropy", &item.entropy);
         self.acc
-            .accumulate(item.piop, item.proof, item.challenges, &mut ts.to_rng());
+            .accumulate_with_r(item.piop, item.proof, item.challenges, item.r);
     }
 
     /// Verifies all accumulated proofs in a single batched pairing check.

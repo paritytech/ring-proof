@@ -94,11 +94,10 @@ where
     }
 }
 
-impl<E, J, T> RingVerifier<E::ScalarField, KZG<E>, J, T>
+impl<E, J> RingVerifier<E::ScalarField, KZG<E>, J>
 where
     E: Pairing,
     J: TECurveConfig<BaseField = E::ScalarField>,
-    T: PlonkTranscript<E::ScalarField, KZG<E>>,
 {
     /// Verifies a batch of proofs against this ring in a single batched
     /// pairing check, using a [`BatchVerifier`] under the hood.
@@ -107,10 +106,7 @@ where
         proofs: Vec<RingProof<E::ScalarField, KZG<E>>>,
         results: Vec<Affine<J>>,
     ) -> bool {
-        let mut batch = BatchVerifier::new(
-            self.plonk_verifier.pcs_vk.clone(),
-            self.plonk_verifier.transcript_prelude.clone(),
-        );
+        let mut batch = BatchVerifier::new(self.plonk_verifier.pcs_vk.clone());
         for (proof, result) in proofs.into_iter().zip(results) {
             batch.push(self, proof, result);
         }

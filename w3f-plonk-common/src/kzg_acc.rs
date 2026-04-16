@@ -62,13 +62,17 @@ impl<E: Pairing> KzgAccumulator<E> {
     // `Ci = ai_1.Ci_1 + ... + ai_ni.Ci_ni, i = 1,...,k`,
     // `acc` is a `1+k+(n1+...+nk)`-MSM.
 
-    /// Accumulates
-    pub fn accumulate<F, Piop, Commitments, Evaluations, R: Rng>(
+    /// Accumulates a proof into the KZG opening batch using the given randomizer `r`.
+    ///
+    /// Like [`accumulate`](Self::accumulate), but takes an explicit randomizer
+    /// instead of sampling one internally. Useful when `r` is derived from an
+    /// external source (e.g. a Fiat-Shamir transcript managed by the caller).
+    pub fn accumulate_with_r<F, Piop, Commitments, Evaluations>(
         &mut self,
         piop: Piop,
         proof: Proof<F, KZG<E>, Commitments, Evaluations>,
         challenges: Challenges<F>,
-        rng: &mut R,
+        r: F,
     ) where
         F: PrimeField,
         E: Pairing<ScalarField = F>,
@@ -76,7 +80,6 @@ impl<E: Pairing> KzgAccumulator<E> {
         Commitments: ColumnsCommited<F, <KZG<E> as PCS<F>>::C>,
         Evaluations: ColumnsEvaluated<F>,
     {
-        let r = F::rand(rng);
         let r2 = r.square();
         let zeta = challenges.zeta;
 
@@ -131,6 +134,23 @@ impl<E: Pairing> KzgAccumulator<E> {
         self.kzg_proofs.push(proof.lin_at_zeta_omega_proof);
         self.randomizers.push(r);
         self.randomizers.push(r2);
+    }
+
+    /// Accumulates a proof into the KZG opening batch, sampling the randomizer from `rng`.
+    pub fn accumulate<F, Piop, Commitments, Evaluations, R: Rng>(
+        &mut self,
+        piop: Piop,
+        proof: Proof<F, KZG<E>, Commitments, Evaluations>,
+        challenges: Challenges<F>,
+        rng: &mut R,
+    ) where
+        F: PrimeField,
+        E: Pairing<ScalarField = F>,
+        Piop: VerifierPiop<F, <KZG<E> as PCS<F>>::C>,
+        Commitments: ColumnsCommited<F, <KZG<E> as PCS<F>>::C>,
+        Evaluations: ColumnsEvaluated<F>,
+    {
+        self.accumulate_with_r(piop, proof, challenges, F::rand(rng));
     }
 
     pub fn verify(&self) -> bool {
