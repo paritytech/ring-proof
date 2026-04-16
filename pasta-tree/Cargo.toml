@@ -23,6 +23,7 @@ ark-serialize.workspace = true
 rayon = { workspace = true, optional = true }
 
 [dev-dependencies]
+ark-bls12-381.workspace = true
 criterion.workspace = true
 
 [features]
