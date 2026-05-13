@@ -8,18 +8,20 @@ members = [
 ]
 
 [workspace.dependencies]
-ark-std = { version = "0.5", default-features = false }
-ark-ff = { version = "0.5", default-features = false }
-ark-ec = { version = "0.5", default-features = false }
-ark-poly = { version = "0.5", default-features = false }
-ark-serialize = { version = "0.5", default-features = false, features = ["derive"] }
-w3f-pcs = { version = "0.0.5", default-features = false }
-w3f-plonk-common = { version = "0.0.7", default-features = false }
+ark-std = { version = "0.6", default-features = false }
+ark-ff = { version = "0.6", default-features = false }
+ark-ec = { version = "0.6", default-features = false }
+ark-poly = { version = "0.6", default-features = false }
+ark-serialize = { version = "0.6", default-features = false, features = ["derive"] }
+# TODO: switch back to crates.io once w3f-pcs 0.0.6 is published with arkworks 0.6 support.
+w3f-pcs = { git = "https://github.com/paritytech/fflonk", branch = "bump-arkworks-version", default-features = false }
+w3f-plonk-common = { version = "0.0.7", path = "w3f-plonk-common", default-features = false }
 rayon = { version = "1", default-features = false }
-ark-transcript = { version = "0.0.3", default-features = false }
+# TODO: switch back to crates.io once ark-transcript is published with arkworks 0.6 support.
+ark-transcript = { git = "https://github.com/paritytech/ark-transcript", branch = "bump-arkworks-version", default-features = false }
 blake2 = { version = "0.10", default-features = false }
-ark-bls12-381 = { version = "0.5", default-features = false, features = ["curve"] }
-ark-ed-on-bls12-381-bandersnatch = { version = "0.5", default-features = false }
+ark-bls12-381 = { version = "0.6", default-features = false, features = ["curve"] }
+ark-ed-on-bls12-381-bandersnatch = { version = "0.6", default-features = false }
 criterion = { version = "0.5", features = ["html_reports"] }
 getrandom_or_panic = { version = "0.0.3", default-features = false }
 rand_core = "0.6"
