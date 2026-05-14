@@ -88,6 +88,9 @@ fn is_in_correct_subgroup_assuming_on_curve<E: Pairing>(p: &E::G1Affine) -> bool
     p.mul_bigint(r).is_zero()
 }
 
+/// Vanilla plonk proof:
+/// - column and quotient polynomials are opened in a single point `zeta`
+/// - the linearization polynomial is opened in another (shifted) point `zeta * omega`
 #[derive(Clone, CanonicalSerialize, CanonicalDeserialize)]
 pub struct Proof<F, CS, Commitments, Evaluations>
 where
@@ -102,4 +105,19 @@ where
     pub lin_at_zeta_omega: F,
     pub agg_at_zeta_proof: CS::Proof,
     pub lin_at_zeta_omega_proof: CS::Proof,
+}
+
+/// Same as `Proof` but excluding the PCS opening.
+#[derive(Clone, CanonicalSerialize, CanonicalDeserialize)]
+pub struct PlonkProof<F, C, Commitments, Evaluations>
+where
+    F: PrimeField,
+    C: Commitment<F>,
+    Commitments: ColumnsCommited<F, C>,
+    Evaluations: ColumnsEvaluated<F>,
+{
+    pub column_commitments: Commitments,
+    pub columns_at_zeta: Evaluations,
+    pub quotient_commitment: C,
+    pub lin_at_zeta_omega: F,
 }
