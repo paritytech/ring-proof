@@ -72,12 +72,14 @@ pub fn const_evals<F: FftField>(c: F, domain: GeneralEvaluationDomain<F>) -> Eva
     Evaluations::from_vec_and_domain(vec![c; domain.size()], domain)
 }
 
-pub trait ColumnsEvaluated<F: PrimeField>: CanonicalSerialize + CanonicalDeserialize {
+pub trait ColumnsEvaluated<F: PrimeField>:
+    Clone + CanonicalSerialize + CanonicalDeserialize
+{
     fn to_vec(self) -> Vec<F>;
 }
 
 pub trait ColumnsCommited<F: PrimeField, C: Commitment<F>>:
-    CanonicalSerialize + CanonicalDeserialize
+    Clone + CanonicalSerialize + CanonicalDeserialize
 {
     fn to_vec(self) -> Vec<C>;
 }
@@ -109,7 +111,7 @@ where
 
 /// Same as `Proof` but excluding the PCS opening.
 #[derive(Clone, CanonicalSerialize, CanonicalDeserialize)]
-pub struct PlonkProof<F, C, Commitments, Evaluations>
+pub struct PiopProof<F, C, Commitments, Evaluations>
 where
     F: PrimeField,
     C: Commitment<F>,
@@ -120,4 +122,21 @@ where
     pub columns_at_zeta: Evaluations,
     pub quotient_commitment: C,
     pub lin_at_zeta_omega: F,
+}
+
+impl<F, CS, Commitments, Evaluations> Proof<F, CS, Commitments, Evaluations>
+where
+    F: PrimeField,
+    CS: PCS<F>,
+    Commitments: ColumnsCommited<F, CS::C>,
+    Evaluations: ColumnsEvaluated<F>,
+{
+    pub fn to_piop_proof(&self) -> PiopProof<F, CS::C, Commitments, Evaluations> {
+        PiopProof {
+            column_commitments: self.column_commitments.clone(),
+            columns_at_zeta: self.columns_at_zeta.clone(),
+            quotient_commitment: self.quotient_commitment.clone(),
+            lin_at_zeta_omega: self.lin_at_zeta_omega,
+        }
+    }
 }
