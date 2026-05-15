@@ -71,11 +71,11 @@ pub struct FixedColumns<F: PrimeField, G: AffineRepr<BaseField = F>> {
     // followed by the powers-of-2 multiples of the second Pedersen base.
     // pk_1, ..., pk_n, H, 2H, 4H, ..., 2^sH
     // 1          n                     n+s+1
-    points: AffineColumn<F, G>,
+    pub points: AffineColumn<F, G>,
     // Binary column that highlights which rows of the table correspond to the ring.
     // 1, 1, ..., 1, 0, 0, ..., 0
     // 1          n
-    ring_selector: FieldColumn<F>,
+    pub ring_selector: FieldColumn<F>,
 }
 
 // Commitments to the fixed columns (see above).
@@ -111,7 +111,7 @@ impl<F: PrimeField, C: AffineRepr<ScalarField = F>> FixedColumnsCommitted<F, Wra
 }
 
 impl<F: PrimeField, G: AffineRepr<BaseField = F>> FixedColumns<F, G> {
-    fn commit<CS: PCS<F>>(&self, ck: &CS::CK) -> FixedColumnsCommitted<F, CS::C> {
+    pub fn commit<CS: PCS<F>>(&self, ck: &CS::CK) -> FixedColumnsCommitted<F, CS::C> {
         let points = [
             CS::commit(ck, self.points.xs.as_poly()).unwrap(),
             CS::commit(ck, self.points.ys.as_poly()).unwrap(),

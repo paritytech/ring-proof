@@ -11,7 +11,7 @@ use w3f_pcs::pcs::PCS;
 
 use crate::piop::ProverPiop;
 use crate::transcript::PlonkTranscript;
-use crate::{PlonkProof, Proof};
+use crate::{PiopProof, Proof};
 
 pub struct PlonkProver<F: PrimeField, CS: PCS<F>, T: PlonkTranscript<F, CS>> {
     // Polynomial commitment scheme committer's key.
@@ -48,7 +48,7 @@ impl<F: PrimeField, CS: PCS<F>, T: PlonkTranscript<F, CS>> PlonkProver<F, CS, T>
         piop: P,
     ) -> (
         PcsOpeningAt2Points<F>,
-        PlonkProof<F, CS::C, P::Commitments, P::Evaluations>,
+        PiopProof<F, CS::C, P::Commitments, P::Evaluations>,
         T,
     )
     where
@@ -85,7 +85,7 @@ impl<F: PrimeField, CS: PCS<F>, T: PlonkTranscript<F, CS>> PlonkProver<F, CS, T>
         let zeta_omega = zeta * omega;
         let lin_at_zeta_omega = lin.evaluate(&zeta_omega);
         transcript.add_evaluations(&columns_at_zeta, &lin_at_zeta_omega);
-        let plonk_proof = PlonkProof {
+        let piop_proof = PiopProof {
             column_commitments,
             quotient_commitment,
             columns_at_zeta,
@@ -98,14 +98,14 @@ impl<F: PrimeField, CS: PCS<F>, T: PlonkTranscript<F, CS>> PlonkProver<F, CS, T>
             zeta,
             zeta_omega,
         };
-        (pcs_openings, plonk_proof, transcript)
+        (pcs_openings, piop_proof, transcript)
     }
 
     pub fn prove<P>(&self, piop: P) -> Proof<F, CS, P::Commitments, P::Evaluations>
     where
         P: ProverPiop<F, CS::C>,
     {
-        let (pcs_openings, plonk_proof, mut transcript) = self.reduce_to_pcs_opening(piop);
+        let (pcs_openings, piop_proof, mut transcript) = self.reduce_to_pcs_opening(piop);
         let PcsOpeningAt2Points {
             polys_at_zeta,
             polys_at_zeta_omega,
@@ -113,12 +113,12 @@ impl<F: PrimeField, CS: PCS<F>, T: PlonkTranscript<F, CS>> PlonkProver<F, CS, T>
             zeta_omega,
         } = pcs_openings;
         let lin = &polys_at_zeta_omega[0];
-        let PlonkProof {
+        let PiopProof {
             column_commitments,
             quotient_commitment,
             columns_at_zeta,
             lin_at_zeta_omega,
-        } = plonk_proof;
+        } = piop_proof;
 
         let nus = transcript.get_kzg_aggregation_challenges(polys_at_zeta.len());
         let agg_at_zeta = aggregate_polys(&polys_at_zeta, &nus);
@@ -138,7 +138,7 @@ impl<F: PrimeField, CS: PCS<F>, T: PlonkTranscript<F, CS>> PlonkProver<F, CS, T>
         }
     }
 
-    fn aggregate_evaluations(polys: &[Evaluations<F>], coeffs: &[F]) -> Evaluations<F> {
+    pub fn aggregate_evaluations(polys: &[Evaluations<F>], coeffs: &[F]) -> Evaluations<F> {
         assert_eq!(coeffs.len(), polys.len());
         polys
             .iter()
