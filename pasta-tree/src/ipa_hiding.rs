@@ -1,10 +1,11 @@
 use ark_ec::CurveGroup;
-use ark_ff::PrimeField;
+use ark_ff::{PrimeField, Zero};
 use ark_poly::{DenseUVPolynomial, Polynomial};
+use ark_serialize::{CanonicalDeserialize, CanonicalSerialize};
 use ark_std::rand::Rng;
 use ark_std::UniformRand;
 use w3f_pcs::pcs::ipa::ipa_pc;
-use w3f_pcs::pcs::ipa;
+use w3f_pcs::pcs::{ipa, CommitterKey, PcsParams, RawVerifierKey, VerifierKey};
 use w3f_pcs::pcs::kzg::commitment::WrappedAffine;
 use w3f_pcs::pcs::PCS;
 use w3f_pcs::Poly;
@@ -19,12 +20,14 @@ use w3f_pcs::Poly;
 // The verifier
 // 1. Computes the non-hiding commitment `Cp'` as `Cp + a.Cq - t'H = (Cp - t1.H) + a.(Cq - t2.H)`.
 // 2. Verifies the opening against `Cp'`.
+#[derive(Clone, Debug, Eq, PartialEq, CanonicalSerialize, CanonicalDeserialize)]
 pub struct HidingIpa<C: CurveGroup> {
-    ipa_pcs: ipa::IPA<C>,
-    h: C::Affine,
+    pub ipa_pcs: ipa::IPA<C>,
+    pub h: C::Affine,
 }
 
 /// `Cp = Commit(p, t1) = (p0.G0 + ... + pn.Gn) + t1.H`.
+#[derive(Clone, Debug, CanonicalSerialize, CanonicalDeserialize)]
 pub struct HidingProof<C: CurveGroup> {
     /// A hiding commitment to the blinding polynomial `q`, `deg(q) = deg(p), q(z) = 0`.
     /// `Commit(q, t2) = (q0.G0 + ... + qn.Gn) + t2.H`.
@@ -39,7 +42,60 @@ pub struct HidingProof<C: CurveGroup> {
 }
 
 impl<F: PrimeField, C: CurveGroup<ScalarField=F>> HidingIpa<C> {
-    fn setup<R: Rng>(max_degree: usize, rng: &mut R) -> Self {
+    pub fn commit_hiding(&self, p: &Poly<F>, t: F) -> Result<WrappedAffine<C::Affine>, ()> {
+        let c = ipa::IPA::commit(&self.ipa_pcs, p)?;
+        self.reblind(c.0, F::zero(), t)
+    }
+
+    pub fn reblind(&self, c: C::Affine, r_old: F, r_new: F) -> Result<WrappedAffine<C::Affine>, ()> {
+        let c = c + self.h * (r_new - r_old);
+        let c = c.into_affine();
+        Ok(WrappedAffine(c))
+    }
+}
+
+impl<C: CurveGroup> CommitterKey for HidingIpa<C> {
+    fn max_degree(&self) -> usize {
+        self.ipa_pcs.g.len() - 1
+    }
+}
+
+impl<C: CurveGroup> VerifierKey for HidingIpa<C> {}
+
+impl<C: CurveGroup> RawVerifierKey for HidingIpa<C> {
+    type VK = Self;
+
+    fn prepare(&self) -> Self::VK {
+        self.clone()
+    }
+}
+
+impl<C: CurveGroup> PcsParams for HidingIpa<C> {
+    type CK = Self;
+    type VK = Self;
+    type RVK = Self;
+
+    fn ck(&self) -> Self::CK {
+        self.clone()
+    }
+
+    fn vk(&self) -> Self::VK {
+        self.clone()
+    }
+
+    fn raw_vk(&self) -> Self::RVK {
+        self.clone()
+    }
+}
+
+impl<C: CurveGroup> PCS<C::ScalarField> for HidingIpa<C> {
+    type C = WrappedAffine<C::Affine>;
+    type Proof = HidingProof<C>;
+    type CK = Self;
+    type VK = Self;
+    type Params = Self;
+
+    fn setup<R: Rng>(max_degree: usize, rng: &mut R) -> Self::Params {
         let ipa_pcs = ipa::IPA::setup(max_degree, rng);
         let h = C::Affine::rand(rng);
         Self {
@@ -48,45 +104,46 @@ impl<F: PrimeField, C: CurveGroup<ScalarField=F>> HidingIpa<C> {
         }
     }
 
-    fn commit(&self, p: &Poly<F>, t: F) -> Result<WrappedAffine<C::Affine>, ()> {
-        let c = ipa::IPA::commit(&self.ipa_pcs, p)?;
-        let c = c.0 + self.h * t;
-        let c = c.into_affine();
-        Ok(WrappedAffine(c))
+    fn commit(ck: &Self::CK, p: &Poly<C::ScalarField>) -> Result<Self::C, ()> {
+        Self::commit_hiding(ck, p, C::ScalarField::zero())
     }
 
-    fn open<R: Rng>(&self, p: &Poly<F>, z: F, t: F, rng: &mut R) -> Result<HidingProof<C>, ()> {
+    fn open(_ck: &Self::CK, _p: &Poly<C::ScalarField>, _x: C::ScalarField) -> Result<Self::Proof, ()> {
+        todo!()
+    }
+
+    fn open_hiding<R: Rng>(ck: &Self::CK, p: &Poly<C::ScalarField>, z: C::ScalarField, t: C::ScalarField, rng: &mut R) -> Result<Self::Proof, ()> {
         let t1 = t;
         let mut q = Poly::rand(p.degree(), rng);
         let q_at_z = q.evaluate(&z);
         q[0] -= q_at_z;
         debug_assert!(q.evaluate(&z).is_zero());
-        let t2 = F::rand(rng);
-        let cq = self.commit(&q, t2)?.0;
-        let a = F::rand(rng); // TODO: that's a FS point
+        let t2 = C::ScalarField::rand(rng);
+        let cq = ck.commit_hiding(&q, t2)?.0;
+        let a = C::ScalarField::rand(rng); // TODO: that's a FS point
         let p = p + q * a;
         let t = t1 + t2 * a;
-        let ipa_pcs_proof = ipa::IPA::open(&self.ipa_pcs, &p, z)?;
-        Ok(HidingProof{
+        let ipa_pcs_proof = ipa::IPA::open(&ck.ipa_pcs, &p, z)?;
+        Ok(HidingProof {
             q: cq,
             t,
             ipa_pcs_proof,
-            a
+            a,
         })
     }
 
-    fn verify(&self, p: C::Affine, z: F, v: F, proof: HidingProof<C>) -> Result<(), ()> {
-        let p = p + proof.q * proof.a - self.h * proof.t;
-        ipa::IPA::verify(&self.ipa_pcs, WrappedAffine(p.into_affine()), z, v, proof.ipa_pcs_proof)
+    fn verify(vk: &Self::VK, c: Self::C, x: C::ScalarField, z: C::ScalarField, proof: Self::Proof) -> Result<(), ()> {
+        let c = c.0 + proof.q * proof.a - vk.h * proof.t;
+        ipa::IPA::verify(&vk.ipa_pcs, WrappedAffine(c.into_affine()), x, z, proof.ipa_pcs_proof)
     }
 }
 
 
 #[cfg(test)]
 mod tests {
-    use ark_ff::Zero;
     use ark_poly::{DenseUVPolynomial, Polynomial};
     use ark_std::{test_rng, UniformRand};
+    use w3f_pcs::pcs::PCS;
     use w3f_pcs::Poly;
     use crate::ipa_hiding::HidingIpa;
 
@@ -102,12 +159,12 @@ mod tests {
         let p = Poly::rand(max_degree, rng);
         let t = ark_pallas::Fr::rand(rng);
 
-        let c = hiding_pcs.commit(&p, t).unwrap().0;
+        let c = hiding_pcs.commit_hiding(&p, t).unwrap();
 
         let z = ark_pallas::Fr::rand(rng);
         let v = p.evaluate(&z);
-        let pi = hiding_pcs.open(&p, z, t, rng).unwrap();
+        let pi = HidingIpa::<ark_pallas::Projective>::open_hiding(&hiding_pcs, &p, z, t, rng).unwrap();
 
-        assert!(hiding_pcs.verify(c, z, v, pi).is_ok());
+        assert!(HidingIpa::<ark_pallas::Projective>::verify(&hiding_pcs, c, z, v, pi).is_ok());
     }
 }

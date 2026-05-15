@@ -1,4 +1,4 @@
-mod ipa_hiding;
+pub mod ipa_hiding;
 
 pub fn add(left: u64, right: u64) -> u64 {
     left + right
@@ -190,6 +190,7 @@ mod tests {
             &pcs_ck,
             &polys,
             &coord_sets,
+            ark_pallas::Fr::zero(),
             transcript,
         );
         end_timer!(t_open);
