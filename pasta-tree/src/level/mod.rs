@@ -103,7 +103,7 @@ mod tests {
     use ark_pallas::PallasConfig;
     use ark_poly::DenseUVPolynomial;
     use ark_std::rand::Rng;
-    use ark_std::{test_rng, UniformRand};
+    use ark_std::{end_timer, start_timer, test_rng, UniformRand};
     use ark_vesta::VestaConfig;
     use w3f_pcs::pcs::PCS;
     use w3f_plonk_common::test_helpers::random_vec;
@@ -156,8 +156,14 @@ mod tests {
         let root_fc = l1_vk.fixed_columns_committed;
         let leaf = l2_nodes.siblings[l2_nodes.i];
 
+        let capacity = c0_params.piop_params.keyset_part_size;
+        let t_prove = start_timer!(|| format!("Proving 1st level of a curve tree, domain_size={domain_size}, capacity={capacity}"));
         let (l1_node_blinded, l1_proof) = c0_params.prove_level(&l1_nodes, rng);
+        end_timer!(t_prove);
+
+        let t_verify = start_timer!(|| format!("Verifying a single-level proof"));
         assert!(c0_params.verify_level(root_fc, l1_node_blinded, l1_proof));
+        end_timer!(t_verify);
 
         let l2_nodes_parent_r = l1_nodes.child_r;
         let (l2_column, l2_vk) = c1_params.commit_child_nodes(l2_nodes.siblings.as_slice(), l2_nodes_parent_r);
@@ -165,10 +171,16 @@ mod tests {
         assert_eq!(l1_node_fc.points[0].0, l1_node_blinded);
 
         l2_nodes.parent_r = l2_nodes_parent_r;
+        let t_prove = start_timer!(|| format!("Proving 2nd level of a curve tree, domain_size={domain_size}, capacity={capacity}"));
         let (blinded_leaf, l2_proof) = c1_params.prove_level(&l2_nodes, rng);
+        end_timer!(t_prove);
+
+        let t_verify = start_timer!(|| format!("Verifying a single-level proof"));
         assert!(c1_params.verify_level(l1_node_fc, blinded_leaf, l2_proof));
+        end_timer!(t_verify);
     }
 
+    // cargo test test_level_proof --release --features="print-trace" -- --show-output
     #[test]
     fn test_level_proof() {
         _test_level_proof::<_, _, PallasConfig, VestaConfig>()
