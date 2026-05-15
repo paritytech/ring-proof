@@ -4,9 +4,11 @@ use ark_ec::{AffineRepr, CurveGroup};
 use ark_ff::PrimeField;
 use ark_poly::{EvaluationDomain, Evaluations, Radix2EvaluationDomain};
 use ark_std::rand::Rng;
+use w3f_pcs::aggregation::multiple::Transcript;
 use w3f_pcs::pcs::PCS;
 
 pub mod ipa_hiding;
+pub mod level;
 
 pub struct CycleSideParams<C: CurveGroup> {
     ipa_pcs: HidingIpa<C>,
@@ -123,6 +125,20 @@ where
     }
 }
 
+#[derive(Clone)]
+pub struct Coeffs<F: PrimeField>(F, F);
+impl<F: PrimeField, CS: PCS<F>> Transcript<F, CS> for Coeffs<F> {
+    fn get_gamma(&mut self) -> F {
+        self.0
+    }
+
+    fn commit_to_q(&mut self, _q: &CS::C) {}
+
+    fn get_zeta(&mut self) -> F {
+        self.1
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -160,10 +176,8 @@ mod tests {
     #[cfg(feature = "parallel")]
     use rayon::prelude::*;
 
-
     type PallasIPA = IPA<ark_pallas::Projective>;
     type PallasC = WrappedAffine<ark_pallas::Affine>;
-
 
     #[test]
     fn test_membership_witness() {
@@ -235,19 +249,6 @@ mod tests {
         let valid = ring_verifier.verify(proof, blinded_pk);
         end_timer!(t_verify);
         assert!(valid);
-    }
-
-    struct Coeffs<F: PrimeField>(F, F);
-    impl<F: PrimeField, CS: PCS<F>> Transcript<F, CS> for Coeffs<F> {
-        fn get_gamma(&mut self) -> F {
-            self.0
-        }
-
-        fn commit_to_q(&mut self, _q: &CS::C) {}
-
-        fn get_zeta(&mut self) -> F {
-            self.1
-        }
     }
 
     // cargo test test_pasta_ring_shplonk --release --features="print-trace" -- --show-output
