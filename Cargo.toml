@@ -1,4 +1,4 @@
-[workspaceworkspace]
+[workspace]
 resolver = "2"
 members = [
 #    "evm-vrfier",
