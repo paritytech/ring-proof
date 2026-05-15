@@ -72,7 +72,9 @@ pub fn const_evals<F: FftField>(c: F, domain: GeneralEvaluationDomain<F>) -> Eva
     Evaluations::from_vec_and_domain(vec![c; domain.size()], domain)
 }
 
-pub trait ColumnsEvaluated<F: PrimeField>: Clone + CanonicalSerialize + CanonicalDeserialize {
+pub trait ColumnsEvaluated<F: PrimeField>:
+    Clone + CanonicalSerialize + CanonicalDeserialize
+{
     fn to_vec(self) -> Vec<F>;
 }
 
