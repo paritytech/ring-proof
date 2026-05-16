@@ -1,6 +1,7 @@
 #![feature(bool_to_result)]
+
 use crate::ipa_hiding::HidingIpa;
-use ark_ec::{AffineRepr, CurveGroup};
+use ark_ec::CurveGroup;
 use ark_ff::PrimeField;
 use ark_poly::{EvaluationDomain, Evaluations, Radix2EvaluationDomain};
 use ark_std::rand::Rng;
@@ -9,6 +10,7 @@ use w3f_pcs::pcs::PCS;
 
 pub mod ipa_hiding;
 pub mod level;
+mod auth_path;
 
 pub struct CycleSideParams<C: CurveGroup> {
     ipa_pcs: HidingIpa<C>,
@@ -56,73 +58,9 @@ impl<C0: CurveGroup, C1: CurveGroup> CycleParams<C0, C1> {
     }
 }
 
-#[derive(Clone)]
-pub struct LevelWitness<G> {
-    siblings: Vec<G>,
-    i: usize,
-}
-
-impl<G: AffineRepr> LevelWitness<G> {
-    fn x_coords(&self) -> Vec<G::BaseField> {
-        self.siblings.iter()
-            .map(|p| p.x())
-            .flatten()
-            .collect()
-    }
-
-    fn path_node(&self) -> G {
-        self.siblings[self.i]
-    }
-
-    fn commit_node<C: CurveGroup<ScalarField=G::BaseField>>(&self, params: &CycleSideParams<C>, blinding: C::ScalarField) -> Result<C, ()>
-    where
-        G::BaseField: PrimeField,
-    {
-        params.commit_node(self.x_coords(), blinding)
-    }
-}
-
-/// Leaves are points on `C0`
-struct MembershipWitness<C0: CurveGroup, C1: CurveGroup> {
-    path_0: Vec<LevelWitness<C0::Affine>>,
-    path_1: Vec<LevelWitness<C1::Affine>>,
-}
-
-enum CycleCurve<C0, C1> {
+enum CycleSide<C0, C1> {
     C0(C0),
     C1(C1),
-}
-
-impl<F0, F1, C0, C1> MembershipWitness<C0, C1>
-where
-    F0: PrimeField,
-    F1: PrimeField,
-    C0: CurveGroup<BaseField=F1, ScalarField=F0>,
-    C1: CurveGroup<BaseField=F0, ScalarField=F1>,
-{
-    fn validate(&self, params: &CycleParams<C0, C1>) -> Result<(C0::Affine, CycleCurve<C0::Affine, C1::Affine>), ()> {
-        let mut path_0_iter = self.path_0.iter();
-        let leaf_node = path_0_iter.next().unwrap();
-        let leaf = leaf_node.path_node();
-
-        let node_0 = leaf_node;
-        let mut parent_on_c1 = node_0.commit_node(&params.c1_params, C1::ScalarField::zero()).unwrap().into_affine();
-        let mut root = CycleCurve::C1(parent_on_c1);
-        for node_1 in self.path_1.iter() {
-            assert_eq!(parent_on_c1, node_1.path_node());
-            let parent_on_c0 = node_1.commit_node(&params.c0_params, C0::ScalarField::zero()).unwrap().into_affine();
-            root = CycleCurve::C0(parent_on_c0);
-            match path_0_iter.next() {
-                Some(node_0) => {
-                    assert_eq!(parent_on_c0, node_0.path_node());
-                    parent_on_c1 = node_0.commit_node(&params.c1_params, C1::ScalarField::zero()).unwrap().into_affine();
-                    root = CycleCurve::C1(parent_on_c1);
-                },
-                None => break
-            }
-        }
-        Ok((leaf, root))
-    }
 }
 
 #[derive(Clone)]
@@ -142,7 +80,6 @@ impl<F: PrimeField, CS: PCS<F>> Transcript<F, CS> for Coeffs<F> {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::CycleParams;
     use ark_ec::scalar_mul::glv::GLVConfig;
     use ark_ec::scalar_mul::wnaf::WnafContext;
     use ark_ec::short_weierstrass::{Affine, SWCurveConfig};
@@ -158,7 +95,6 @@ mod tests {
     use ark_std::{cfg_iter_mut, end_timer, start_timer, test_rng, UniformRand};
     use ark_vesta::VestaConfig;
     use std::collections::BTreeSet;
-    use w3f_pcs::aggregation::multiple::Transcript;
     use w3f_pcs::pcs::ipa::IPA;
     use w3f_pcs::pcs::kzg::commitment::WrappedAffine;
     use w3f_pcs::pcs::PcsParams;
@@ -178,44 +114,6 @@ mod tests {
 
     type PallasIPA = IPA<ark_pallas::Projective>;
     type PallasC = WrappedAffine<ark_pallas::Affine>;
-
-    #[test]
-    fn test_membership_witness() {
-        let rng = &mut test_rng();
-
-        let params = CycleParams::<ark_pallas::Projective, ark_vesta::Projective>::setup(9, rng).unwrap();
-
-        let c0_capacity = params.c0_params.domain.size();
-        let leaves = random_vec::<ark_pallas::Affine, _>(c0_capacity, rng);
-        let leaf_index = rng.gen_range(0..c0_capacity);
-        let node_0 = LevelWitness {
-            siblings: leaves,
-            i: leaf_index,
-        };
-        let parent = node_0.commit_node(&params.c1_params, ark_vesta::Fr::zero()).unwrap().into_affine();
-
-        let c1_capacity = params.c1_params.domain.size();
-        let parent_index = rng.gen_range(0..c1_capacity);
-        let mut inner_nodes = random_vec::<ark_vesta::Affine, _>(c1_capacity, rng);
-        inner_nodes[parent_index] = parent;
-        let node_1 = LevelWitness {
-            siblings: inner_nodes,
-            i: parent_index,
-        };
-        let root = node_1.commit_node(&params.c0_params, ark_pallas::Fr::zero()).unwrap().into_affine();
-
-        let path = MembershipWitness {
-            path_0: vec![node_0.clone()],
-            path_1: vec![node_1.clone()],
-        };
-
-        let (leaf, root_) = path.validate(&params).unwrap();
-        assert_eq!(leaf, node_0.path_node());
-        match root_ {
-            CycleCurve::C0(c0) => assert_eq!(c0, root),
-            _ => panic!()
-        }
-    }
 
     // cargo test test_pasta_ring_plonk --release --features="print-trace" -- --show-output
     #[test]

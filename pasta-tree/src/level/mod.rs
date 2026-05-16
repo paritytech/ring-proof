@@ -97,15 +97,13 @@ impl<C: CurveGroup, G: SWCurveConfig<BaseField=C::ScalarField>> CycleSideParams<
 #[cfg(test)]
 mod tests {
     use ark_ec::short_weierstrass::{Affine, SWCurveConfig};
-    use ark_ec::{AffineRepr, CurveGroup};
+    use ark_ec::CurveGroup;
     use ark_ff::PrimeField;
-    use ark_ff::{Field, Zero};
+    use ark_ff::Zero;
     use ark_pallas::PallasConfig;
-    use ark_poly::DenseUVPolynomial;
     use ark_std::rand::Rng;
     use ark_std::{end_timer, start_timer, test_rng, UniformRand};
     use ark_vesta::VestaConfig;
-    use w3f_pcs::pcs::PCS;
     use w3f_plonk_common::test_helpers::random_vec;
 
     use crate::level::{CycleParams, CycleSideParams};
@@ -181,6 +179,7 @@ mod tests {
     }
 
     // cargo test test_level_proof --release --features="print-trace" -- --show-output
+    // cargo test test_level_proof --release --features="print-trace parallel" -- --show-output
     #[test]
     fn test_level_proof() {
         _test_level_proof::<_, _, PallasConfig, VestaConfig>()
