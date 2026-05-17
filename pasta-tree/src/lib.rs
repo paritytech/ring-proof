@@ -1,66 +1,166 @@
 #![feature(bool_to_result)]
 
 use crate::ipa_hiding::HidingIpa;
-use ark_ec::CurveGroup;
-use ark_ff::PrimeField;
-use ark_poly::{EvaluationDomain, Evaluations, Radix2EvaluationDomain};
+use ark_ec::{AffineRepr, CurveGroup};
+use ark_ff::{PrimeField, Zero};
 use ark_std::rand::Rng;
+use std::marker::PhantomData;
 use w3f_pcs::aggregation::multiple::Transcript;
+use w3f_pcs::pcs::PcsParams;
 use w3f_pcs::pcs::PCS;
+use w3f_plonk_common::domain::Domain;
+use w3f_ring_proof::piop::FixedColumns;
+use w3f_ring_proof::{FixedColumnsCommitted, PiopParams, VerifierKey};
+
 
 mod auth_path;
 pub mod ipa_hiding;
 pub mod level;
 
-pub struct CycleSideParams<C: CurveGroup> {
-    ipa_pcs: HidingIpa<C>,
-    domain: Radix2EvaluationDomain<C::ScalarField>,
-    extra_elements: Vec<C::ScalarField>,
-    extra_commitment: C,
+struct CycleSideParams<C: CurveGroup, G: AffineRepr<BaseField=C::ScalarField>> {
+    pcs_params: HidingIpa<C>,
+    piop_params: PiopParams<G>,
 }
 
-pub struct CycleParams<C0: CurveGroup, C1: CurveGroup> {
-    c0_params: CycleSideParams<C0>,
-    c1_params: CycleSideParams<C1>,
+struct CycleParams<
+    C0: CurveGroup,
+    C1: CurveGroup<BaseField=C0::ScalarField, ScalarField=C0::BaseField>,
+> {
+    c0_params: CycleSideParams<C0, C1::Affine>,
+    c1_params: CycleSideParams<C1, C0::Affine>,
 }
 
-impl<C: CurveGroup> CycleSideParams<C> {
-    fn setup<R: Rng>(log_n: u32, rng: &mut R) -> Result<Self, ()> {
-        let n = 2usize.pow(log_n);
-        let domain = Radix2EvaluationDomain::new(n).ok_or(())?;
-        let ipa_pcs = HidingIpa::setup(n - 1, rng);
-        Ok(Self {
-            ipa_pcs,
-            domain,
-            extra_elements: vec![],
-            extra_commitment: C::zero(),
-        })
+impl<F0, F1, C0, C1> CycleParams<C0, C1>
+where
+    F0: PrimeField,
+    F1: PrimeField,
+    C0: CurveGroup<BaseField = F1, ScalarField = F0>,
+    C1: CurveGroup<BaseField = F0, ScalarField = F1>,
+{
+    pub fn setup<R: Rng>(domain_size: usize, rng: &mut R) -> Self {
+        let setup_degree = 3 * domain_size;
+        let c0_pcs_params = HidingIpa::<C0>::setup(setup_degree, rng);
+        let c1_pcs_params = HidingIpa::<C1>::setup(setup_degree, rng);
+        let c0_piop_params = piop_params(domain_size, c1_pcs_params.h, rng);
+        let c1_piop_params = piop_params(domain_size, c0_pcs_params.h, rng);
+        Self {
+            c0_params: CycleSideParams {
+                pcs_params: c0_pcs_params,
+                piop_params: c0_piop_params,
+            },
+            c1_params: CycleSideParams {
+                pcs_params: c1_pcs_params,
+                piop_params: c1_piop_params,
+            },
+        }
     }
+}
 
-    fn commit_node(
+fn piop_params<G: AffineRepr<BaseField: PrimeField>, R: Rng>(domain_size: usize, h: G, rng: &mut R) -> PiopParams<G> {
+    let domain = Domain::<G::BaseField>::new(domain_size, true);
+    let seed = G::rand(rng);
+    let padding = G::rand(rng);
+    PiopParams::setup(domain, h, seed, padding)
+}
+
+impl<C: CurveGroup, G: AffineRepr<BaseField=C::ScalarField>> CycleSideParams<C, G> {
+
+    pub fn commit_children(
         &self,
-        children_x_coords: Vec<C::ScalarField>,
+        children: &[G],
+        bf: C::ScalarField,
+    ) -> (
+        FixedColumns<G::BaseField, G>,
+        VerifierKey<G::BaseField, HidingIpa<C>>,
+    ) {
+        let fixed_columns = self.piop_params.fixed_columns(&children);
+        let xs = fixed_columns.points.xs.as_poly();
+        let ys = fixed_columns.points.ys.as_poly();
+        let fixed_columns_committed = FixedColumnsCommitted {
+            points: [
+                self.pcs_params.commit_hiding(xs, bf).unwrap(),
+                self.pcs_params
+                    .commit_hiding(ys, C::ScalarField::zero())
+                    .unwrap(),
+            ],
+            ring_selector: self
+                .pcs_params
+                .commit_hiding(
+                    fixed_columns.ring_selector.as_poly(),
+                    C::ScalarField::zero(),
+                )
+                .unwrap(),
+            phantom: PhantomData,
+        };
+        let verifier_key = VerifierKey {
+            pcs_raw_vk: self.pcs_params.raw_vk(),
+            fixed_columns_committed,
+        };
+        (fixed_columns, verifier_key)
+    }
+
+    fn commit_nodes(
+        &self,
+        nodes: &[G],
+        // children_x_coords: Vec<C::ScalarField>,
         blinding: C::ScalarField,
-    ) -> Result<C, ()> {
-        (children_x_coords.len() <= self.domain.size() - self.extra_elements.len()).ok_or(())?;
-        let evals = Evaluations::from_vec_and_domain(children_x_coords, self.domain);
-        let poly = evals.interpolate_by_ref();
-        let x_coords_committed = self.ipa_pcs.commit_hiding(&poly, blinding)?.0;
-        let node_committed = x_coords_committed + self.extra_commitment;
-        Ok(node_committed)
+    ) -> Result<C::Affine, ()> {
+        let xs = self.piop_params.points_column(nodes).xs;
+        Ok(self.pcs_params.commit_hiding(xs.as_poly(), blinding)?.0)
     }
 }
 
-impl<C0: CurveGroup, C1: CurveGroup> CycleParams<C0, C1> {
-    fn setup<R: Rng>(log_n: u32, rng: &mut R) -> Result<Self, ()> {
-        let c0_params = CycleSideParams::setup(log_n, rng)?;
-        let c1_params = CycleSideParams::setup(log_n, rng)?;
-        Ok(Self {
-            c0_params,
-            c1_params,
-        })
-    }
-}
+
+// pub struct CycleSideParams<C: CurveGroup> {
+//     ipa_pcs: HidingIpa<C>,
+//     domain: Radix2EvaluationDomain<C::ScalarField>,
+//     extra_elements: Vec<C::ScalarField>,
+//     extra_commitment: C,
+// }
+
+// pub struct CycleParams<C0: CurveGroup, C1: CurveGroup> {
+//     c0_params: CycleSideParams<C0>,
+//     c1_params: CycleSideParams<C1>,
+// }
+
+
+// impl<C: CurveGroup> CycleSideParams<C> {
+//     fn setup<R: Rng>(log_n: u32, rng: &mut R) -> Result<Self, ()> {
+//         let n = 2usize.pow(log_n);
+//         let domain = Radix2EvaluationDomain::new(n).ok_or(())?;
+//         let ipa_pcs = HidingIpa::setup(n - 1, rng);
+//         Ok(Self {
+//             ipa_pcs,
+//             domain,
+//             extra_elements: vec![],
+//             extra_commitment: C::zero(),
+//         })
+//     }
+//
+//     fn commit_node(
+//         &self,
+//         children_x_coords: Vec<C::ScalarField>,
+//         blinding: C::ScalarField,
+//     ) -> Result<C, ()> {
+//         (children_x_coords.len() <= self.domain.size() - self.extra_elements.len()).ok_or(())?;
+//         let evals = Evaluations::from_vec_and_domain(children_x_coords, self.domain);
+//         let poly = evals.interpolate_by_ref();
+//         let x_coords_committed = self.ipa_pcs.commit_hiding(&poly, blinding)?.0;
+//         let node_committed = x_coords_committed + self.extra_commitment;
+//         Ok(node_committed)
+//     }
+// }
+
+// impl<C0: CurveGroup, C1: CurveGroup> CycleParams<C0, C1> {
+//     fn setup<R: Rng>(log_n: u32, rng: &mut R) -> Result<Self, ()> {
+//         let c0_params = CycleSideParams::setup(log_n, rng)?;
+//         let c1_params = CycleSideParams::setup(log_n, rng)?;
+//         Ok(Self {
+//             c0_params,
+//             c1_params,
+//         })
+//     }
+// }
 
 enum CycleSide<C0, C1> {
     C0(C0),
@@ -84,11 +184,10 @@ impl<F: PrimeField, CS: PCS<F>> Transcript<F, CS> for Coeffs<F> {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use ark_ec::AdditiveGroup;
     use ark_ec::scalar_mul::glv::GLVConfig;
     use ark_ec::scalar_mul::wnaf::WnafContext;
     use ark_ec::short_weierstrass::{Affine, SWCurveConfig};
-    use ark_ec::twisted_edwards::TECurveConfig;
+    use ark_ec::AdditiveGroup;
     use ark_ec::{AffineRepr, CurveGroup};
     use ark_ff::PrimeField;
     use ark_ff::{BigInteger, Field, Zero};
@@ -97,22 +196,19 @@ mod tests {
     use ark_poly::Polynomial;
     use ark_std::iterable::Iterable;
     use ark_std::rand::Rng;
-    use ark_std::{UniformRand, cfg_iter_mut, end_timer, start_timer, test_rng};
-    use ark_vesta::VestaConfig;
+    use ark_std::{cfg_iter_mut, end_timer, start_timer, test_rng, UniformRand};
     use std::collections::BTreeSet;
-    use w3f_pcs::Poly;
-    use w3f_pcs::pcs::PcsParams;
     use w3f_pcs::pcs::ipa::IPA;
     use w3f_pcs::pcs::kzg::commitment::WrappedAffine;
-    use w3f_pcs::pcs::{PCS, RawVerifierKey};
+    use w3f_pcs::pcs::PcsParams;
+    use w3f_pcs::pcs::{RawVerifierKey, PCS};
     use w3f_pcs::shplonk::Shplonk;
+    use w3f_pcs::Poly;
     use w3f_plonk_common::piop::ProverPiop;
     use w3f_plonk_common::prover::PlonkProver;
     use w3f_plonk_common::test_helpers::random_vec;
     use w3f_ring_proof::piop::prover::PiopProver;
-    use w3f_ring_proof::ring_prover::RingProver;
-    use w3f_ring_proof::ring_verifier::RingVerifier;
-    use w3f_ring_proof::{ArkTranscript, PiopParams, index};
+    use w3f_ring_proof::{index, ArkTranscript, PiopParams};
 
     #[cfg(feature = "parallel")]
     use rayon::prelude::*;
@@ -210,7 +306,7 @@ mod tests {
                     &constraints,
                     &alphas,
                 )
-                .interpolate();
+                    .interpolate();
             let quotient = piop_params
                 .domain
                 .divide_by_vanishing_poly(&agg_constraint_poly);

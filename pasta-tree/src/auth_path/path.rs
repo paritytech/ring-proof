@@ -75,25 +75,16 @@ where
     ) -> Result<CycleSide<C0::Affine, C1::Affine>, ()> {
         let mut c0_path_iter = self.c0_path.iter();
         let c0_nodes = c0_path_iter.next().unwrap(); // shouldn't be empty
-        let mut parent_on_c1 = c0_nodes
-            .compute_parent(&params.c1_params)
-            .unwrap()
-            .into_affine();
+        let mut parent_on_c1 = c0_nodes.compute_parent(&params.c1_params)?;
         for c1_nodes in self.c1_path.iter() {
             debug_assert_eq!(parent_on_c1, c1_nodes.path_node());
             (parent_on_c1 == c1_nodes.path_node()).ok_or(())?;
-            let parent_on_c0 = c1_nodes
-                .compute_parent(&params.c0_params)
-                .unwrap()
-                .into_affine();
+            let parent_on_c0 = c1_nodes.compute_parent(&params.c0_params)?;
             match c0_path_iter.next() {
                 Some(c0_nodes) => {
                     debug_assert_eq!(parent_on_c0, c0_nodes.path_node());
                     (parent_on_c0 == c0_nodes.path_node()).ok_or(())?;
-                    parent_on_c1 = c0_nodes
-                        .compute_parent(&params.c1_params)
-                        .unwrap()
-                        .into_affine();
+                    parent_on_c1 = c0_nodes .compute_parent(&params.c1_params)?;
                 }
                 None => return Ok(CycleSide::C0(parent_on_c0)),
             }
@@ -105,7 +96,6 @@ where
 #[cfg(test)]
 mod tests {
     use super::*;
-    use ark_poly::EvaluationDomain;
     use ark_std::test_rng;
     use w3f_plonk_common::test_helpers::random_vec;
 
@@ -113,28 +103,22 @@ mod tests {
     fn test_auth_path() {
         let rng = &mut test_rng();
 
-        let params =
-            CycleParams::<ark_pallas::Projective, ark_vesta::Projective>::setup(9, rng).unwrap();
+        let domain_size = 2usize.pow(9);
+        let params = CycleParams::<ark_pallas::Projective, ark_vesta::Projective>::setup(domain_size, rng);
 
-        let c0_capacity = params.c0_params.domain.size();
+        let c0_capacity = params.c0_params.piop_params.keyset_part_size;
         let leaves = random_vec::<ark_pallas::Affine, _>(c0_capacity, rng);
         let leaf_index = rng.gen_range(0..c0_capacity);
         let leaf = leaves[leaf_index];
         let leaves = LevelWitness::new(leaves, leaf_index).unwrap();
-        let innner_parent = leaves
-            .compute_parent(&params.c1_params)
-            .unwrap()
-            .into_affine();
+        let innner_parent = leaves.compute_parent(&params.c1_params).unwrap();
 
-        let c1_capacity = params.c1_params.domain.size();
+        let c1_capacity = params.c1_params.piop_params.keyset_part_size;
         let parent_index = rng.gen_range(0..c1_capacity);
         let mut inner_nodes = random_vec::<ark_vesta::Affine, _>(c1_capacity, rng);
         inner_nodes[parent_index] = innner_parent;
         let inner_nodes = LevelWitness::new(inner_nodes, parent_index).unwrap();
-        let root = inner_nodes
-            .compute_parent(&params.c0_params)
-            .unwrap()
-            .into_affine();
+        let root = inner_nodes.compute_parent(&params.c0_params).unwrap();
 
         let path = AuthenticationPath {
             c0_path: vec![leaves.clone()],

@@ -11,9 +11,9 @@ pub const ZK_ROWS: usize = 3;
 
 // Domains for performing calculations with constraint polynomials of degree up to 4.
 #[derive(Clone)]
-struct Domains<F: FftField> {
-    x1: GeneralEvaluationDomain<F>,
-    x4: GeneralEvaluationDomain<F>,
+pub struct Domains<F: FftField> {
+    pub x1: GeneralEvaluationDomain<F>,
+    pub x4: GeneralEvaluationDomain<F>,
 }
 
 impl<F: FftField> Domains<F> {
@@ -59,7 +59,7 @@ impl<F: FftField> Domains<F> {
 
 #[derive(Clone)]
 pub struct Domain<F: FftField> {
-    domains: Domains<F>,
+    pub domains: Domains<F>,
     pub hiding: bool,
     pub capacity: usize,
     pub not_last_row: FieldColumn<F>,

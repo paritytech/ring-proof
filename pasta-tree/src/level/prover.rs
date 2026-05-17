@@ -1,30 +1,30 @@
-use crate::Coeffs;
+use crate::auth_path::node::LevelWitnessWithBlinding;
 use crate::ipa_hiding::HidingIpa;
-use crate::level::{CycleSideParams, IPACommitment, LevelProof};
-use ark_ec::CurveGroup;
+use crate::level::{IPACommitment, LevelProof};
+use crate::{Coeffs, CycleSideParams};
 use ark_ec::short_weierstrass::{Affine, SWCurveConfig};
+use ark_ec::CurveGroup;
 use ark_poly::Polynomial;
 use ark_std::rand::Rng;
-use ark_std::{UniformRand, end_timer, start_timer};
+use ark_std::{end_timer, start_timer, UniformRand};
 use std::collections::BTreeSet;
 use w3f_pcs::pcs::PcsParams;
 use w3f_pcs::shplonk::Shplonk;
 use w3f_plonk_common::piop::ProverPiop;
 use w3f_plonk_common::prover::{PcsOpeningAt2Points, PlonkProver};
-use w3f_ring_proof::ArkTranscript;
 use w3f_ring_proof::piop::prover::PiopProver;
-
-// Witness for the relation (C, C'; i, r, r', x1, ..., xn, yi | C = x1.G1 + ...+ xn.Gn + r'H, C' = (xi, yi) + r.H')
-pub struct LevelWitness<G: SWCurveConfig> {
-    pub siblings: Vec<Affine<G>>,
-    pub i: usize,
-    pub child_r: G::ScalarField,
-    pub parent_r: G::BaseField,
-    // TODO: precompute C
-}
+use w3f_ring_proof::ArkTranscript;
+// // Witness for the relation (C, C'; i, r, r', x1, ..., xn, yi | C = x1.G1 + ...+ xn.Gn + r'H, C' = (xi, yi) + r.H')
+// pub struct LevelWitness<G: SWCurveConfig> {
+//     pub siblings: Vec<Affine<G>>,
+//     pub i: usize,
+//     pub child_r: G::ScalarField,
+//     pub parent_r: G::BaseField,
+//     // TODO: precompute C
+// }
 
 impl<C: CurveGroup, G: SWCurveConfig<BaseField = C::ScalarField, ScalarField = C::BaseField>>
-    CycleSideParams<C, G>
+    CycleSideParams<C, Affine<G>>
 {
     // to prove a single level, the prover needs:
     // 1. witness data:
@@ -34,13 +34,13 @@ impl<C: CurveGroup, G: SWCurveConfig<BaseField = C::ScalarField, ScalarField = C
     // 2. level params
     pub fn prove_level<R: Rng>(
         &self,
-        witness: &LevelWitness<G>,
+        witness: &LevelWitnessWithBlinding<Affine<G>>,
         rng: &mut R,
     ) -> (Affine<G>, LevelProof<C>) {
         let (fixed_columns, verifier_key) =
-            self.commit_child_nodes(&witness.siblings, witness.parent_r);
-        let piop = PiopProver::build(&self.piop_params, fixed_columns, witness.i, witness.child_r);
-        let blinded_pk = <PiopProver<C::ScalarField, Affine<G>> as ProverPiop<
+            self.commit_children(&witness.level_witness.siblings, witness.parent_bf);
+        let piop = PiopProver::build(&self.piop_params, fixed_columns, witness.level_witness.path_node_idx, witness.bf);
+        let blinded_node = <PiopProver<C::ScalarField, Affine<G>> as ProverPiop<
             C::ScalarField,
             IPACommitment<C>,
         >>::result(&piop);
@@ -78,7 +78,7 @@ impl<C: CurveGroup, G: SWCurveConfig<BaseField = C::ScalarField, ScalarField = C
             &self.pcs_params,
             &polys,
             &coord_sets,
-            witness.parent_r,
+            witness.parent_bf,
             &mut todo.clone(),
         );
         end_timer!(t_open);
@@ -88,6 +88,6 @@ impl<C: CurveGroup, G: SWCurveConfig<BaseField = C::ScalarField, ScalarField = C
             pcs_opening_proof,
             todo,
         };
-        (blinded_pk, proof)
+        (blinded_node, proof)
     }
 }
