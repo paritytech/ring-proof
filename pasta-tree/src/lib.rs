@@ -34,8 +34,8 @@ impl<F0, F1, C0, C1> CycleParams<C0, C1>
 where
     F0: PrimeField,
     F1: PrimeField,
-    C0: CurveGroup<BaseField = F1, ScalarField = F0>,
-    C1: CurveGroup<BaseField = F0, ScalarField = F1>,
+    C0: CurveGroup<BaseField=F1, ScalarField=F0>,
+    C1: CurveGroup<BaseField=F0, ScalarField=F1>,
 {
     pub fn setup<R: Rng>(domain_size: usize, rng: &mut R) -> Self {
         let setup_degree = 3 * domain_size;
@@ -64,7 +64,6 @@ fn piop_params<G: AffineRepr<BaseField: PrimeField>, R: Rng>(domain_size: usize,
 }
 
 impl<C: CurveGroup, G: AffineRepr<BaseField=C::ScalarField>> CycleSideParams<C, G> {
-
     pub fn commit_children(
         &self,
         children: &[G],
@@ -213,9 +212,36 @@ mod tests {
     #[cfg(feature = "parallel")]
     use rayon::prelude::*;
     use w3f_plonk_common::domain::Domain;
+    use crate::auth_path::node::LevelWitness;
 
     type PallasIPA = IPA<ark_pallas::Projective>;
     type PallasC = WrappedAffine<ark_pallas::Affine>;
+
+
+    fn random_witness<C: CurveGroup, G: AffineRepr<BaseField=C::ScalarField>, R: Rng>(
+        params: &CycleSideParams<C, G>,
+        path_node: G,
+        rng: &mut R,
+    ) -> LevelWitness<G> {
+        let capacity = params.piop_params.keyset_part_size;
+        let mut nodes = random_vec::<G, _>(capacity, rng);
+        let i = rng.gen_range(0..capacity);
+        nodes[i] = path_node;
+        LevelWitness {
+            siblings: nodes,
+            path_node_idx: i,
+        }
+    }
+
+    pub fn random_node<C: CurveGroup, G: AffineRepr<BaseField=C::ScalarField>, R: Rng>(
+        params: &CycleSideParams<C, G>,
+        path_node: G,
+        rng: &mut R,
+    ) -> (C::Affine, LevelWitness<G>) {
+        let level_witness = random_witness(params, path_node, rng);
+        let parent = level_witness.compute_parent(params).unwrap();
+        (parent, level_witness)
+    }
 
     fn setup<R: Rng, CS: PCS<G::BaseField>, G: AffineRepr<BaseField: PrimeField>>(
         rng: &mut R,

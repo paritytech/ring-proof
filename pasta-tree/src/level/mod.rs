@@ -37,31 +37,7 @@ mod tests {
     use ark_std::{end_timer, start_timer, test_rng, UniformRand};
     use ark_vesta::VestaConfig;
     use w3f_plonk_common::test_helpers::random_vec;
-
-    fn random_witness<C: CurveGroup, G: AffineRepr<BaseField=C::ScalarField>, R: Rng>(
-        params: &CycleSideParams<C, G>,
-        path_node: G,
-        rng: &mut R,
-    ) -> LevelWitness<G> {
-        let capacity = params.piop_params.keyset_part_size;
-        let mut nodes = random_vec::<G, _>(capacity, rng);
-        let i = rng.gen_range(0..capacity);
-        nodes[i] = path_node;
-        LevelWitness {
-            siblings: nodes,
-            path_node_idx: i,
-        }
-    }
-
-    fn random_node<C: CurveGroup, G: AffineRepr<BaseField=C::ScalarField>, R: Rng>(
-        params: &CycleSideParams<C, G>,
-        path_node: G,
-        rng: &mut R,
-    ) -> (C::Affine, LevelWitness<G>) {
-        let level_witness = random_witness(params, path_node, rng);
-        let parent = level_witness.compute_parent(params).unwrap();
-        (parent, level_witness)
-    }
+    use crate::tests::random_node;
 
     fn _test_level_proof<F0, F1, C0, C1>()
     where

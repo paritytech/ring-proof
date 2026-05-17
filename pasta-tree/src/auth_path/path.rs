@@ -23,8 +23,8 @@ impl<F0, F1, C0, C1> AuthenticationPath<C0, C1>
 where
     F0: PrimeField,
     F1: PrimeField,
-    C0: CurveGroup<BaseField = F1, ScalarField = F0>,
-    C1: CurveGroup<BaseField = F0, ScalarField = F1>,
+    C0: CurveGroup<BaseField=F1, ScalarField=F0>,
+    C1: CurveGroup<BaseField=F0, ScalarField=F1>,
 {
     fn with_blinding<R: Rng>(&self, rng: &mut R) -> AuthenticationPathWithBlinding<C0, C1> {
         let mut path_0 = Vec::with_capacity(self.c0_path.len());
@@ -84,7 +84,7 @@ where
                 Some(c0_nodes) => {
                     debug_assert_eq!(parent_on_c0, c0_nodes.path_node());
                     (parent_on_c0 == c0_nodes.path_node()).ok_or(())?;
-                    parent_on_c1 = c0_nodes .compute_parent(&params.c1_params)?;
+                    parent_on_c1 = c0_nodes.compute_parent(&params.c1_params)?;
                 }
                 None => return Ok(CycleSide::C0(parent_on_c0)),
             }
@@ -96,33 +96,23 @@ where
 #[cfg(test)]
 mod tests {
     use super::*;
-    use ark_std::test_rng;
-    use w3f_plonk_common::test_helpers::random_vec;
+    use ark_std::{test_rng, UniformRand};
+    use crate::tests::random_node;
 
     #[test]
     fn test_auth_path() {
         let rng = &mut test_rng();
 
         let domain_size = 2usize.pow(9);
-        let params = CycleParams::<ark_pallas::Projective, ark_vesta::Projective>::setup(domain_size, rng);
+        let params = CycleParams::<ark_pallas::Projective, ark_vesta::Projective>::setup(domain_size, rng);;
 
-        let c0_capacity = params.c0_params.piop_params.keyset_part_size;
-        let leaves = random_vec::<ark_pallas::Affine, _>(c0_capacity, rng);
-        let leaf_index = rng.gen_range(0..c0_capacity);
-        let leaf = leaves[leaf_index];
-        let leaves = LevelWitness::new(leaves, leaf_index).unwrap();
-        let innner_parent = leaves.compute_parent(&params.c1_params).unwrap();
-
-        let c1_capacity = params.c1_params.piop_params.keyset_part_size;
-        let parent_index = rng.gen_range(0..c1_capacity);
-        let mut inner_nodes = random_vec::<ark_vesta::Affine, _>(c1_capacity, rng);
-        inner_nodes[parent_index] = innner_parent;
-        let inner_nodes = LevelWitness::new(inner_nodes, parent_index).unwrap();
-        let root = inner_nodes.compute_parent(&params.c0_params).unwrap();
+        let leaf = ark_pallas::Affine::rand(rng);
+        let (l1_parent, leaves) = random_node(&params.c1_params, leaf, rng);
+        let (root, l1_nodes) = random_node(&params.c0_params, l1_parent, rng);
 
         let path = AuthenticationPath {
             c0_path: vec![leaves.clone()],
-            c1_path: vec![inner_nodes.clone()],
+            c1_path: vec![l1_nodes.clone()],
         };
 
         assert_eq!(path.get_leaf(), leaf);
