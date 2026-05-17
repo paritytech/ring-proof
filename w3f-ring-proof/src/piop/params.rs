@@ -33,12 +33,7 @@ impl<G: AffineRepr<BaseField: PrimeField>> PiopParams<G> {
     /// - `padding`: The point used to pad the list of public keys.
     ///
     /// All points should be of an unknown discrete log.
-    pub fn setup(
-        domain: Domain<G::BaseField>,
-        h: G,
-        seed: G,
-        padding: G,
-    ) -> Self {
+    pub fn setup(domain: Domain<G::BaseField>, h: G, seed: G, padding: G) -> Self {
         let scalar_bitlen = G::ScalarField::MODULUS_BIT_SIZE as usize;
         // 1 accounts for the last cells of the points and bits columns that remain unconstrained
         let keyset_part_size = domain.capacity - scalar_bitlen - 1;
