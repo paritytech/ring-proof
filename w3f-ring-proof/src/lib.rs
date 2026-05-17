@@ -1,10 +1,7 @@
 #![cfg_attr(not(feature = "std"), no_std)]
-
-use ark_ec::twisted_edwards::{Affine, TECurveConfig};
 use ark_ff::PrimeField;
 use ark_serialize::CanonicalSerialize;
-use ark_std::rand::{Rng, RngCore};
-use ark_std::UniformRand;
+use ark_std::rand::RngCore;
 use w3f_pcs::pcs::PCS;
 
 pub use piop::index;
@@ -49,20 +46,6 @@ impl ArkTranscript {
     pub fn new(label: &'static [u8]) -> Self {
         Self(ark_transcript::Transcript::new_labeled(label))
     }
-}
-
-pub fn test_setup<R: Rng, F: PrimeField, CS: PCS<F>, G: TECurveConfig<BaseField = F>>(
-    rng: &mut R,
-    domain_size: usize,
-) -> (CS::Params, PiopParams<Affine<G>>) {
-    let setup_degree = 3 * domain_size;
-    let pcs_params = CS::setup(setup_degree, rng);
-    let domain = Domain::new(domain_size, true);
-    let h = Affine::<G>::rand(rng);
-    let seed = Affine::<G>::rand(rng);
-    let padding = Affine::<G>::rand(rng);
-    let piop_params = PiopParams::setup(domain, h, seed, padding);
-    (pcs_params, piop_params)
 }
 
 #[cfg(test)]

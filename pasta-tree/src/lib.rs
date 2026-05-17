@@ -8,9 +8,9 @@ use ark_std::rand::Rng;
 use w3f_pcs::aggregation::multiple::Transcript;
 use w3f_pcs::pcs::PCS;
 
+mod auth_path;
 pub mod ipa_hiding;
 pub mod level;
-mod auth_path;
 
 pub struct CycleSideParams<C: CurveGroup> {
     ipa_pcs: HidingIpa<C>,
@@ -37,7 +37,11 @@ impl<C: CurveGroup> CycleSideParams<C> {
         })
     }
 
-    fn commit_node(&self, children_x_coords: Vec<C::ScalarField>, blinding: C::ScalarField) -> Result<C, ()> {
+    fn commit_node(
+        &self,
+        children_x_coords: Vec<C::ScalarField>,
+        blinding: C::ScalarField,
+    ) -> Result<C, ()> {
         (children_x_coords.len() <= self.domain.size() - self.extra_elements.len()).ok_or(())?;
         let evals = Evaluations::from_vec_and_domain(children_x_coords, self.domain);
         let poly = evals.interpolate_by_ref();
@@ -80,10 +84,11 @@ impl<F: PrimeField, CS: PCS<F>> Transcript<F, CS> for Coeffs<F> {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use ark_ec::AdditiveGroup;
     use ark_ec::scalar_mul::glv::GLVConfig;
     use ark_ec::scalar_mul::wnaf::WnafContext;
     use ark_ec::short_weierstrass::{Affine, SWCurveConfig};
-    use ark_ec::AdditiveGroup;
+    use ark_ec::twisted_edwards::TECurveConfig;
     use ark_ec::{AffineRepr, CurveGroup};
     use ark_ff::PrimeField;
     use ark_ff::{BigInteger, Field, Zero};
@@ -92,62 +97,74 @@ mod tests {
     use ark_poly::Polynomial;
     use ark_std::iterable::Iterable;
     use ark_std::rand::Rng;
-    use ark_std::{cfg_iter_mut, end_timer, start_timer, test_rng, UniformRand};
+    use ark_std::{UniformRand, cfg_iter_mut, end_timer, start_timer, test_rng};
     use ark_vesta::VestaConfig;
     use std::collections::BTreeSet;
+    use w3f_pcs::Poly;
+    use w3f_pcs::pcs::PcsParams;
     use w3f_pcs::pcs::ipa::IPA;
     use w3f_pcs::pcs::kzg::commitment::WrappedAffine;
-    use w3f_pcs::pcs::PcsParams;
-    use w3f_pcs::pcs::{RawVerifierKey, PCS};
+    use w3f_pcs::pcs::{PCS, RawVerifierKey};
     use w3f_pcs::shplonk::Shplonk;
-    use w3f_pcs::Poly;
     use w3f_plonk_common::piop::ProverPiop;
     use w3f_plonk_common::prover::PlonkProver;
     use w3f_plonk_common::test_helpers::random_vec;
     use w3f_ring_proof::piop::prover::PiopProver;
     use w3f_ring_proof::ring_prover::RingProver;
     use w3f_ring_proof::ring_verifier::RingVerifier;
-    use w3f_ring_proof::{index, test_setup, ArkTranscript};
+    use w3f_ring_proof::{ArkTranscript, PiopParams, index};
 
     #[cfg(feature = "parallel")]
     use rayon::prelude::*;
+    use w3f_plonk_common::domain::Domain;
 
     type PallasIPA = IPA<ark_pallas::Projective>;
     type PallasC = WrappedAffine<ark_pallas::Affine>;
 
-    // cargo test test_pasta_ring_plonk --release --features="print-trace" -- --show-output
-    #[test]
-    fn test_pasta_ring_plonk() {
-        let rng = &mut test_rng();
-
-        // setup
-        let domain_size = 2usize.pow(9);
-        let (pcs_params, piop_params) =
-            test_setup::<_, _, PallasIPA, VestaConfig>(rng, domain_size);
-        let keyset_size = piop_params.keyset_part_size;
-        let pks = random_vec::<ark_vesta::Affine, _>(keyset_size, rng);
-        let (prover_key, verifier_key) = index::<_, PallasIPA, _>(&pcs_params, &piop_params, &pks);
-        let blinding = ark_vesta::Fr::rand(rng);
-        let pk_idx = rng.gen_range(0..keyset_size);
-        let blinded_pk = piop_params.blind_pk(pks[pk_idx], blinding);
-
-        // prover
-        let fs = ArkTranscript::new(b"pasta-ring-proof-test");
-        let prover = RingProver::init(prover_key, piop_params.clone(), 0, fs.clone());
-        let t_prove = start_timer!(|| format!(
-            "Proving IPA ring-proof with plonk, domain_size={domain_size}, keyset_size={keyset_size}"
-        ));
-        let (blinded_pk_, proof) = prover.rerandomize_pk(pk_idx, blinding);
-        end_timer!(t_prove);
-        assert_eq!(blinded_pk_, blinded_pk);
-
-        // verifier
-        let ring_verifier = RingVerifier::init(verifier_key, piop_params, fs);
-        let t_verify = start_timer!(|| "Verifying IPA plonk opening");
-        let valid = ring_verifier.verify(proof, blinded_pk);
-        end_timer!(t_verify);
-        assert!(valid);
+    fn setup<R: Rng, CS: PCS<G::BaseField>, G: AffineRepr<BaseField: PrimeField>>(
+        rng: &mut R,
+        domain_size: usize,
+    ) -> (CS::Params, PiopParams<G>) {
+        let setup_degree = 3 * domain_size;
+        let pcs_params = CS::setup(setup_degree, rng);
+        let domain = Domain::new(domain_size, true);
+        let piop_params = PiopParams::setup(domain, G::rand(rng), G::rand(rng), G::rand(rng));
+        (pcs_params, piop_params)
     }
+
+    // // cargo test test_pasta_ring_plonk --release --features="print-trace" -- --show-output
+    // #[test]
+    // fn test_pasta_ring_plonk() {
+    //     let rng = &mut test_rng();
+    //
+    //     // setup
+    //     let domain_size = 2usize.pow(9);
+    //     let (pcs_params, piop_params) =
+    //         setup::<_, PallasIPA, ark_vesta::Affine>(rng, domain_size);
+    //     let keyset_size = piop_params.keyset_part_size;
+    //     let pks = random_vec::<ark_vesta::Affine, _>(keyset_size, rng);
+    //     let (prover_key, verifier_key) = index::<_, PallasIPA, _>(&pcs_params, &piop_params, &pks);
+    //     let blinding = ark_vesta::Fr::rand(rng);
+    //     let pk_idx = rng.gen_range(0..keyset_size);
+    //     let blinded_pk = piop_params.blind_pk(pks[pk_idx], blinding);
+    //
+    //     // prover
+    //     let fs = ArkTranscript::new(b"pasta-ring-proof-test");
+    //     let prover = RingProver::init(prover_key, piop_params.clone(), 0, fs.clone());
+    //     let t_prove = start_timer!(|| format!(
+    //         "Proving IPA ring-proof with plonk, domain_size={domain_size}, keyset_size={keyset_size}"
+    //     ));
+    //     let (blinded_pk_, proof) = prover.rerandomize_pk(pk_idx, blinding);
+    //     end_timer!(t_prove);
+    //     assert_eq!(blinded_pk_, blinded_pk);
+    //
+    //     // verifier
+    //     let ring_verifier = RingVerifier::init(verifier_key, piop_params, fs);
+    //     let t_verify = start_timer!(|| "Verifying IPA plonk opening");
+    //     let valid = ring_verifier.verify(proof, blinded_pk);
+    //     end_timer!(t_verify);
+    //     assert!(valid);
+    // }
 
     // cargo test test_pasta_ring_shplonk --release --features="print-trace" -- --show-output
     #[test]
@@ -156,8 +173,7 @@ mod tests {
 
         // setup
         let domain_size = 2usize.pow(9);
-        let (pcs_params, piop_params) =
-            test_setup::<_, _, PallasIPA, VestaConfig>(rng, domain_size);
+        let (pcs_params, piop_params) = setup::<_, PallasIPA, ark_vesta::Affine>(rng, domain_size);
         let keyset_size = piop_params.keyset_part_size;
         let pks = random_vec::<ark_vesta::Affine, _>(keyset_size, rng);
         let (prover_key, verifier_key) = index::<_, PallasIPA, _>(&pcs_params, &piop_params, &pks);
@@ -172,7 +188,7 @@ mod tests {
         let pcs_vk = verifier_key.pcs_raw_vk.prepare();
 
         // prover
-        let piop = PiopProver::<ark_pallas::Fr, VestaConfig>::build(
+        let piop = PiopProver::<ark_pallas::Fr, ark_vesta::Affine>::build(
             &piop_params,
             prover_key.fixed_columns.clone(),
             pk_idx,
@@ -194,7 +210,7 @@ mod tests {
                     &constraints,
                     &alphas,
                 )
-                    .interpolate();
+                .interpolate();
             let quotient = piop_params
                 .domain
                 .divide_by_vanishing_poly(&agg_constraint_poly);

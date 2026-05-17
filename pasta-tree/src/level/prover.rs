@@ -1,18 +1,18 @@
+use crate::Coeffs;
 use crate::ipa_hiding::HidingIpa;
 use crate::level::{CycleSideParams, IPACommitment, LevelProof};
-use crate::Coeffs;
-use ark_ec::short_weierstrass::{Affine, SWCurveConfig};
 use ark_ec::CurveGroup;
+use ark_ec::short_weierstrass::{Affine, SWCurveConfig};
+use ark_poly::Polynomial;
 use ark_std::rand::Rng;
-use ark_std::{end_timer, start_timer, UniformRand};
+use ark_std::{UniformRand, end_timer, start_timer};
 use std::collections::BTreeSet;
 use w3f_pcs::pcs::PcsParams;
 use w3f_pcs::shplonk::Shplonk;
-use w3f_plonk_common::prover::{PcsOpeningAt2Points, PlonkProver};
-use w3f_ring_proof::piop::prover::PiopProver;
-use w3f_ring_proof::ArkTranscript;
-use ark_poly::Polynomial;
 use w3f_plonk_common::piop::ProverPiop;
+use w3f_plonk_common::prover::{PcsOpeningAt2Points, PlonkProver};
+use w3f_ring_proof::ArkTranscript;
+use w3f_ring_proof::piop::prover::PiopProver;
 
 // Witness for the relation (C, C'; i, r, r', x1, ..., xn, yi | C = x1.G1 + ...+ xn.Gn + r'H, C' = (xi, yi) + r.H')
 pub struct LevelWitness<G: SWCurveConfig> {
@@ -23,19 +23,33 @@ pub struct LevelWitness<G: SWCurveConfig> {
     // TODO: precompute C
 }
 
-impl<C: CurveGroup, G: SWCurveConfig<BaseField=C::ScalarField, ScalarField=C::BaseField>> CycleSideParams<C, G> {
+impl<C: CurveGroup, G: SWCurveConfig<BaseField = C::ScalarField, ScalarField = C::BaseField>>
+    CycleSideParams<C, G>
+{
     // to prove a single level, the prover needs:
     // 1. witness data:
     //    - parent randomizer
     //    - siblings
     //    - child index
     // 2. level params
-    pub fn prove_level<R: Rng>(&self, witness: &LevelWitness<G>, rng: &mut R) -> (Affine<G>, LevelProof<C>) {
-        let (fixed_columns, verifier_key) = self.commit_child_nodes(&witness.siblings, witness.parent_r);
+    pub fn prove_level<R: Rng>(
+        &self,
+        witness: &LevelWitness<G>,
+        rng: &mut R,
+    ) -> (Affine<G>, LevelProof<C>) {
+        let (fixed_columns, verifier_key) =
+            self.commit_child_nodes(&witness.siblings, witness.parent_r);
         let piop = PiopProver::build(&self.piop_params, fixed_columns, witness.i, witness.child_r);
-        let blinded_pk = <PiopProver<C::ScalarField, G> as ProverPiop<C::ScalarField, IPACommitment<C>>>::result(&piop);
+        let blinded_pk = <PiopProver<C::ScalarField, Affine<G>> as ProverPiop<
+            C::ScalarField,
+            IPACommitment<C>,
+        >>::result(&piop);
         // let blinded_parent = verifier_key.fixed_columns_committed.points[0].clone();
-        let plonk_prover = PlonkProver::<C::ScalarField, HidingIpa<C>, _>::init(self.pcs_params.ck(), verifier_key, ArkTranscript::new(b"pasta-tree-level-proof"));
+        let plonk_prover = PlonkProver::<C::ScalarField, HidingIpa<C>, _>::init(
+            self.pcs_params.ck(),
+            verifier_key,
+            ArkTranscript::new(b"pasta-tree-level-proof"),
+        );
         let (pcs_openings, piop_proof, mut transcript) = plonk_prover.reduce_to_pcs_opening(piop);
         let PcsOpeningAt2Points {
             polys_at_zeta,
@@ -46,10 +60,7 @@ impl<C: CurveGroup, G: SWCurveConfig<BaseField=C::ScalarField, ScalarField=C::Ba
 
         let mut coord_vecs = vec![vec![zeta]; polys_at_zeta.len()];
         coord_vecs.push(vec![zeta_omega]);
-        let polys = [
-            polys_at_zeta,
-            polys_at_zeta_omega
-        ].concat();
+        let polys = [polys_at_zeta, polys_at_zeta_omega].concat();
 
         let coord_sets: Vec<BTreeSet<C::ScalarField>> = coord_vecs
             .iter()

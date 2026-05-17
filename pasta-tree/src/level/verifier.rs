@@ -1,3 +1,5 @@
+use crate::ipa_hiding::HidingIpa;
+use crate::level::{CycleSideParams, IPACommitment, LevelProof};
 use ark_ec::CurveGroup;
 use ark_ec::short_weierstrass::{Affine, SWCurveConfig};
 use ark_std::{end_timer, start_timer};
@@ -5,18 +7,27 @@ use w3f_pcs::pcs::PcsParams;
 use w3f_pcs::shplonk::Shplonk;
 use w3f_plonk_common::piop::VerifierPiop;
 use w3f_plonk_common::verifier::{PcsOpeningAt2Points, PlonkVerifier};
-use w3f_ring_proof::{ArkTranscript, FixedColumnsCommitted, VerifierKey};
 use w3f_ring_proof::piop::verifier::PiopVerifier;
-use crate::ipa_hiding::HidingIpa;
-use crate::level::{CycleSideParams, IPACommitment, LevelProof};
+use w3f_ring_proof::{ArkTranscript, FixedColumnsCommitted, VerifierKey};
 
-impl<C: CurveGroup, G: SWCurveConfig<BaseField=C::ScalarField, ScalarField=C::BaseField>> CycleSideParams<C, G> {
-    pub fn verify_level(&self, parent: FixedColumnsCommitted<C::ScalarField, IPACommitment<C>>, blinded_child: Affine<G>, level_proof: LevelProof<C>) -> bool {
+impl<C: CurveGroup, G: SWCurveConfig<BaseField = C::ScalarField, ScalarField = C::BaseField>>
+    CycleSideParams<C, G>
+{
+    pub fn verify_level(
+        &self,
+        parent: FixedColumnsCommitted<C::ScalarField, IPACommitment<C>>,
+        blinded_child: Affine<G>,
+        level_proof: LevelProof<C>,
+    ) -> bool {
         let verifier_key: VerifierKey<C::ScalarField, HidingIpa<C>> = VerifierKey {
             pcs_raw_vk: self.pcs_params.raw_vk(),
             fixed_columns_committed: parent.clone(),
         };
-        let plonk_verifier: PlonkVerifier<C::ScalarField, HidingIpa<C>, _> = PlonkVerifier::init(self.pcs_params.vk(), &verifier_key, ArkTranscript::new(b"pasta-tree-level-proof"));
+        let plonk_verifier: PlonkVerifier<C::ScalarField, HidingIpa<C>, _> = PlonkVerifier::init(
+            self.pcs_params.vk(),
+            &verifier_key,
+            ArkTranscript::new(b"pasta-tree-level-proof"),
+        );
 
         let LevelProof {
             piop_proof,
@@ -49,7 +60,7 @@ impl<C: CurveGroup, G: SWCurveConfig<BaseField=C::ScalarField, ScalarField=C::Ba
             zeta,
             zeta_omega,
             vals_at_zeta,
-            vals_at_zeta_omega
+            vals_at_zeta_omega,
         } = plonk_verifier.evaluate_piop(piop, piop_proof, challenges);
 
         let mut coord_vecs = vec![vec![zeta]; open_at_zeta.len()];

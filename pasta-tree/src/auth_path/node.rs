@@ -1,5 +1,5 @@
-use crate::ipa_hiding::HidingIpa;
 use crate::CycleSideParams;
+use crate::ipa_hiding::HidingIpa;
 use ark_ec::{AffineRepr, CurveGroup};
 use ark_ff::{PrimeField, Zero};
 
@@ -24,17 +24,18 @@ impl<G: AffineRepr> LevelWitness<G> {
     }
 
     fn x_coords(&self) -> Vec<G::BaseField> {
-        self.siblings.iter()
-            .map(|p| p.x())
-            .flatten()
-            .collect()
+        self.siblings.iter().map(|p| p.x()).flatten().collect()
     }
 
     pub(crate) fn path_node(&self) -> G {
         self.siblings[self.path_node_idx]
     }
 
-    pub(crate) fn with_blinding(&self, self_bf: G::ScalarField, parent_bf: G::BaseField) -> LevelWitnessWithBlinding<G> {
+    pub(crate) fn with_blinding(
+        &self,
+        self_bf: G::ScalarField,
+        parent_bf: G::BaseField,
+    ) -> LevelWitnessWithBlinding<G> {
         LevelWitnessWithBlinding {
             level_witness: self.clone(),
             bf: self_bf,
@@ -42,21 +43,27 @@ impl<G: AffineRepr> LevelWitness<G> {
         }
     }
 
-    pub(crate) fn compute_parent<C: CurveGroup<ScalarField=G::BaseField>>(&self, params: &CycleSideParams<C>) -> Result<C, ()>
+    pub(crate) fn compute_parent<C: CurveGroup<ScalarField = G::BaseField>>(
+        &self,
+        params: &CycleSideParams<C>,
+    ) -> Result<C, ()>
     where
         G::BaseField: PrimeField,
     {
         self.compute_parent_with_bf(params, C::ScalarField::zero())
     }
 
-    fn compute_parent_with_bf<C: CurveGroup<ScalarField=G::BaseField>>(&self, params: &CycleSideParams<C>, bf: C::ScalarField) -> Result<C, ()>
+    fn compute_parent_with_bf<C: CurveGroup<ScalarField = G::BaseField>>(
+        &self,
+        params: &CycleSideParams<C>,
+        bf: C::ScalarField,
+    ) -> Result<C, ()>
     where
         G::BaseField: PrimeField,
     {
         params.commit_node(self.x_coords(), bf)
     }
 }
-
 
 /// NB! It is not "blinded", meaning that the blinding factor hasn't been applied.
 pub struct LevelWitnessWithBlinding<G: AffineRepr> {
@@ -73,13 +80,23 @@ pub struct LevelWitnessWithBlinding<G: AffineRepr> {
 
 impl<G: AffineRepr> LevelWitnessWithBlinding<G> {
     pub(crate) fn blinded_path_node(&self, ipa_pcs: &HidingIpa<G::Group>) -> Result<G, ()> {
-        Ok(ipa_pcs.reblind(self.level_witness.path_node(), G::ScalarField::zero(), self.bf)?.0)
+        Ok(ipa_pcs
+            .reblind(
+                self.level_witness.path_node(),
+                G::ScalarField::zero(),
+                self.bf,
+            )?
+            .0)
     }
 
-    pub(crate) fn compute_parent<C: CurveGroup<ScalarField=G::BaseField>>(&self, params: &CycleSideParams<C>) -> Result<C, ()>
+    pub(crate) fn compute_parent<C: CurveGroup<ScalarField = G::BaseField>>(
+        &self,
+        params: &CycleSideParams<C>,
+    ) -> Result<C, ()>
     where
         G::BaseField: PrimeField,
     {
-        self.level_witness.compute_parent_with_bf(params, self.parent_bf)
+        self.level_witness
+            .compute_parent_with_bf(params, self.parent_bf)
     }
 }

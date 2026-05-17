@@ -2,13 +2,13 @@ use ark_ec::CurveGroup;
 use ark_ff::{PrimeField, Zero};
 use ark_poly::{DenseUVPolynomial, Polynomial};
 use ark_serialize::{CanonicalDeserialize, CanonicalSerialize};
-use ark_std::rand::Rng;
 use ark_std::UniformRand;
-use w3f_pcs::pcs::ipa::ipa_pc;
-use w3f_pcs::pcs::{ipa, CommitterKey, PcsParams, RawVerifierKey, VerifierKey};
-use w3f_pcs::pcs::kzg::commitment::WrappedAffine;
-use w3f_pcs::pcs::PCS;
+use ark_std::rand::Rng;
 use w3f_pcs::Poly;
+use w3f_pcs::pcs::PCS;
+use w3f_pcs::pcs::ipa::ipa_pc;
+use w3f_pcs::pcs::kzg::commitment::WrappedAffine;
+use w3f_pcs::pcs::{CommitterKey, PcsParams, RawVerifierKey, VerifierKey, ipa};
 
 // To open a hiding commitment `Cp = Commit(p, t1) = (p0.G0 + ... + pn.Gn) + t1.H` at `z`,
 // the prover:
@@ -41,13 +41,18 @@ pub struct HidingProof<C: CurveGroup> {
     a: C::ScalarField,
 }
 
-impl<F: PrimeField, C: CurveGroup<ScalarField=F>> HidingIpa<C> {
+impl<F: PrimeField, C: CurveGroup<ScalarField = F>> HidingIpa<C> {
     pub fn commit_hiding(&self, p: &Poly<F>, t: F) -> Result<WrappedAffine<C::Affine>, ()> {
         let c = ipa::IPA::commit(&self.ipa_pcs, p)?;
         self.reblind(c.0, F::zero(), t)
     }
 
-    pub fn reblind(&self, c: C::Affine, r_old: F, r_new: F) -> Result<WrappedAffine<C::Affine>, ()> {
+    pub fn reblind(
+        &self,
+        c: C::Affine,
+        r_old: F,
+        r_new: F,
+    ) -> Result<WrappedAffine<C::Affine>, ()> {
         let c = c + self.h * (r_new - r_old);
         let c = c.into_affine();
         Ok(WrappedAffine(c))
@@ -98,21 +103,28 @@ impl<C: CurveGroup> PCS<C::ScalarField> for HidingIpa<C> {
     fn setup<R: Rng>(max_degree: usize, rng: &mut R) -> Self::Params {
         let ipa_pcs = ipa::IPA::setup(max_degree, rng);
         let h = C::Affine::rand(rng);
-        Self {
-            ipa_pcs,
-            h,
-        }
+        Self { ipa_pcs, h }
     }
 
     fn commit(ck: &Self::CK, p: &Poly<C::ScalarField>) -> Result<Self::C, ()> {
         Self::commit_hiding(ck, p, C::ScalarField::zero())
     }
 
-    fn open(_ck: &Self::CK, _p: &Poly<C::ScalarField>, _x: C::ScalarField) -> Result<Self::Proof, ()> {
+    fn open(
+        _ck: &Self::CK,
+        _p: &Poly<C::ScalarField>,
+        _x: C::ScalarField,
+    ) -> Result<Self::Proof, ()> {
         todo!()
     }
 
-    fn open_hiding<R: Rng>(ck: &Self::CK, p: &Poly<C::ScalarField>, z: C::ScalarField, t: C::ScalarField, rng: &mut R) -> Result<Self::Proof, ()> {
+    fn open_hiding<R: Rng>(
+        ck: &Self::CK,
+        p: &Poly<C::ScalarField>,
+        z: C::ScalarField,
+        t: C::ScalarField,
+        rng: &mut R,
+    ) -> Result<Self::Proof, ()> {
         let t1 = t;
         let mut q = Poly::rand(p.degree(), rng);
         let q_at_z = q.evaluate(&z);
@@ -132,20 +144,31 @@ impl<C: CurveGroup> PCS<C::ScalarField> for HidingIpa<C> {
         })
     }
 
-    fn verify(vk: &Self::VK, c: Self::C, x: C::ScalarField, z: C::ScalarField, proof: Self::Proof) -> Result<(), ()> {
+    fn verify(
+        vk: &Self::VK,
+        c: Self::C,
+        x: C::ScalarField,
+        z: C::ScalarField,
+        proof: Self::Proof,
+    ) -> Result<(), ()> {
         let c = c.0 + proof.q * proof.a - vk.h * proof.t;
-        ipa::IPA::verify(&vk.ipa_pcs, WrappedAffine(c.into_affine()), x, z, proof.ipa_pcs_proof)
+        ipa::IPA::verify(
+            &vk.ipa_pcs,
+            WrappedAffine(c.into_affine()),
+            x,
+            z,
+            proof.ipa_pcs_proof,
+        )
     }
 }
 
-
 #[cfg(test)]
 mod tests {
-    use ark_poly::{DenseUVPolynomial, Polynomial};
-    use ark_std::{test_rng, UniformRand};
-    use w3f_pcs::pcs::PCS;
-    use w3f_pcs::Poly;
     use crate::ipa_hiding::HidingIpa;
+    use ark_poly::{DenseUVPolynomial, Polynomial};
+    use ark_std::{UniformRand, test_rng};
+    use w3f_pcs::Poly;
+    use w3f_pcs::pcs::PCS;
 
     #[test]
     fn test_hiding_ipa_opening() {
@@ -163,7 +186,8 @@ mod tests {
 
         let z = ark_pallas::Fr::rand(rng);
         let v = p.evaluate(&z);
-        let pi = HidingIpa::<ark_pallas::Projective>::open_hiding(&hiding_pcs, &p, z, t, rng).unwrap();
+        let pi =
+            HidingIpa::<ark_pallas::Projective>::open_hiding(&hiding_pcs, &p, z, t, rng).unwrap();
 
         assert!(HidingIpa::<ark_pallas::Projective>::verify(&hiding_pcs, c, z, v, pi).is_ok());
     }
