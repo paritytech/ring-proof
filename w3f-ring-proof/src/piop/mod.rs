@@ -1,5 +1,4 @@
 use ark_ec::pairing::Pairing;
-use ark_ec::twisted_edwards::{Affine, TECurveConfig};
 use ark_ec::AffineRepr;
 use ark_ff::PrimeField;
 use ark_serialize::{CanonicalDeserialize, CanonicalSerialize};
@@ -96,15 +95,13 @@ impl<F: PrimeField, C: Commitment<F>> FixedColumnsCommitted<F, C> {
     }
 }
 
-impl<F: PrimeField, C: AffineRepr<ScalarField = F>> FixedColumnsCommitted<F, WrappedAffine<C>> {
-    pub fn from_ring<E: Pairing<ScalarField = F, G1Affine = C>, G: TECurveConfig<BaseField = F>>(
-        ring: &Ring<F, E, G>,
-    ) -> Self {
-        let cx = WrappedAffine(ring.cx);
-        let cy = WrappedAffine(ring.cy);
-        Self {
+impl <E: Pairing, G: AffineRepr<BaseField=E::ScalarField>> Ring<E::ScalarField,E,G> {
+    pub fn as_fixed_columns(&self) -> FixedColumnsCommitted<E::ScalarField, WrappedAffine<E::G1Affine>>  {
+        let cx = WrappedAffine(self.cx);
+        let cy = WrappedAffine(self.cy);
+        FixedColumnsCommitted {
             points: [cx, cy],
-            ring_selector: WrappedAffine(ring.selector),
+            ring_selector: WrappedAffine(self.selector),
             phantom: Default::default(),
         }
     }
@@ -159,11 +156,12 @@ impl<F: PrimeField, CS: PCS<F>> Clone for VerifierKey<F, CS> {
 }
 
 impl<E: Pairing> VerifierKey<E::ScalarField, KZG<E>> {
-    pub fn from_ring_and_kzg_vk<G: TECurveConfig<BaseField = E::ScalarField>>(
+    pub fn from_ring_and_kzg_vk<G: AffineRepr<BaseField = E::ScalarField>>(
         ring: &Ring<E::ScalarField, E, G>,
         kzg_vk: RawKzgVerifierKey<E>,
     ) -> Self {
-        Self::from_commitment_and_kzg_vk(FixedColumnsCommitted::from_ring(ring), kzg_vk)
+        let fixed_columns = ring.as_fixed_columns();
+        Self::from_commitment_and_kzg_vk(fixed_columns, kzg_vk)
     }
 
     pub fn from_commitment_and_kzg_vk(
@@ -181,11 +179,11 @@ impl<E: Pairing> VerifierKey<E::ScalarField, KZG<E>> {
     }
 }
 
-pub fn index<F: PrimeField, CS: PCS<F>, Curve: TECurveConfig<BaseField = F>>(
+pub fn index<F: PrimeField, CS: PCS<F>, G: AffineRepr<BaseField = F>>(
     pcs_params: &CS::Params,
-    piop_params: &PiopParams<Affine<Curve>>,
-    keys: &[Affine<Curve>],
-) -> (ProverKey<F, CS, Affine<Curve>>, VerifierKey<F, CS>) {
+    piop_params: &PiopParams<G>,
+    keys: &[G],
+) -> (ProverKey<F, CS, G>, VerifierKey<F, CS>) {
     let pcs_ck = pcs_params.ck();
     let pcs_raw_vk = pcs_params.raw_vk();
     let fixed_columns = piop_params.fixed_columns(&keys);

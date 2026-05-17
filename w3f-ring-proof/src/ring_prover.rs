@@ -67,7 +67,7 @@ where
         r: Curve::ScalarField,
     ) -> (Affine<Curve>, RingProof<F, CS>) {
         let piop = PiopProver::build(&self.piop_params, self.fixed_columns.clone(), k, r);
-        let blinded_pk = <PiopProver<F, Curve> as ProverPiop<F, CS::C>>::result(&piop);
+        let blinded_pk = <PiopProver<F, Affine<Curve>> as ProverPiop<F, CS::C>>::result(&piop);
         let proof = self.plonk_prover.prove(piop);
         (blinded_pk, proof)
     }

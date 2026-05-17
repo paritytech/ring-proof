@@ -77,7 +77,6 @@ mod tests {
 
     use w3f_plonk_common::test_helpers::random_vec;
 
-    use crate::piop::FixedColumnsCommitted;
     use crate::ring::{Ring, RingBuilderKey};
     use crate::ring_prover::RingProver;
     use crate::ring_verifier::RingVerifier;
@@ -160,7 +159,7 @@ mod tests {
 
         let ring = Ring::<_, Bls12_381, _>::with_keys(&piop_params, &pks, &ring_builder_key);
 
-        let fixed_columns_committed = FixedColumnsCommitted::from_ring(&ring);
+        let fixed_columns_committed = ring.as_fixed_columns();
         assert_eq!(
             fixed_columns_committed,
             verifier_key.fixed_columns_committed

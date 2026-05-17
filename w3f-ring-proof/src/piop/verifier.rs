@@ -1,5 +1,6 @@
-use ark_ec::twisted_edwards::{Affine, TECurveConfig};
 use ark_ec::AffineRepr;
+use ark_ec::short_weierstrass::{Affine as SwAffine, SWCurveConfig};
+use ark_ec::twisted_edwards::{Affine as TeAffine, TECurveConfig};
 use ark_ff::PrimeField;
 use ark_std::marker::PhantomData;
 use ark_std::{vec, vec::Vec};
@@ -102,7 +103,7 @@ impl<F: PrimeField, C: Commitment<F>, P: AffineRepr<BaseField = F>> PiopVerifier
 }
 
 impl<F: PrimeField, C: Commitment<F>, Jubjub: TECurveConfig<BaseField = F>> VerifierPiop<F, C>
-    for PiopVerifier<F, C, Affine<Jubjub>>
+    for PiopVerifier<F, C, TeAffine<Jubjub>>
 {
     const N_CONSTRAINTS: usize = 7;
     const N_COLUMNS: usize = 7;
@@ -121,6 +122,54 @@ impl<F: PrimeField, C: Commitment<F>, Jubjub: TECurveConfig<BaseField = F>> Veri
             self.inner_prod_acc.evaluate_constraints_main(),
         ]
         .concat()
+    }
+
+    fn lin_poly_commitment(&self, agg_coeffs: &[F]) -> (Vec<F>, Vec<C>) {
+        assert_eq!(agg_coeffs.len(), Self::N_CONSTRAINTS);
+
+        let inner_prod_acc = self.witness_columns_committed.inn_prod_acc.clone();
+        let inner_prod_coeff = agg_coeffs[0] * self.inner_prod.not_last;
+
+        let cond_add_acc_x = self.witness_columns_committed.cond_add_acc[0].clone();
+        let cond_add_acc_y = self.witness_columns_committed.cond_add_acc[1].clone();
+        let (c_acc_x, c_acc_y) = self.cond_add.acc_coeffs_1();
+        let mut cond_add_x_coeff = agg_coeffs[1] * c_acc_x;
+        let mut cond_add_y_coeff = agg_coeffs[1] * c_acc_y;
+        let (c_acc_x, c_acc_y) = self.cond_add.acc_coeffs_2();
+        cond_add_x_coeff += agg_coeffs[2] * c_acc_x;
+        cond_add_y_coeff += agg_coeffs[2] * c_acc_y;
+
+        (
+            vec![inner_prod_coeff, cond_add_x_coeff, cond_add_y_coeff],
+            vec![inner_prod_acc.clone(), cond_add_acc_x, cond_add_acc_y],
+        )
+    }
+
+    fn domain_evaluated(&self) -> &EvaluatedDomain<F> {
+        &self.domain_evals
+    }
+}
+
+impl<F: PrimeField, C: Commitment<F>, Jubjub: SWCurveConfig<BaseField = F>> VerifierPiop<F, C>
+for PiopVerifier<F, C, SwAffine<Jubjub>>
+{
+    const N_CONSTRAINTS: usize = 7;
+    const N_COLUMNS: usize = 7;
+
+    fn precommitted_columns(&self) -> Vec<C> {
+        self.fixed_columns_committed.as_vec()
+    }
+
+    fn evaluate_constraints_main(&self) -> Vec<F> {
+        vec![
+            self.inner_prod.evaluate_constraints_main(),
+            self.cond_add.evaluate_constraints_main(),
+            self.booleanity.evaluate_constraints_main(),
+            self.cond_add_acc_x.evaluate_constraints_main(),
+            self.cond_add_acc_y.evaluate_constraints_main(),
+            self.inner_prod_acc.evaluate_constraints_main(),
+        ]
+            .concat()
     }
 
     fn lin_poly_commitment(&self, agg_coeffs: &[F]) -> (Vec<F>, Vec<C>) {
