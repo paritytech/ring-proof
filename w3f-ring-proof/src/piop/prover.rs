@@ -1,6 +1,6 @@
-use ark_ec::AffineRepr;
-use ark_ec::twisted_edwards::{Affine as TeAffine, TECurveConfig};
 use ark_ec::short_weierstrass::{Affine as SwAffine, SWCurveConfig};
+use ark_ec::twisted_edwards::{Affine as TeAffine, TECurveConfig};
+use ark_ec::AffineRepr;
 use ark_ff::PrimeField;
 use ark_poly::univariate::DensePolynomial;
 use ark_poly::Evaluations;
@@ -162,7 +162,7 @@ where
     }
 
     fn columns_evaluated(&self, zeta: &F) -> Self::Evaluations {
-       self._columns_evaluated(zeta)
+        self._columns_evaluated(zeta)
     }
 
     fn constraints(&self) -> Vec<Evaluations<F>> {
@@ -174,7 +174,7 @@ where
             self.cond_add_acc_y.constraints(),
             self.inner_prod_acc.constraints(),
         ]
-            .concat()
+        .concat()
     }
 
     fn constraints_lin(&self, zeta: &F) -> Vec<DensePolynomial<F>> {
@@ -186,7 +186,7 @@ where
             self.cond_add_acc_y.constraints_linearized(zeta),
             self.inner_prod_acc.constraints_linearized(zeta),
         ]
-            .concat()
+        .concat()
     }
 
     fn domain(&self) -> &Domain<F> {
@@ -234,7 +234,7 @@ where
             self.cond_add_acc_y.constraints(),
             self.inner_prod_acc.constraints(),
         ]
-            .concat()
+        .concat()
     }
 
     fn constraints_lin(&self, zeta: &F) -> Vec<DensePolynomial<F>> {
@@ -246,7 +246,7 @@ where
             self.cond_add_acc_y.constraints_linearized(zeta),
             self.inner_prod_acc.constraints_linearized(zeta),
         ]
-            .concat()
+        .concat()
     }
 
     fn domain(&self) -> &Domain<F> {
@@ -257,6 +257,3 @@ where
         self.cond_add.result()
     }
 }
-
-
-

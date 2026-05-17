@@ -32,11 +32,7 @@ const IDLE_ROWS: usize = ZK_ROWS + 1;
 /// Thus, the vector of points we commit to coordinatewise is
 /// `pk1, ..., pkn, padding, ..., padding, H, 2H, ..., 2^(s-1)H, 0, 0, 0, 0`
 #[derive(Clone, PartialEq, Eq, CanonicalSerialize, CanonicalDeserialize)]
-pub struct Ring<
-    F: PrimeField,
-    KzgCurve: Pairing<ScalarField = F>,
-    G: AffineRepr<BaseField = F>,
-> {
+pub struct Ring<F: PrimeField, KzgCurve: Pairing<ScalarField = F>, G: AffineRepr<BaseField = F>> {
     /// KZG commitment to the x coordinates of the described vector.
     pub cx: KzgCurve::G1Affine,
     /// KZG commitment to the y coordinates of the described vector.
@@ -51,11 +47,8 @@ pub struct Ring<
     pub padding: G,
 }
 
-impl<
-        F: PrimeField,
-        KzgCurve: Pairing<ScalarField = F>,
-        G: AffineRepr<BaseField = F>,
-    > fmt::Debug for Ring<F, KzgCurve, G>
+impl<F: PrimeField, KzgCurve: Pairing<ScalarField = F>, G: AffineRepr<BaseField = F>> fmt::Debug
+    for Ring<F, KzgCurve, G>
 {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         write!(
@@ -66,11 +59,8 @@ impl<
     }
 }
 
-impl<
-        F: PrimeField,
-        KzgCurve: Pairing<ScalarField = F>,
-        G: AffineRepr<BaseField = F>,
-    > Ring<F, KzgCurve, G>
+impl<F: PrimeField, KzgCurve: Pairing<ScalarField = F>, G: AffineRepr<BaseField = F>>
+    Ring<F, KzgCurve, G>
 {
     /// Builds the commitment to the vector
     /// `padding, ..., padding, H, 2H, ..., 2^(s-1)H, 0, 0, 0, 0`.
@@ -223,8 +213,7 @@ impl<
         selector: KzgCurve::G1Affine,
         padding: G,
     ) -> Self {
-        let max_keys =
-            domain_size - (G::ScalarField::MODULUS_BIT_SIZE as usize + IDLE_ROWS);
+        let max_keys = domain_size - (G::ScalarField::MODULUS_BIT_SIZE as usize + IDLE_ROWS);
         Self {
             cx,
             cy,
@@ -256,7 +245,7 @@ impl<F: PrimeField, KzgCurve: Pairing<ScalarField = F>> RingBuilderKey<F, KzgCur
 #[cfg(test)]
 mod tests {
     use ark_bls12_381::{Bls12_381, Fr, G1Affine};
-    use ark_ed_on_bls12_381_bandersnatch::{EdwardsAffine};
+    use ark_ed_on_bls12_381_bandersnatch::EdwardsAffine;
     use ark_std::{test_rng, UniformRand};
     use w3f_pcs::pcs::kzg::urs::URS;
     use w3f_pcs::pcs::kzg::KZG;

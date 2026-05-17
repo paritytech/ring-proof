@@ -95,8 +95,10 @@ impl<F: PrimeField, C: Commitment<F>> FixedColumnsCommitted<F, C> {
     }
 }
 
-impl <E: Pairing, G: AffineRepr<BaseField=E::ScalarField>> Ring<E::ScalarField,E,G> {
-    pub fn as_fixed_columns(&self) -> FixedColumnsCommitted<E::ScalarField, WrappedAffine<E::G1Affine>>  {
+impl<E: Pairing, G: AffineRepr<BaseField = E::ScalarField>> Ring<E::ScalarField, E, G> {
+    pub fn as_fixed_columns(
+        &self,
+    ) -> FixedColumnsCommitted<E::ScalarField, WrappedAffine<E::G1Affine>> {
         let cx = WrappedAffine(self.cx);
         let cy = WrappedAffine(self.cy);
         FixedColumnsCommitted {
