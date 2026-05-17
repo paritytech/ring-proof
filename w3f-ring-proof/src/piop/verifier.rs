@@ -1,6 +1,6 @@
-use ark_ec::AffineRepr;
 use ark_ec::short_weierstrass::{Affine as SwAffine, SWCurveConfig};
 use ark_ec::twisted_edwards::{Affine as TeAffine, TECurveConfig};
+use ark_ec::AffineRepr;
 use ark_ff::PrimeField;
 use ark_std::marker::PhantomData;
 use ark_std::{vec, vec::Vec};
@@ -151,7 +151,7 @@ impl<F: PrimeField, C: Commitment<F>, Jubjub: TECurveConfig<BaseField = F>> Veri
 }
 
 impl<F: PrimeField, C: Commitment<F>, Jubjub: SWCurveConfig<BaseField = F>> VerifierPiop<F, C>
-for PiopVerifier<F, C, SwAffine<Jubjub>>
+    for PiopVerifier<F, C, SwAffine<Jubjub>>
 {
     const N_CONSTRAINTS: usize = 7;
     const N_COLUMNS: usize = 7;
@@ -169,7 +169,7 @@ for PiopVerifier<F, C, SwAffine<Jubjub>>
             self.cond_add_acc_y.evaluate_constraints_main(),
             self.inner_prod_acc.evaluate_constraints_main(),
         ]
-            .concat()
+        .concat()
     }
 
     fn lin_poly_commitment(&self, agg_coeffs: &[F]) -> (Vec<F>, Vec<C>) {
