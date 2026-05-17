@@ -1,7 +1,7 @@
 #![feature(bool_to_result)]
 
 use crate::ipa_hiding::HidingIpa;
-use ark_ec::{AffineRepr, CurveGroup};
+use ark_ec::{AffineRepr, CurveGroup, PrimeGroup};
 use ark_ff::{PrimeField, Zero};
 use ark_std::rand::Rng;
 use std::marker::PhantomData;
@@ -9,14 +9,20 @@ use w3f_pcs::aggregation::multiple::Transcript;
 use w3f_pcs::pcs::kzg::commitment::WrappedAffine;
 use w3f_pcs::pcs::PcsParams;
 use w3f_pcs::pcs::PCS;
+use w3f_pcs::shplonk::AggregateProof;
 use w3f_plonk_common::domain::Domain;
-use w3f_ring_proof::piop::FixedColumns;
+use w3f_plonk_common::PiopProof;
+use w3f_ring_proof::piop::{FixedColumns, RingCommitments, RingEvaluations};
 use w3f_ring_proof::{FixedColumnsCommitted, PiopParams, VerifierKey};
 
 
-mod auth_path;
+pub mod auth_path;
 pub mod ipa_hiding;
 pub mod level;
+pub mod prover;
+pub mod verifier;
+
+type IPACommitment<C> = <HidingIpa<C> as PCS<<C as PrimeGroup>::ScalarField>>::C;
 
 struct CycleSideParams<C: CurveGroup, G: AffineRepr<BaseField=C::ScalarField>> {
     pcs_params: HidingIpa<C>,
@@ -29,6 +35,18 @@ struct CycleParams<
 > {
     c0_params: CycleSideParams<C0, C1::Affine>,
     c1_params: CycleSideParams<C1, C0::Affine>,
+}
+
+pub struct CycleSideProof<F: PrimeField, C: CurveGroup<ScalarField=F>> {
+    piop_proofs: Vec<PiopProof<F, WrappedAffine<C::Affine>, RingCommitments<F, WrappedAffine<C::Affine>>, RingEvaluations<F>>>,
+    pcs_proof: AggregateProof<F, HidingIpa<C>>,
+    todo: Coeffs<F>,
+    fixed_columns_committed: Vec<FixedColumnsCommitted<F, IPACommitment<C>>>,
+}
+
+pub struct CurveTreeProof<F0: PrimeField, F1: PrimeField, C0: CurveGroup<ScalarField=F0>, C1: CurveGroup<ScalarField=F1>> {
+    c0_proof: CycleSideProof<F0, C0>,
+    c1_proof: CycleSideProof<F1, C1>,
 }
 
 impl<F0, F1, C0, C1> CycleParams<C0, C1>
@@ -187,7 +205,7 @@ mod tests {
     use super::*;
     use ark_ec::scalar_mul::glv::GLVConfig;
     use ark_ec::scalar_mul::wnaf::WnafContext;
-    use ark_ec::short_weierstrass::{Affine, SWCurveConfig};
+    use ark_ec::short_weierstrass::{Affine, Projective, SWCurveConfig};
     use ark_ec::AdditiveGroup;
     use ark_ec::{AffineRepr, CurveGroup};
     use ark_ff::PrimeField;
@@ -199,6 +217,7 @@ mod tests {
     use ark_std::rand::Rng;
     use ark_std::{cfg_iter_mut, end_timer, start_timer, test_rng, UniformRand};
     use std::collections::BTreeSet;
+    use ark_vesta::VestaConfig;
     use w3f_pcs::pcs::ipa::IPA;
     use w3f_pcs::pcs::kzg::commitment::WrappedAffine;
     use w3f_pcs::pcs::PcsParams;
@@ -287,6 +306,31 @@ mod tests {
         let domain = Domain::new(domain_size, true);
         let piop_params = PiopParams::setup(domain, G::rand(rng), G::rand(rng), G::rand(rng));
         (pcs_params, piop_params)
+    }
+
+    fn _test_proof<F0, F1, C0, C1>()
+    where
+        F0: PrimeField,
+        F1: PrimeField,
+        C0: SWCurveConfig<BaseField=F1, ScalarField=F0>,
+        C1: SWCurveConfig<BaseField=F0, ScalarField=F1>,
+    {
+        let rng = &mut test_rng();
+
+        let domain_size = 2usize.pow(9);
+        let params = CycleParams::<Projective<C0>, Projective<C1>>::setup(domain_size, rng);
+        let (leaf, path, root) = random_path(&params, 2, rng);
+
+        let (auth_path, proof) = params.prove(path, rng);
+
+        assert!(params.verify(auth_path, proof, root));
+    }
+
+    // cargo test test_level_proof --release --features="print-trace" -- --show-output
+    // cargo test test_level_proof --release --features="print-trace parallel" -- --show-output
+    #[test]
+    fn test_proof() {
+        _test_proof::<_, _, PallasConfig, VestaConfig>();
     }
 
     // // cargo test test_pasta_ring_plonk --release --features="print-trace" -- --show-output

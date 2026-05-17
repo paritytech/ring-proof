@@ -1,6 +1,6 @@
 use crate::ipa_hiding::HidingIpa;
-use crate::level::{IPACommitment, LevelProof};
-use crate::CycleSideParams;
+use crate::level::LevelProof;
+use crate::{CycleSideParams, IPACommitment};
 use ark_ec::short_weierstrass::{Affine, SWCurveConfig};
 use ark_ec::CurveGroup;
 use ark_std::{end_timer, start_timer};

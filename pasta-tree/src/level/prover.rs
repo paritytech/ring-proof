@@ -1,7 +1,7 @@
 use crate::auth_path::node::LevelWitnessWithBlinding;
 use crate::ipa_hiding::HidingIpa;
-use crate::level::{IPACommitment, LevelProof};
-use crate::{Coeffs, CycleSideParams};
+use crate::level::LevelProof;
+use crate::{Coeffs, CycleSideParams, IPACommitment};
 use ark_ec::short_weierstrass::{Affine, SWCurveConfig};
 use ark_ec::CurveGroup;
 use ark_poly::Polynomial;
@@ -14,24 +14,11 @@ use w3f_plonk_common::piop::ProverPiop;
 use w3f_plonk_common::prover::{PcsOpeningAt2Points, PlonkProver};
 use w3f_ring_proof::piop::prover::PiopProver;
 use w3f_ring_proof::ArkTranscript;
-// // Witness for the relation (C, C'; i, r, r', x1, ..., xn, yi | C = x1.G1 + ...+ xn.Gn + r'H, C' = (xi, yi) + r.H')
-// pub struct LevelWitness<G: SWCurveConfig> {
-//     pub siblings: Vec<Affine<G>>,
-//     pub i: usize,
-//     pub child_r: G::ScalarField,
-//     pub parent_r: G::BaseField,
-//     // TODO: precompute C
-// }
 
 impl<C: CurveGroup, G: SWCurveConfig<BaseField = C::ScalarField, ScalarField = C::BaseField>>
     CycleSideParams<C, Affine<G>>
 {
-    // to prove a single level, the prover needs:
-    // 1. witness data:
-    //    - parent randomizer
-    //    - siblings
-    //    - child index
-    // 2. level params
+
     pub fn prove_level<R: Rng>(
         &self,
         witness: &LevelWitnessWithBlinding<Affine<G>>,

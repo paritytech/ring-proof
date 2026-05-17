@@ -8,6 +8,12 @@ pub struct AuthenticationPathWithBlinding<C0: CurveGroup, C1: CurveGroup> {
     pub(crate) c1_path: Vec<LevelWitnessWithBlinding<C1::Affine>>,
 }
 
+#[derive(Clone, Debug)]
+pub struct BlindedAuthenticationPath<C0: CurveGroup, C1: CurveGroup> {
+    pub(crate) c0_path: Vec<C0::Affine>,
+    pub(crate) c1_path: Vec<C1::Affine>,
+}
+
 impl<F0, F1, C0, C1> AuthenticationPathWithBlinding<C0, C1>
 where
     F0: PrimeField,
@@ -15,6 +21,21 @@ where
     C0: CurveGroup<BaseField=F1, ScalarField=F0>,
     C1: CurveGroup<BaseField=F0, ScalarField=F1>,
 {
+    pub(crate) fn apply_bfs(
+        &self,
+        params: &CycleParams<C0, C1>,
+    ) -> BlindedAuthenticationPath<C0, C1> {
+        let c0_path = self.c0_path.iter()
+            .map(|c0_level| c0_level.blinded_path_node(&params.c0_params.pcs_params).unwrap())
+            .collect();
+        let c1_path = self.c1_path.iter()
+            .map(|c1_level| c1_level.blinded_path_node(&params.c1_params.pcs_params).unwrap())
+            .collect();
+        BlindedAuthenticationPath {
+            c0_path,
+            c1_path,
+        }
+    }
     pub(crate) fn compute_root(
         &self,
         params: &CycleParams<C0, C1>,

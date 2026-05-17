@@ -21,9 +21,6 @@ pub struct LevelProof<C: CurveGroup> {
     todo: Coeffs<C::ScalarField>,
 }
 
-type IPACommitment<C> = <HidingIpa<C> as PCS<<C as PrimeGroup>::ScalarField>>::C;
-
-
 #[cfg(test)]
 mod tests {
     use crate::tests::random_nodes;
