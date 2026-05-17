@@ -22,21 +22,26 @@ where
     pub fn verify(&self, auth_path: BlindedAuthenticationPath<Projective<C0>, Projective<C1>>,
                   proof: CurveTreeProof<F0, F1, Projective<C0>, Projective<C1>>,
                   root: CycleSide<Affine<C0>, Affine<C1>>) -> bool {
+        println!("leaf = {}", auth_path.c0_path[0]);
+        println!("root = {:?}", root);
         let c0_x_coords: Vec<Affine<C0>> = proof.c0_proof.fixed_columns_committed.iter().map(|c| c.points[0].0).collect();
         let c1_x_coords: Vec<Affine<C1>> = proof.c1_proof.fixed_columns_committed.iter().map(|c| c.points[0].0).collect();
-
-        // match root {
-        //     CycleSide::C0(c0_root) => {
-        //         assert_eq!(c0_root, c0_x_coords[c0_x_coords.len() - 1]);
-        //         assert_eq!(auth_path.c1_path, c1_x_coords);
-        //         assert_eq!(auth_path.c0_path[1..], c0_x_coords[..c0_x_coords.len() - 1]);
-        //     }
-        //     CycleSide::C1(c1_root) => {
-        //         assert_eq!(c1_root, c1_x_coords[c1_x_coords.len() - 1]);
-        //     }
-        // }
+        match root {
+            CycleSide::C0(c0_root) => {
+                assert_eq!(c0_root, c0_x_coords[c0_x_coords.len() - 1]);
+                assert_eq!(auth_path.c1_path, c1_x_coords);
+                assert_eq!(auth_path.c0_path[1..], c0_x_coords[..c0_x_coords.len() - 1]);
+            }
+            CycleSide::C1(c1_root) => {
+                assert_eq!(c1_root, c1_x_coords[c1_x_coords.len() - 1]);
+                assert_eq!(auth_path.c1_path, c1_x_coords[..c1_x_coords.len() - 1]);
+                assert_eq!(auth_path.c0_path[1..], c0_x_coords);
+            }
+        }
         let c0_proof = self.c0_params.verify_side(auth_path.c1_path, proof.c0_proof);
+        assert!(c0_proof);
         let c1_proof = self.c1_params.verify_side(auth_path.c0_path, proof.c1_proof);
+        assert!(c1_proof);
         c0_proof && c1_proof
     }
 }
@@ -45,7 +50,6 @@ impl<C: CurveGroup, G: SWCurveConfig<BaseField=C::ScalarField, ScalarField=C::Ba
 {
     pub fn verify_side(
         &self,
-        // parent: FixedColumnsCommitted<C::ScalarField, crate::level::IPACommitment<C>>,
         blinded_path: Vec<Affine<G>>,
         side_proof: CycleSideProof<C::ScalarField, C>,
     ) -> bool {
@@ -89,6 +93,7 @@ impl<C: CurveGroup, G: SWCurveConfig<BaseField=C::ScalarField, ScalarField=C::Ba
                 vals_at_zeta,
                 vals_at_zeta_omega,
             } = plonk_verifier.evaluate_piop(piop, piop_proof, challenges);
+            println!("zeta = {zeta}, q(z) = {}", vals_at_zeta[vals_at_zeta.len() - 1]);
 
             coords.extend(vec![vec![zeta]; open_at_zeta.len()]);
             polys.extend(open_at_zeta);

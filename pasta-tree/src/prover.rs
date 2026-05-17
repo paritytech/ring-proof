@@ -75,6 +75,9 @@ impl<C: CurveGroup, G: SWCurveConfig<BaseField=C::ScalarField, ScalarField=C::Ba
                 zeta_omega,
             } = pcs_openings;
 
+            use ark_poly::Polynomial;
+            println!("zeta = {zeta}, q(z) = {}", polys_at_zeta[polys_at_zeta.len() - 1].evaluate(&zeta));
+
             coords.extend(vec![BTreeSet::from([zeta]); polys_at_zeta.len()]);
             polys.extend(polys_at_zeta);
             coords.extend(vec![BTreeSet::from([zeta_omega]); polys_at_zeta_omega.len()]);

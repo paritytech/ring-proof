@@ -319,7 +319,7 @@ mod tests {
 
         let domain_size = 2usize.pow(9);
         let params = CycleParams::<Projective<C0>, Projective<C1>>::setup(domain_size, rng);
-        let (leaf, path, root) = random_path(&params, 2, rng);
+        let (leaf, path, root) = random_path(&params, 3, rng);
 
         let (auth_path, proof) = params.prove(path, rng);
 
