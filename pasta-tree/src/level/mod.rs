@@ -26,18 +26,14 @@ type IPACommitment<C> = <HidingIpa<C> as PCS<<C as PrimeGroup>::ScalarField>>::C
 
 #[cfg(test)]
 mod tests {
-    use crate::auth_path::node::LevelWitness;
+    use crate::tests::random_nodes;
     use crate::CycleParams;
-    use crate::CycleSideParams;
     use ark_ec::short_weierstrass::{Affine, Projective, SWCurveConfig};
-    use ark_ec::{AffineRepr, CurveGroup};
+    use ark_ec::CurveGroup;
     use ark_ff::PrimeField;
     use ark_pallas::PallasConfig;
-    use ark_std::rand::Rng;
     use ark_std::{end_timer, start_timer, test_rng, UniformRand};
     use ark_vesta::VestaConfig;
-    use w3f_plonk_common::test_helpers::random_vec;
-    use crate::tests::random_node;
 
     fn _test_level_proof<F0, F1, C0, C1>()
     where
@@ -55,8 +51,8 @@ mod tests {
         } = CycleParams::<Projective<C0>, Projective<C1>>::setup(domain_size, rng);
 
         let leaf = Affine::<C0>::rand(rng);
-        let (l1_node, mut l2_nodes) = random_node(&c1_params, leaf, rng);
-        let (root, l1_nodes) = random_node(&c0_params, l1_node, rng);
+        let (l1_node, mut l2_nodes) = random_nodes(&c1_params, leaf, rng);
+        let (root, l1_nodes) = random_nodes(&c0_params, l1_node, rng);
 
         let (_, l1_vk) = c0_params.commit_children(l1_nodes.siblings.as_slice(), F0::zero());
         let root_fc = l1_vk.fixed_columns_committed;

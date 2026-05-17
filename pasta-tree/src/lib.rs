@@ -6,6 +6,7 @@ use ark_ff::{PrimeField, Zero};
 use ark_std::rand::Rng;
 use std::marker::PhantomData;
 use w3f_pcs::aggregation::multiple::Transcript;
+use w3f_pcs::pcs::kzg::commitment::WrappedAffine;
 use w3f_pcs::pcs::PcsParams;
 use w3f_pcs::pcs::PCS;
 use w3f_plonk_common::domain::Domain;
@@ -161,6 +162,7 @@ impl<C: CurveGroup, G: AffineRepr<BaseField=C::ScalarField>> CycleSideParams<C, 
 //     }
 // }
 
+#[derive(Debug, PartialEq)]
 enum CycleSide<C0, C1> {
     C0(C0),
     C1(C1),
@@ -209,10 +211,11 @@ mod tests {
     use w3f_ring_proof::piop::prover::PiopProver;
     use w3f_ring_proof::{index, ArkTranscript, PiopParams};
 
+    use crate::auth_path::node::LevelWitness;
+    use crate::auth_path::path::AuthenticationPath;
     #[cfg(feature = "parallel")]
     use rayon::prelude::*;
     use w3f_plonk_common::domain::Domain;
-    use crate::auth_path::node::LevelWitness;
 
     type PallasIPA = IPA<ark_pallas::Projective>;
     type PallasC = WrappedAffine<ark_pallas::Affine>;
@@ -233,7 +236,7 @@ mod tests {
         }
     }
 
-    pub fn random_node<C: CurveGroup, G: AffineRepr<BaseField=C::ScalarField>, R: Rng>(
+    pub fn random_nodes<C: CurveGroup, G: AffineRepr<BaseField=C::ScalarField>, R: Rng>(
         params: &CycleSideParams<C, G>,
         path_node: G,
         rng: &mut R,
@@ -241,6 +244,38 @@ mod tests {
         let level_witness = random_witness(params, path_node, rng);
         let parent = level_witness.compute_parent(params).unwrap();
         (parent, level_witness)
+    }
+
+    pub fn random_path<C0: CurveGroup, C1: CurveGroup<BaseField=C0::ScalarField, ScalarField=C0::BaseField>, R: Rng>(params: &CycleParams<C0, C1>, length: usize, rng: &mut R) -> (C0::Affine, AuthenticationPath<C0, C1>, CycleSide<C0::Affine, C1::Affine>) {
+        let c0_len = (length + 1) / 2;
+        let c1_len = length / 2;
+        debug_assert_eq!(c0_len + c1_len, length);
+        let mut c0_path = Vec::with_capacity(c0_len);
+        let mut c1_path = Vec::with_capacity(c1_len);
+
+        let leaf = C0::Affine::rand(rng);
+        let mut c0_path_node = leaf;
+        for _ in 0..c1_len {
+            let (parent_on_c1, c0_nodes) = random_nodes(&params.c1_params, c0_path_node, rng);
+            let (parent_on_c0, c1_nodes) = random_nodes(&params.c0_params, parent_on_c1, rng);
+            c0_path_node = parent_on_c0;
+            c0_path.push(c0_nodes);
+            c1_path.push(c1_nodes);
+        }
+
+        let root = if c0_len > c1_len {
+            let (root_on_c1, c0_nodes) = random_nodes(&params.c1_params, c0_path_node, rng);
+            c0_path.push(c0_nodes);
+            CycleSide::C1(root_on_c1)
+        } else {
+            CycleSide::C0(c0_path_node)
+        };
+
+        let path = AuthenticationPath {
+            c0_path,
+            c1_path,
+        };
+        (leaf, path, root)
     }
 
     fn setup<R: Rng, CS: PCS<G::BaseField>, G: AffineRepr<BaseField: PrimeField>>(

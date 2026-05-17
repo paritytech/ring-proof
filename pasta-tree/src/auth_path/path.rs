@@ -14,9 +14,9 @@ use ark_std::rand::Rng;
 /// otherwise it's the root.
 pub struct AuthenticationPath<C0: CurveGroup, C1: CurveGroup> {
     /// Nodes on the `C0` curve.
-    c0_path: Vec<LevelWitness<C0::Affine>>,
+    pub c0_path: Vec<LevelWitness<C0::Affine>>,
     /// Nodes on the `C1` curve.
-    c1_path: Vec<LevelWitness<C1::Affine>>,
+    pub c1_path: Vec<LevelWitness<C1::Affine>>,
 }
 
 impl<F0, F1, C0, C1> AuthenticationPath<C0, C1>
@@ -26,7 +26,7 @@ where
     C0: CurveGroup<BaseField=F1, ScalarField=F0>,
     C1: CurveGroup<BaseField=F0, ScalarField=F1>,
 {
-    fn with_blinding<R: Rng>(&self, rng: &mut R) -> AuthenticationPathWithBlinding<C0, C1> {
+    pub fn with_blinding<R: Rng>(&self, rng: &mut R) -> AuthenticationPathWithBlinding<C0, C1> {
         let mut path_0 = Vec::with_capacity(self.c0_path.len());
         let mut path_1 = Vec::with_capacity(self.c1_path.len());
 
@@ -97,7 +97,7 @@ where
 mod tests {
     use super::*;
     use ark_std::{test_rng, UniformRand};
-    use crate::tests::random_node;
+    use crate::tests::{random_nodes, random_path};
 
     #[test]
     fn test_auth_path() {
@@ -106,25 +106,12 @@ mod tests {
         let domain_size = 2usize.pow(9);
         let params = CycleParams::<ark_pallas::Projective, ark_vesta::Projective>::setup(domain_size, rng);;
 
-        let leaf = ark_pallas::Affine::rand(rng);
-        let (l1_parent, leaves) = random_node(&params.c1_params, leaf, rng);
-        let (root, l1_nodes) = random_node(&params.c0_params, l1_parent, rng);
-
-        let path = AuthenticationPath {
-            c0_path: vec![leaves.clone()],
-            c1_path: vec![l1_nodes.clone()],
-        };
+        let (leaf, path, root) = random_path(&params, 2, rng);
 
         assert_eq!(path.get_leaf(), leaf);
-        match path.compute_root(&params).unwrap() {
-            CycleSide::C0(root_) => assert_eq!(root_, root),
-            _ => panic!(),
-        }
+        assert_eq!(path.compute_root(&params).unwrap(), root);
 
         let path_with_bfs = path.with_blinding(rng);
-        match path_with_bfs.compute_root(&params).unwrap() {
-            CycleSide::C0(root_) => assert_eq!(root_, root),
-            _ => panic!(),
-        }
+        assert_eq!(path_with_bfs.compute_root(&params).unwrap(), root);
     }
 }
