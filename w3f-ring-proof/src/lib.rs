@@ -154,7 +154,7 @@ mod tests {
     fn setup<R: Rng, CS: PCS<Fq>>(
         rng: &mut R,
         domain_size: usize,
-    ) -> (CS::Params, PiopParams<Fq, BandersnatchConfig>) {
+    ) -> (CS::Params, PiopParams<EdwardsAffine>) {
         let setup_degree = 3 * domain_size;
         let pcs_params = CS::setup(setup_degree, rng);
 
