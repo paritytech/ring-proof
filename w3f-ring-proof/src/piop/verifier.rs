@@ -1,4 +1,4 @@
-use ark_ec::short_weierstrass::{Affine, SWCurveConfig};
+use ark_ec::twisted_edwards::{Affine, TECurveConfig};
 use ark_ec::AffineRepr;
 use ark_ff::PrimeField;
 use ark_std::marker::PhantomData;
@@ -101,7 +101,7 @@ impl<F: PrimeField, C: Commitment<F>, P: AffineRepr<BaseField = F>> PiopVerifier
     }
 }
 
-impl<F: PrimeField, C: Commitment<F>, Jubjub: SWCurveConfig<BaseField = F>> VerifierPiop<F, C>
+impl<F: PrimeField, C: Commitment<F>, Jubjub: TECurveConfig<BaseField = F>> VerifierPiop<F, C>
     for PiopVerifier<F, C, Affine<Jubjub>>
 {
     const N_CONSTRAINTS: usize = 7;

@@ -1,5 +1,5 @@
 use ark_ec::pairing::Pairing;
-use ark_ec::short_weierstrass::{Affine, SWCurveConfig};
+use ark_ec::twisted_edwards::{Affine, TECurveConfig};
 use ark_ec::AffineRepr;
 use ark_ff::PrimeField;
 use ark_serialize::{CanonicalDeserialize, CanonicalSerialize};
@@ -97,7 +97,7 @@ impl<F: PrimeField, C: Commitment<F>> FixedColumnsCommitted<F, C> {
 }
 
 impl<F: PrimeField, C: AffineRepr<ScalarField = F>> FixedColumnsCommitted<F, WrappedAffine<C>> {
-    pub fn from_ring<E: Pairing<ScalarField = F, G1Affine = C>, G: SWCurveConfig<BaseField = F>>(
+    pub fn from_ring<E: Pairing<ScalarField = F, G1Affine = C>, G: TECurveConfig<BaseField = F>>(
         ring: &Ring<F, E, G>,
     ) -> Self {
         let cx = WrappedAffine(ring.cx);
@@ -159,7 +159,7 @@ impl<F: PrimeField, CS: PCS<F>> Clone for VerifierKey<F, CS> {
 }
 
 impl<E: Pairing> VerifierKey<E::ScalarField, KZG<E>> {
-    pub fn from_ring_and_kzg_vk<G: SWCurveConfig<BaseField = E::ScalarField>>(
+    pub fn from_ring_and_kzg_vk<G: TECurveConfig<BaseField = E::ScalarField>>(
         ring: &Ring<E::ScalarField, E, G>,
         kzg_vk: RawKzgVerifierKey<E>,
     ) -> Self {
@@ -181,7 +181,7 @@ impl<E: Pairing> VerifierKey<E::ScalarField, KZG<E>> {
     }
 }
 
-pub fn index<F: PrimeField, CS: PCS<F>, Curve: SWCurveConfig<BaseField = F>>(
+pub fn index<F: PrimeField, CS: PCS<F>, Curve: TECurveConfig<BaseField = F>>(
     pcs_params: &CS::Params,
     piop_params: &PiopParams<Affine<Curve>>,
     keys: &[Affine<Curve>],
