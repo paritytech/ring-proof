@@ -40,7 +40,7 @@ pub struct PiopProver<F: PrimeField, Curve: TECurveConfig<BaseField = F>> {
 
 impl<F: PrimeField, Curve: TECurveConfig<BaseField = F>> PiopProver<F, Curve> {
     pub fn build(
-        params: &PiopParams<F, Curve>,
+        params: &PiopParams<Affine<Curve>>,
         fixed_columns: FixedColumns<F, Affine<Curve>>,
         prover_index_in_keys: usize,
         secret: Curve::ScalarField,
@@ -73,7 +73,7 @@ impl<F: PrimeField, Curve: TECurveConfig<BaseField = F>> PiopProver<F, Curve> {
 
     // TODO: move to params?
     fn bits_column(
-        params: &PiopParams<F, Curve>,
+        params: &PiopParams<Affine<Curve>>,
         index_in_keys: usize,
         secret: Curve::ScalarField,
     ) -> BitColumn<F> {

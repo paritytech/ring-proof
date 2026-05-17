@@ -17,7 +17,7 @@ where
     Curve: TECurveConfig<BaseField = F>,
     T: PlonkTranscript<F, CS>,
 {
-    piop_params: PiopParams<F, Curve>,
+    piop_params: PiopParams<Affine<Curve>>,
     fixed_columns: FixedColumns<F, Affine<Curve>>,
     // TODO: We could have a prover that as an optimization stores the commitment to the part of the trace
     // TODO: that depends on the prover's index but not the blinding. That would save some computation,
@@ -35,7 +35,7 @@ where
 {
     pub fn init(
         prover_key: ProverKey<F, CS, Affine<Curve>>,
-        piop_params: PiopParams<F, Curve>,
+        piop_params: PiopParams<Affine<Curve>>,
         k: usize,
         empty_transcript: T,
     ) -> Self {
@@ -75,7 +75,7 @@ where
         (blinded_pk, proof)
     }
 
-    pub fn piop_params(&self) -> &PiopParams<F, Curve> {
+    pub fn piop_params(&self) -> &PiopParams<Affine<Curve>> {
         &self.piop_params
     }
 }

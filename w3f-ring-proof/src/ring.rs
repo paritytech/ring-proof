@@ -85,7 +85,7 @@ impl<
     /// - `srs`: Should return `srs[range]` for `range = (piop_params.keyset_part_size..domain_size)`
     /// - `g`: Generator used in the SRS
     pub fn empty(
-        piop_params: &PiopParams<F, VrfCurveConfig>,
+        piop_params: &PiopParams<Affine<VrfCurveConfig>>,
         srs: impl Fn(Range<usize>) -> Result<Vec<KzgCurve::G1Affine>, ()>,
         g: KzgCurve::G1,
     ) -> Self {
@@ -162,7 +162,7 @@ impl<
     /// - `piop_params`: SNARK parameters.
     /// - `srs`: full-size Lagrangian SRS.
     pub fn with_keys(
-        piop_params: &PiopParams<F, VrfCurveConfig>,
+        piop_params: &PiopParams<Affine<VrfCurveConfig>>,
         keys: &[Affine<VrfCurveConfig>],
         srs: &RingBuilderKey<F, KzgCurve>,
     ) -> Self {
@@ -329,7 +329,7 @@ mod tests {
 
     fn get_monomial_commitment(
         pcs_params: &URS<Bls12_381>,
-        piop_params: &PiopParams<Fr, BandersnatchConfig>,
+        piop_params: &PiopParams<EdwardsAffine>,
         keys: &[EdwardsAffine],
     ) -> (G1Affine, G1Affine) {
         let (_, verifier_key) =
