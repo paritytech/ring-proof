@@ -21,7 +21,7 @@ where
     Jubjub: SWCurveConfig<BaseField = F>,
     T: PlonkTranscript<F, CS>,
 {
-    pub(crate) piop_params: PiopParams<F, Jubjub>,
+    pub(crate) piop_params: PiopParams<Affine<Jubjub>>,
     pub(crate) fixed_columns_committed: FixedColumnsCommitted<F, CS::C>,
     pub(crate) plonk_verifier: PlonkVerifier<F, CS, T>,
 }
@@ -35,7 +35,7 @@ where
 {
     pub fn init(
         verifier_key: VerifierKey<F, CS>,
-        piop_params: PiopParams<F, Jubjub>,
+        piop_params: PiopParams<Affine<Jubjub>>,
         empty_transcript: T,
     ) -> Self {
         let pcs_vk = verifier_key.pcs_raw_vk.prepare();
@@ -72,7 +72,7 @@ where
             .verify(piop, proof, challenges, &mut transcript.to_rng())
     }
 
-    pub fn piop_params(&self) -> &PiopParams<F, Jubjub> {
+    pub fn piop_params(&self) -> &PiopParams<Affine<Jubjub>> {
         &self.piop_params
     }
 

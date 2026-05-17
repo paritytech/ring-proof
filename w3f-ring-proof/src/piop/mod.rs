@@ -183,7 +183,7 @@ impl<E: Pairing> VerifierKey<E::ScalarField, KZG<E>> {
 
 pub fn index<F: PrimeField, CS: PCS<F>, Curve: SWCurveConfig<BaseField = F>>(
     pcs_params: &CS::Params,
-    piop_params: &PiopParams<F, Curve>,
+    piop_params: &PiopParams<Affine<Curve>>,
     keys: &[Affine<Curve>],
 ) -> (ProverKey<F, CS, Affine<Curve>>, VerifierKey<F, CS>) {
     let pcs_ck = pcs_params.ck();
