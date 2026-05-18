@@ -37,6 +37,7 @@ struct CycleParams<
     c1_params: CycleSideParams<C1, C0::Affine>,
 }
 
+#[derive(Clone)]
 pub struct CycleSideProof<F: PrimeField, C: CurveGroup<ScalarField=F>> {
     piop_proofs: Vec<PiopProof<F, WrappedAffine<C::Affine>, RingCommitments<F, WrappedAffine<C::Affine>>, RingEvaluations<F>>>,
     pcs_proof: AggregateProof<F, HidingIpa<C>>,
@@ -44,6 +45,7 @@ pub struct CycleSideProof<F: PrimeField, C: CurveGroup<ScalarField=F>> {
     fixed_columns_committed: Vec<FixedColumnsCommitted<F, IPACommitment<C>>>,
 }
 
+#[derive(Clone)]
 pub struct CurveTreeProof<F0: PrimeField, F1: PrimeField, C0: CurveGroup<ScalarField=F0>, C1: CurveGroup<ScalarField=F1>> {
     c0_proof: CycleSideProof<F0, C0>,
     c1_proof: CycleSideProof<F1, C1>,
@@ -225,7 +227,7 @@ mod tests {
     use w3f_pcs::shplonk::Shplonk;
     use w3f_pcs::Poly;
     use w3f_plonk_common::piop::ProverPiop;
-    use w3f_plonk_common::prover::PlonkProver;
+    use w3f_plonk_common::prover::{PcsOpeningAt2Points, PlonkProver};
     use w3f_plonk_common::test_helpers::random_vec;
     use w3f_ring_proof::piop::prover::PiopProver;
     use w3f_ring_proof::{index, ArkTranscript, PiopParams};
@@ -319,11 +321,60 @@ mod tests {
 
         let domain_size = 2usize.pow(9);
         let params = CycleParams::<Projective<C0>, Projective<C1>>::setup(domain_size, rng);
-        let (leaf, path, root) = random_path(&params, 3, rng);
+        let (leaf, path, wrapped_root) = random_path(&params, 4, rng);
+        let root = match wrapped_root {
+            CycleSide::C0(root) => root,
+            _ => panic!()
+        };
+
+        let path_with_bf = path.with_blinding(rng);
+        // let l1_nodes = &path_with_bf.c1_path[1];
+        // let l2_nodes = &path_with_bf.c0_path[1];
+        // let l3_nodes = &path_with_bf.c1_path[0];
+        // let l4_nodes = &path_with_bf.c0_path[0];
+        //
+        // let (_, l1_vk) = params.c0_params.commit_children(l1_nodes.level_witness.siblings.as_slice(), l1_nodes.parent_bf);
+        // let root_fc = l1_vk.fixed_columns_committed;
+        // assert_eq!(root_fc.points[0].0, root);
+        //
+        // let (l1_node_blinded, l1_proof) = params.c0_params.prove_level(l1_nodes, rng);
+        // assert!(params.c0_params.verify_level(root_fc, l1_node_blinded, l1_proof));
+        //
+        // let (_, l2_vk) = params.c1_params.commit_children(l2_nodes.level_witness.siblings.as_slice(), l2_nodes.parent_bf);
+        // let l2_node_fc = l2_vk.fixed_columns_committed;
+        // assert_eq!(l2_node_fc.points[0].0, l1_node_blinded);
+        //
+        // let (l2_node_blinded, l2_proof) = params.c1_params.prove_level(l2_nodes, rng);
+        // assert!(params.c1_params.verify_level(l2_node_fc, l2_node_blinded, l2_proof));
+        //
+        // let (_, l3_vk) = params.c0_params.commit_children(l3_nodes.level_witness.siblings.as_slice(), l3_nodes.parent_bf);
+        // let l3_node_fc = l3_vk.fixed_columns_committed;
+        // assert_eq!(l3_node_fc.points[0].0, l2_node_blinded);
+        //
+        // let (l3_node_blinded, l3_proof) = params.c0_params.prove_level(l3_nodes, rng);
+        // assert!(params.c0_params.verify_level(l3_node_fc, l3_node_blinded, l3_proof));
+        //
+        // let (_, l4_vk) = params.c1_params.commit_children(l4_nodes.level_witness.siblings.as_slice(), l4_nodes.parent_bf);
+        // let l4_node_fc = l4_vk.fixed_columns_committed;
+        // assert_eq!(l4_node_fc.points[0].0, l3_node_blinded);
+        //
+        // let (l4_node_blinded, l4_proof) = params.c1_params.prove_level(l4_nodes, rng);
+        // assert!(params.c1_params.verify_level(l4_node_fc, l4_node_blinded, l4_proof));
 
         let (auth_path, proof) = params.prove(path, rng);
 
-        assert!(params.verify(auth_path, proof, root));
+        // assert_eq!(auth_path.c0_path, vec![l4_node_blinded, l2_node_blinded]);
+        // assert_eq!(auth_path.c1_path, vec![l3_node_blinded, l1_node_blinded]);
+        //
+        // assert!(params.c0_params.verify_side(auth_path.c1_path, proof.c0_proof.clone()));
+        //
+        // assert_eq!(proof.c1_proof.fixed_columns_committed.len(), 2);
+        // assert_eq!(proof.c1_proof.fixed_columns_committed[0].points[0].0, l3_node_blinded);
+        // assert_eq!(proof.c1_proof.fixed_columns_committed[1].points[0].0, l1_node_blinded);
+        //
+        // assert!(params.c1_params.verify_side(auth_path.c0_path, proof.c1_proof.clone()));
+
+        assert!(params.verify(auth_path, proof, wrapped_root));
     }
 
     // cargo test test_level_proof --release --features="print-trace" -- --show-output

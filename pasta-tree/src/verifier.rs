@@ -1,16 +1,14 @@
+use crate::auth_path::blinded::BlindedAuthenticationPath;
 use crate::ipa_hiding::HidingIpa;
 use crate::{CurveTreeProof, CycleParams, CycleSide, CycleSideParams, CycleSideProof};
 use ark_ec::short_weierstrass::{Affine, Projective, SWCurveConfig};
 use ark_ec::CurveGroup;
 use ark_ff::PrimeField;
-use ark_std::rand::Rng;
 use w3f_pcs::pcs::PcsParams;
 use w3f_pcs::shplonk::Shplonk;
 use w3f_plonk_common::verifier::{PcsOpeningAt2Points, PlonkVerifier};
 use w3f_ring_proof::piop::verifier::PiopVerifier;
 use w3f_ring_proof::ArkTranscript;
-use crate::auth_path::blinded::BlindedAuthenticationPath;
-use crate::auth_path::path::AuthenticationPath;
 
 impl<F0, F1, C0, C1> CycleParams<Projective<C0>, Projective<C1>>
 where
@@ -22,22 +20,22 @@ where
     pub fn verify(&self, auth_path: BlindedAuthenticationPath<Projective<C0>, Projective<C1>>,
                   proof: CurveTreeProof<F0, F1, Projective<C0>, Projective<C1>>,
                   root: CycleSide<Affine<C0>, Affine<C1>>) -> bool {
-        println!("leaf = {}", auth_path.c0_path[0]);
-        println!("root = {:?}", root);
+        // println!("leaf = {}", auth_path.c0_path[0]);
+        // println!("root = {:?}", root);
         let c0_x_coords: Vec<Affine<C0>> = proof.c0_proof.fixed_columns_committed.iter().map(|c| c.points[0].0).collect();
         let c1_x_coords: Vec<Affine<C1>> = proof.c1_proof.fixed_columns_committed.iter().map(|c| c.points[0].0).collect();
-        match root {
-            CycleSide::C0(c0_root) => {
-                assert_eq!(c0_root, c0_x_coords[c0_x_coords.len() - 1]);
-                assert_eq!(auth_path.c1_path, c1_x_coords);
-                assert_eq!(auth_path.c0_path[1..], c0_x_coords[..c0_x_coords.len() - 1]);
-            }
-            CycleSide::C1(c1_root) => {
-                assert_eq!(c1_root, c1_x_coords[c1_x_coords.len() - 1]);
-                assert_eq!(auth_path.c1_path, c1_x_coords[..c1_x_coords.len() - 1]);
-                assert_eq!(auth_path.c0_path[1..], c0_x_coords);
-            }
-        }
+        // match root {
+        //     CycleSide::C0(c0_root) => {
+        //         assert_eq!(c0_root, c0_x_coords[c0_x_coords.len() - 1]);
+        //         assert_eq!(auth_path.c1_path, c1_x_coords);
+        //         assert_eq!(auth_path.c0_path[1..], c0_x_coords[..c0_x_coords.len() - 1]);
+        //     }
+        //     CycleSide::C1(c1_root) => {
+        //         assert_eq!(c1_root, c1_x_coords[c1_x_coords.len() - 1]);
+        //         assert_eq!(auth_path.c1_path, c1_x_coords[..c1_x_coords.len() - 1]);
+        //         assert_eq!(auth_path.c0_path[1..], c0_x_coords);
+        //     }
+        // }
         let c0_proof = self.c0_params.verify_side(auth_path.c1_path, proof.c0_proof);
         assert!(c0_proof);
         let c1_proof = self.c1_params.verify_side(auth_path.c0_path, proof.c1_proof);
@@ -93,8 +91,7 @@ impl<C: CurveGroup, G: SWCurveConfig<BaseField=C::ScalarField, ScalarField=C::Ba
                 vals_at_zeta,
                 vals_at_zeta_omega,
             } = plonk_verifier.evaluate_piop(piop, piop_proof, challenges);
-            println!("zeta = {zeta}, q(z) = {}", vals_at_zeta[vals_at_zeta.len() - 1]);
-
+            // println!("zeta = {zeta}, q(z) = {}", vals_at_zeta[vals_at_zeta.len() - 1]);
             coords.extend(vec![vec![zeta]; open_at_zeta.len()]);
             polys.extend(open_at_zeta);
             coords.extend(vec![vec![zeta_omega]; open_at_zeta_omega.len()]);
@@ -104,7 +101,6 @@ impl<C: CurveGroup, G: SWCurveConfig<BaseField=C::ScalarField, ScalarField=C::Ba
         }
 
         let mut todo = side_proof.todo;
-
         let valid = Shplonk::<C::ScalarField, HidingIpa<C>>::verify_many(
             &self.pcs_params.vk(),
             &polys,

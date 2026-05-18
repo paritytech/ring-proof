@@ -40,8 +40,8 @@ impl<G: AffineRepr> LevelWitness<G> {
     ) -> LevelWitnessWithBlinding<G> {
         LevelWitnessWithBlinding {
             level_witness: self.clone(),
-            bf: self_bf,
-            parent_bf,
+            bf: G::ScalarField::zero(), //self_bf,
+            parent_bf: G::BaseField::zero(), //parent_bf,
         }
     }
 

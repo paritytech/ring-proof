@@ -1,3 +1,4 @@
+use crate::auth_path::blinded::BlindedAuthenticationPath;
 use crate::auth_path::node::LevelWitnessWithBlinding;
 use crate::auth_path::path::AuthenticationPath;
 use crate::ipa_hiding::HidingIpa;
@@ -14,7 +15,6 @@ use w3f_plonk_common::piop::ProverPiop;
 use w3f_plonk_common::prover::{PcsOpeningAt2Points, PlonkProver};
 use w3f_ring_proof::piop::prover::PiopProver;
 use w3f_ring_proof::ArkTranscript;
-use crate::auth_path::blinded::BlindedAuthenticationPath;
 
 impl<F0, F1, C0, C1> CycleParams<Projective<C0>, Projective<C1>>
 where
@@ -29,10 +29,10 @@ where
     ) {
         let auth_path_with_bf = auth_path.with_blinding(rng);
         let blinded_auth_path = auth_path_with_bf.apply_bfs(&self);
-        let blinded_auth_path2 = blinded_auth_path.clone();
+        let auth_path = blinded_auth_path.clone();
         let c0_proof = self.c0_params.prove_side(blinded_auth_path.c1_path, &auth_path_with_bf.c1_path, rng);
         let c1_proof = self.c1_params.prove_side(blinded_auth_path.c0_path, &auth_path_with_bf.c0_path, rng);
-        (blinded_auth_path2, CurveTreeProof {
+        (auth_path, CurveTreeProof {
             c0_proof,
             c1_proof,
         })
@@ -74,10 +74,7 @@ impl<C: CurveGroup, G: SWCurveConfig<BaseField=C::ScalarField, ScalarField=C::Ba
                 zeta,
                 zeta_omega,
             } = pcs_openings;
-
-            use ark_poly::Polynomial;
-            println!("zeta = {zeta}, q(z) = {}", polys_at_zeta[polys_at_zeta.len() - 1].evaluate(&zeta));
-
+            // println!("zeta = {zeta}, q(zeta) = {}", polys_at_zeta[polys_at_zeta.len() - 1].evaluate(&zeta));
             coords.extend(vec![BTreeSet::from([zeta]); polys_at_zeta.len()]);
             polys.extend(polys_at_zeta);
             coords.extend(vec![BTreeSet::from([zeta_omega]); polys_at_zeta_omega.len()]);
