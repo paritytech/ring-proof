@@ -4,7 +4,7 @@ use ark_ff::PrimeField;
 use ark_serialize::{CanonicalDeserialize, CanonicalSerialize};
 use ark_std::marker::PhantomData;
 use ark_std::{vec, vec::Vec};
-use w3f_pcs::pcs::kzg::commitment::KzgCommitment;
+use w3f_pcs::pcs::kzg::commitment::WrappedAffine;
 use w3f_pcs::pcs::kzg::params::RawKzgVerifierKey;
 use w3f_pcs::pcs::kzg::KZG;
 use w3f_pcs::pcs::{Commitment, PcsParams, PCS};
@@ -18,8 +18,8 @@ use crate::ring::Ring;
 use crate::PiopParams;
 
 pub mod params;
-mod prover;
-mod verifier;
+pub mod prover;
+pub mod verifier;
 
 #[derive(Clone, CanonicalSerialize, CanonicalDeserialize)]
 pub struct RingCommitments<F: PrimeField, C: Commitment<F>> {
@@ -86,7 +86,7 @@ pub struct FixedColumnsCommitted<F: PrimeField, C: Commitment<F>> {
 }
 
 impl<F: PrimeField, C: Commitment<F>> FixedColumnsCommitted<F, C> {
-    fn as_vec(&self) -> Vec<C> {
+    pub fn as_vec(&self) -> Vec<C> {
         vec![
             self.points[0].clone(),
             self.points[1].clone(),
@@ -95,15 +95,15 @@ impl<F: PrimeField, C: Commitment<F>> FixedColumnsCommitted<F, C> {
     }
 }
 
-impl<E: Pairing> FixedColumnsCommitted<E::ScalarField, KzgCommitment<E>> {
-    pub fn from_ring<G: AffineRepr<BaseField = E::ScalarField>>(
-        ring: &Ring<E::ScalarField, E, G>,
-    ) -> Self {
-        let cx = KzgCommitment(ring.cx);
-        let cy = KzgCommitment(ring.cy);
-        Self {
+impl<E: Pairing, G: AffineRepr<BaseField = E::ScalarField>> Ring<E::ScalarField, E, G> {
+    pub fn as_fixed_columns(
+        &self,
+    ) -> FixedColumnsCommitted<E::ScalarField, WrappedAffine<E::G1Affine>> {
+        let cx = WrappedAffine(self.cx);
+        let cy = WrappedAffine(self.cy);
+        FixedColumnsCommitted {
             points: [cx, cy],
-            ring_selector: KzgCommitment(ring.selector),
+            ring_selector: WrappedAffine(self.selector),
             phantom: Default::default(),
         }
     }
@@ -126,9 +126,9 @@ impl<F: PrimeField, G: AffineRepr<BaseField = F>> FixedColumns<F, G> {
 
 #[derive(CanonicalSerialize, CanonicalDeserialize)]
 pub struct ProverKey<F: PrimeField, CS: PCS<F>, G: AffineRepr<BaseField = F>> {
-    pub(crate) pcs_ck: CS::CK,
-    pub(crate) fixed_columns: FixedColumns<F, G>,
-    pub(crate) verifier_key: VerifierKey<F, CS>, // used in the Fiat-Shamir transform
+    pub pcs_ck: CS::CK,
+    pub fixed_columns: FixedColumns<F, G>,
+    pub verifier_key: VerifierKey<F, CS>, // used in the Fiat-Shamir transform
 }
 
 impl<F: PrimeField, CS: PCS<F>, G: AffineRepr<BaseField = F>> Clone for ProverKey<F, CS, G> {
@@ -143,8 +143,8 @@ impl<F: PrimeField, CS: PCS<F>, G: AffineRepr<BaseField = F>> Clone for ProverKe
 
 #[derive(Debug, Eq, PartialEq, CanonicalSerialize, CanonicalDeserialize)]
 pub struct VerifierKey<F: PrimeField, CS: PCS<F>> {
-    pub(crate) pcs_raw_vk: <CS::Params as PcsParams>::RVK,
-    pub(crate) fixed_columns_committed: FixedColumnsCommitted<F, CS::C>,
+    pub pcs_raw_vk: <CS::Params as PcsParams>::RVK,
+    pub fixed_columns_committed: FixedColumnsCommitted<F, CS::C>,
     //TODO: domain
 }
 
@@ -162,11 +162,12 @@ impl<E: Pairing> VerifierKey<E::ScalarField, KZG<E>> {
         ring: &Ring<E::ScalarField, E, G>,
         kzg_vk: RawKzgVerifierKey<E>,
     ) -> Self {
-        Self::from_commitment_and_kzg_vk(FixedColumnsCommitted::from_ring(ring), kzg_vk)
+        let fixed_columns = ring.as_fixed_columns();
+        Self::from_commitment_and_kzg_vk(fixed_columns, kzg_vk)
     }
 
     pub fn from_commitment_and_kzg_vk(
-        commitment: FixedColumnsCommitted<E::ScalarField, KzgCommitment<E>>,
+        commitment: FixedColumnsCommitted<E::ScalarField, WrappedAffine<E::G1Affine>>,
         kzg_vk: RawKzgVerifierKey<E>,
     ) -> Self {
         Self {
@@ -175,7 +176,7 @@ impl<E: Pairing> VerifierKey<E::ScalarField, KZG<E>> {
         }
     }
 
-    pub fn commitment(&self) -> FixedColumnsCommitted<E::ScalarField, KzgCommitment<E>> {
+    pub fn commitment(&self) -> FixedColumnsCommitted<E::ScalarField, WrappedAffine<E::G1Affine>> {
         self.fixed_columns_committed.clone()
     }
 }
