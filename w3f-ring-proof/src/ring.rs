@@ -1,5 +1,4 @@
 use ark_ec::pairing::Pairing;
-use ark_ec::twisted_edwards::{Affine, TECurveConfig};
 use ark_ec::{AffineRepr, CurveGroup, VariableBaseMSM};
 use ark_ff::PrimeField;
 use ark_poly::EvaluationDomain;
@@ -33,11 +32,7 @@ const IDLE_ROWS: usize = ZK_ROWS + 1;
 /// Thus, the vector of points we commit to coordinatewise is
 /// `pk1, ..., pkn, padding, ..., padding, H, 2H, ..., 2^(s-1)H, 0, 0, 0, 0`
 #[derive(Clone, PartialEq, Eq, CanonicalSerialize, CanonicalDeserialize)]
-pub struct Ring<
-    F: PrimeField,
-    KzgCurve: Pairing<ScalarField = F>,
-    VrfCurveConfig: TECurveConfig<BaseField = F>,
-> {
+pub struct Ring<F: PrimeField, KzgCurve: Pairing<ScalarField = F>, G: AffineRepr<BaseField = F>> {
     /// KZG commitment to the x coordinates of the described vector.
     pub cx: KzgCurve::G1Affine,
     /// KZG commitment to the y coordinates of the described vector.
@@ -49,14 +44,11 @@ pub struct Ring<
     /// Number of keys "stored" in this commitment.
     pub curr_keys: usize,
     // Padding point.
-    pub padding: Affine<VrfCurveConfig>,
+    pub padding: G,
 }
 
-impl<
-        F: PrimeField,
-        KzgCurve: Pairing<ScalarField = F>,
-        VrfCurveConfig: TECurveConfig<BaseField = F>,
-    > fmt::Debug for Ring<F, KzgCurve, VrfCurveConfig>
+impl<F: PrimeField, KzgCurve: Pairing<ScalarField = F>, G: AffineRepr<BaseField = F>> fmt::Debug
+    for Ring<F, KzgCurve, G>
 {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         write!(
@@ -67,11 +59,8 @@ impl<
     }
 }
 
-impl<
-        F: PrimeField,
-        KzgCurve: Pairing<ScalarField = F>,
-        VrfCurveConfig: TECurveConfig<BaseField = F>,
-    > Ring<F, KzgCurve, VrfCurveConfig>
+impl<F: PrimeField, KzgCurve: Pairing<ScalarField = F>, G: AffineRepr<BaseField = F>>
+    Ring<F, KzgCurve, G>
 {
     /// Builds the commitment to the vector
     /// `padding, ..., padding, H, 2H, ..., 2^(s-1)H, 0, 0, 0, 0`.
@@ -85,7 +74,7 @@ impl<
     /// - `srs`: Should return `srs[range]` for `range = (piop_params.keyset_part_size..domain_size)`
     /// - `g`: Generator used in the SRS
     pub fn empty(
-        piop_params: &PiopParams<Affine<VrfCurveConfig>>,
+        piop_params: &PiopParams<G>,
         srs: impl Fn(Range<usize>) -> Result<Vec<KzgCurve::G1Affine>, ()>,
         g: KzgCurve::G1,
     ) -> Self {
@@ -130,7 +119,7 @@ impl<
     /// - `srs`: Should return `srs[range]` for `range = (self.curr_keys..self.curr_keys + keys.len())`
     pub fn append(
         &mut self,
-        keys: &[Affine<VrfCurveConfig>],
+        keys: &[G],
         srs: impl Fn(Range<usize>) -> Result<Vec<KzgCurve::G1Affine>, ()>,
     ) {
         let new_size = self.curr_keys + keys.len();
@@ -162,8 +151,8 @@ impl<
     /// - `piop_params`: SNARK parameters.
     /// - `srs`: full-size Lagrangian SRS.
     pub fn with_keys(
-        piop_params: &PiopParams<Affine<VrfCurveConfig>>,
-        keys: &[Affine<VrfCurveConfig>],
+        piop_params: &PiopParams<G>,
+        keys: &[G],
         srs: &RingBuilderKey<F, KzgCurve>,
     ) -> Self {
         let (padding_x, padding_y) = piop_params.padding.xy().unwrap(); // panics on inf, never happens
@@ -222,10 +211,9 @@ impl<
         cx: KzgCurve::G1Affine,
         cy: KzgCurve::G1Affine,
         selector: KzgCurve::G1Affine,
-        padding: Affine<VrfCurveConfig>,
+        padding: G,
     ) -> Self {
-        let max_keys =
-            domain_size - (VrfCurveConfig::ScalarField::MODULUS_BIT_SIZE as usize + IDLE_ROWS);
+        let max_keys = domain_size - (G::ScalarField::MODULUS_BIT_SIZE as usize + IDLE_ROWS);
         Self {
             cx,
             cy,
@@ -257,7 +245,7 @@ impl<F: PrimeField, KzgCurve: Pairing<ScalarField = F>> RingBuilderKey<F, KzgCur
 #[cfg(test)]
 mod tests {
     use ark_bls12_381::{Bls12_381, Fr, G1Affine};
-    use ark_ed_on_bls12_381_bandersnatch::{BandersnatchConfig, EdwardsAffine};
+    use ark_ed_on_bls12_381_bandersnatch::EdwardsAffine;
     use ark_std::{test_rng, UniformRand};
     use w3f_pcs::pcs::kzg::urs::URS;
     use w3f_pcs::pcs::kzg::KZG;
@@ -271,7 +259,7 @@ mod tests {
 
     use super::*;
 
-    type TestRing = Ring<Fr, Bls12_381, BandersnatchConfig>;
+    type TestRing = Ring<Fr, Bls12_381, EdwardsAffine>;
 
     #[test]
     fn test_ring_mgmt() {
