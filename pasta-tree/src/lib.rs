@@ -360,8 +360,10 @@ mod tests {
         //
         // let (l4_node_blinded, l4_proof) = params.c1_params.prove_level(l4_nodes, rng);
         // assert!(params.c1_params.verify_level(l4_node_fc, l4_node_blinded, l4_proof));
-
+        let t_prove = start_timer!(|| "Proving CurveTree membership, H=4, M=512, C=252");
         let (auth_path, proof) = params.prove(path, rng);
+        end_timer!(t_prove);
+
 
         // assert_eq!(auth_path.c0_path, vec![l4_node_blinded, l2_node_blinded]);
         // assert_eq!(auth_path.c1_path, vec![l3_node_blinded, l1_node_blinded]);
@@ -374,11 +376,15 @@ mod tests {
         //
         // assert!(params.c1_params.verify_side(auth_path.c0_path, proof.c1_proof.clone()));
 
-        assert!(params.verify(auth_path, proof, wrapped_root));
+        let t_verify = start_timer!(|| "Verifying CurveTree opening");
+        let valid = params.verify(auth_path, proof, wrapped_root);
+        end_timer!(t_verify);
+        assert!(valid);
+
     }
 
-    // cargo test test_level_proof --release --features="print-trace" -- --show-output
-    // cargo test test_level_proof --release --features="print-trace parallel" -- --show-output
+    // cargo test test_proof --release --features="print-trace" -- --show-output
+    // cargo test test_proof --release --features="print-trace parallel" -- --show-output
     #[test]
     fn test_proof() {
         _test_proof::<_, _, PallasConfig, VestaConfig>();
