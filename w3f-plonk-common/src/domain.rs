@@ -11,9 +11,9 @@ pub const ZK_ROWS: usize = 3;
 
 // Domains for performing calculations with constraint polynomials of degree up to 4.
 #[derive(Clone)]
-struct Domains<F: FftField> {
-    x1: GeneralEvaluationDomain<F>,
-    x4: GeneralEvaluationDomain<F>,
+pub struct Domains<F: FftField> {
+    pub x1: GeneralEvaluationDomain<F>,
+    pub x4: GeneralEvaluationDomain<F>,
 }
 
 impl<F: FftField> Domains<F> {
@@ -59,7 +59,7 @@ impl<F: FftField> Domains<F> {
 
 #[derive(Clone)]
 pub struct Domain<F: FftField> {
-    domains: Domains<F>,
+    pub domains: Domains<F>,
     pub hiding: bool,
     pub capacity: usize,
     pub not_last_row: FieldColumn<F>,
@@ -99,7 +99,7 @@ impl<F: FftField> Domain<F> {
         }
     }
 
-    pub(crate) fn divide_by_vanishing_poly(&self, poly: &DensePolynomial<F>) -> DensePolynomial<F> {
+    pub fn divide_by_vanishing_poly(&self, poly: &DensePolynomial<F>) -> DensePolynomial<F> {
         let (quotient, remainder) = if self.hiding {
             let exclude_zk_rows = poly * self.zk_rows_vanishing_poly.as_ref().unwrap();
             exclude_zk_rows.divide_by_vanishing_poly(self.domains.x1)
