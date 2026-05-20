@@ -41,16 +41,6 @@ pub trait ProverPiop<F: PrimeField, C: Commitment<F>> {
         quotient_poly
     }
 
-    fn quotient(&self, alphas: &[F]) -> DensePolynomial<F> {
-        let constraint_polys = self.constraints();
-        // Aggregate constraint polynomials in evaluation form...
-        let agg_constraint_poly = aggregate_evaluations(&constraint_polys, &alphas);
-        // ...and then interpolate (to save some FFTs).
-        let agg_constraint_poly = agg_constraint_poly.interpolate();
-        let quotient_poly = self.domain().divide_by_vanishing_poly(&agg_constraint_poly);
-        quotient_poly
-    }
-
     // 'Linearized' parts of constraint polynomials.
     // For a constraint of the form C = C(c1(X),...,ck(X),c1(wX),...,ck(wX)), where ci's are of degree n,
     // and an evaluation point z, it is a degree n polynomial r = C(c1(z),...,ck(z),c1(X),...,ck(X)).
