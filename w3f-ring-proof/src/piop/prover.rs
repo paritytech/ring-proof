@@ -24,7 +24,7 @@ use w3f_plonk_common::FieldColumn;
 
 // The 'table': columns representing the execution trace of the computation
 // and the constraints -- polynomials that vanish on every 2 consecutive rows.
-pub struct PiopProver<F: PrimeField, G: AffineRepr<BaseField=F>> {
+pub struct PiopProver<F: PrimeField, G: AffineRepr<BaseField = F>> {
     domain: Domain<F>,
     /// Advice (public input) columns
     points: AffineColumn<F, G>,
@@ -40,7 +40,7 @@ pub struct PiopProver<F: PrimeField, G: AffineRepr<BaseField=F>> {
     cond_add_acc_y: FixedCells<F>,
 }
 
-impl<F: PrimeField, G: AffineRepr<BaseField=F>> PiopProver<F, G> {
+impl<F: PrimeField, G: AffineRepr<BaseField = F>> PiopProver<F, G> {
     pub fn build(
         params: &PiopParams<G>,
         fixed_columns: FixedColumns<F, G>,
@@ -142,7 +142,7 @@ impl<F, C, Curve> ProverPiop<F, C> for PiopProver<F, TeAffine<Curve>>
 where
     F: PrimeField,
     C: Commitment<F>,
-    Curve: TECurveConfig<BaseField=F>,
+    Curve: TECurveConfig<BaseField = F>,
 {
     const N_CONSTRAINTS: usize = 7;
 
@@ -176,7 +176,7 @@ where
             self.cond_add_acc_y.constraints(),
             self.inner_prod_acc.constraints(),
         ]
-            .concat()
+        .concat()
     }
 
     fn constraints_lin(&self, zeta: &F) -> Vec<DensePolynomial<F>> {
@@ -188,7 +188,7 @@ where
             self.cond_add_acc_y.constraints_linearized(zeta),
             self.inner_prod_acc.constraints_linearized(zeta),
         ]
-            .concat()
+        .concat()
     }
 
     fn domain(&self) -> &Domain<F> {
@@ -204,7 +204,7 @@ impl<F, C, Curve> ProverPiop<F, C> for PiopProver<F, SwAffine<Curve>>
 where
     F: PrimeField,
     C: Commitment<F>,
-    Curve: SWCurveConfig<BaseField=F>,
+    Curve: SWCurveConfig<BaseField = F>,
 {
     const N_CONSTRAINTS: usize = 7;
 
@@ -238,7 +238,7 @@ where
             self.cond_add_acc_y.constraints(),
             self.inner_prod_acc.constraints(),
         ]
-            .concat()
+        .concat()
     }
 
     fn constraints_lin(&self, zeta: &F) -> Vec<DensePolynomial<F>> {
@@ -250,7 +250,7 @@ where
             self.cond_add_acc_y.constraints_linearized(zeta),
             self.inner_prod_acc.constraints_linearized(zeta),
         ]
-            .concat()
+        .concat()
     }
 
     fn domain(&self) -> &Domain<F> {
