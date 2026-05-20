@@ -1,10 +1,10 @@
 use ark_ec::pairing::Pairing;
-use ark_ec::AffineRepr;
+use ark_ec::{AffineRepr, CurveGroup};
 use ark_ff::PrimeField;
 use ark_serialize::{CanonicalDeserialize, CanonicalSerialize};
 use ark_std::marker::PhantomData;
 use ark_std::{vec, vec::Vec};
-use w3f_pcs::pcs::kzg::commitment::WrappedAffine;
+use w3f_pcs::pcs::commitment::WrappedAffine;
 use w3f_pcs::pcs::kzg::params::RawKzgVerifierKey;
 use w3f_pcs::pcs::kzg::KZG;
 use w3f_pcs::pcs::{Commitment, PcsParams, PCS};
@@ -95,15 +95,18 @@ impl<F: PrimeField, C: Commitment<F>> FixedColumnsCommitted<F, C> {
     }
 }
 
-impl<E: Pairing, G: AffineRepr<BaseField = E::ScalarField>> Ring<E::ScalarField, E, G> {
-    pub fn as_fixed_columns(
-        &self,
-    ) -> FixedColumnsCommitted<E::ScalarField, WrappedAffine<E::G1Affine>> {
-        let cx = WrappedAffine(self.cx);
-        let cy = WrappedAffine(self.cy);
-        FixedColumnsCommitted {
+impl<C: CurveGroup> FixedColumnsCommitted<C::ScalarField, WrappedAffine<C>> {
+    pub fn from_ring<
+        E: Pairing<G1Affine = C::Affine>,
+        G: AffineRepr<BaseField = E::ScalarField>,
+    >(
+        ring: &Ring<E::ScalarField, E, G>,
+    ) -> Self {
+        let cx = WrappedAffine(ring.cx);
+        let cy = WrappedAffine(ring.cy);
+        Self {
             points: [cx, cy],
-            ring_selector: WrappedAffine(self.selector),
+            ring_selector: WrappedAffine(ring.selector),
             phantom: Default::default(),
         }
     }
@@ -167,7 +170,7 @@ impl<E: Pairing> VerifierKey<E::ScalarField, KZG<E>> {
     }
 
     pub fn from_commitment_and_kzg_vk(
-        commitment: FixedColumnsCommitted<E::ScalarField, WrappedAffine<E::G1Affine>>,
+        commitment: FixedColumnsCommitted<E::ScalarField, WrappedAffine<E::G1>>,
         kzg_vk: RawKzgVerifierKey<E>,
     ) -> Self {
         Self {
@@ -176,7 +179,7 @@ impl<E: Pairing> VerifierKey<E::ScalarField, KZG<E>> {
         }
     }
 
-    pub fn commitment(&self) -> FixedColumnsCommitted<E::ScalarField, WrappedAffine<E::G1Affine>> {
+    pub fn commitment(&self) -> FixedColumnsCommitted<E::ScalarField, WrappedAffine<E::G1>> {
         self.fixed_columns_committed.clone()
     }
 }
