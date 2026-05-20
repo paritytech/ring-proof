@@ -12,8 +12,8 @@ repository = "https://github.com/w3f/ring-proof"
 w3f-pcs.workspace = true
 w3f-plonk-common.workspace = true
 w3f-ring-proof = { path = "../w3f-ring-proof" }
-ark-pallas = { version = "0.5", default-features = false, features = ["curve"] }
-ark-vesta = { version = "0.5", default-features = false }
+ark-pallas = { version = "0.6", default-features = false, features = ["curve"] }
+ark-vesta = { version = "0.6", default-features = false }
 ark-transcript.workspace = true
 ark-std.workspace = true
 ark-ff.workspace = true
