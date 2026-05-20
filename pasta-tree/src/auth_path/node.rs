@@ -1,9 +1,9 @@
 use crate::CycleSideParams;
-use crate::ipa_hiding::HidingIpa;
 use ark_ec::{AffineRepr, CurveGroup};
 use ark_ff::{PrimeField, Zero};
 use ark_std::rand::Rng;
 use ark_std::UniformRand;
+use w3f_pcs::pcs::ipa::hiding::HidingIpa;
 
 /// An element of a tree authentication path. A node on the path together with it's sibling.
 /// `path_node = self.siblings[self.path_node_idx]` is the node on the path.
@@ -40,8 +40,8 @@ impl<G: AffineRepr> LevelWitness<G> {
     ) -> LevelWitnessWithBlinding<G> {
         LevelWitnessWithBlinding {
             level_witness: self.clone(),
-            bf: G::ScalarField::zero(), //self_bf,
-            parent_bf: G::BaseField::zero(), //parent_bf,
+            bf: self_bf,
+            parent_bf,
         }
     }
 
