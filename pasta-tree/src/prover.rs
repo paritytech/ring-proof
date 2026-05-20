@@ -1,14 +1,14 @@
 use crate::auth_path::blinded::BlindedAuthenticationPath;
 use crate::auth_path::node::LevelWitnessWithBlinding;
 use crate::auth_path::path::AuthenticationPath;
-use crate::ipa_hiding::HidingIpa;
 use crate::{Coeffs, CurveTreeProof, CycleParams, CycleSideParams, CycleSideProof, IPACommitment};
 use ark_ec::short_weierstrass::{Affine, Projective, SWCurveConfig};
 use ark_ec::CurveGroup;
-use ark_ff::PrimeField;
+use ark_ff::{PrimeField, Zero};
 use ark_std::rand::Rng;
 use ark_std::UniformRand;
 use std::collections::BTreeSet;
+use w3f_pcs::pcs::ipa::hiding::HidingIpa;
 use w3f_pcs::pcs::PcsParams;
 use w3f_pcs::shplonk::Shplonk;
 use w3f_plonk_common::piop::ProverPiop;
@@ -52,6 +52,7 @@ impl<C: CurveGroup, G: SWCurveConfig<BaseField=C::ScalarField, ScalarField=C::Ba
         let mut fixed_columns_committed = Vec::with_capacity(witness.len());
         let mut polys = Vec::with_capacity(witness.len() * 9);
         let mut coords = Vec::with_capacity(witness.len() * 9);
+        let mut bfs = Vec::with_capacity(witness.len() * 9);
 
         let plonk_prover = PlonkProver::<C::ScalarField, HidingIpa<C>, _>::init(
             self.pcs_params.ck(),
@@ -79,16 +80,18 @@ impl<C: CurveGroup, G: SWCurveConfig<BaseField=C::ScalarField, ScalarField=C::Ba
             polys.extend(polys_at_zeta);
             coords.extend(vec![BTreeSet::from([zeta_omega]); polys_at_zeta_omega.len()]);
             polys.extend(polys_at_zeta_omega);
+            bfs.push(level.parent_bf);
+            bfs.resize(polys.len(), C::ScalarField::zero());
         }
 
-        let parent_bf = witness.iter().map(|level| level.parent_bf).sum();
         let todo = Coeffs(C::ScalarField::rand(rng), C::ScalarField::rand(rng));
-        let pcs_proof = Shplonk::<C::ScalarField, HidingIpa<C>>::open_many(
+        let pcs_proof = Shplonk::<C::ScalarField, HidingIpa<C>>::open_many_hiding(
             &self.pcs_params,
             &polys,
+            &bfs,
             &coords,
-            parent_bf,
             &mut todo.clone(),
+            rng,
         );
 
         let proof = CycleSideProof {

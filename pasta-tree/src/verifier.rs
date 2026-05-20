@@ -1,9 +1,9 @@
 use crate::auth_path::blinded::BlindedAuthenticationPath;
-use crate::ipa_hiding::HidingIpa;
 use crate::{CurveTreeProof, CycleParams, CycleSide, CycleSideParams, CycleSideProof};
 use ark_ec::short_weierstrass::{Affine, Projective, SWCurveConfig};
 use ark_ec::CurveGroup;
 use ark_ff::PrimeField;
+use w3f_pcs::pcs::ipa::hiding::HidingIpa;
 use w3f_pcs::pcs::PcsParams;
 use w3f_pcs::shplonk::Shplonk;
 use w3f_plonk_common::verifier::{PcsOpeningAt2Points, PlonkVerifier};

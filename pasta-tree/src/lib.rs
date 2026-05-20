@@ -1,12 +1,13 @@
 #![feature(bool_to_result)]
 
-use crate::ipa_hiding::HidingIpa;
+
 use ark_ec::{AffineRepr, CurveGroup, PrimeGroup};
 use ark_ff::{PrimeField, Zero};
 use ark_std::rand::Rng;
 use std::marker::PhantomData;
-use w3f_pcs::aggregation::multiple::Transcript;
-use w3f_pcs::pcs::kzg::commitment::WrappedAffine;
+use w3f_pcs::aggregation::multiple::ShplonkTranscript;
+use w3f_pcs::pcs::commitment::WrappedAffine;
+use w3f_pcs::pcs::ipa::hiding::HidingIpa;
 use w3f_pcs::pcs::PcsParams;
 use w3f_pcs::pcs::PCS;
 use w3f_pcs::shplonk::AggregateProof;
@@ -15,9 +16,7 @@ use w3f_plonk_common::PiopProof;
 use w3f_ring_proof::piop::{FixedColumns, RingCommitments, RingEvaluations};
 use w3f_ring_proof::{FixedColumnsCommitted, PiopParams, VerifierKey};
 
-
 pub mod auth_path;
-pub mod ipa_hiding;
 pub mod level;
 pub mod prover;
 pub mod verifier;
@@ -39,7 +38,7 @@ struct CycleParams<
 
 #[derive(Clone)]
 pub struct CycleSideProof<F: PrimeField, C: CurveGroup<ScalarField=F>> {
-    piop_proofs: Vec<PiopProof<F, WrappedAffine<C::Affine>, RingCommitments<F, WrappedAffine<C::Affine>>, RingEvaluations<F>>>,
+    piop_proofs: Vec<PiopProof<F, WrappedAffine<C>, RingCommitments<F, WrappedAffine<C>>, RingEvaluations<F>>>,
     pcs_proof: AggregateProof<F, HidingIpa<C>>,
     todo: Coeffs<F>,
     fixed_columns_committed: Vec<FixedColumnsCommitted<F, IPACommitment<C>>>,
@@ -190,7 +189,7 @@ enum CycleSide<C0, C1> {
 
 #[derive(Clone)]
 pub struct Coeffs<F: PrimeField>(F, F);
-impl<F: PrimeField, CS: PCS<F>> Transcript<F, CS> for Coeffs<F> {
+impl<F: PrimeField, CS: PCS<F>> ShplonkTranscript<F, CS> for Coeffs<F> {
     fn get_gamma(&mut self) -> F {
         self.0
     }
@@ -221,7 +220,7 @@ mod tests {
     use std::collections::BTreeSet;
     use ark_vesta::VestaConfig;
     use w3f_pcs::pcs::ipa::IPA;
-    use w3f_pcs::pcs::kzg::commitment::WrappedAffine;
+    use w3f_pcs::pcs::commitment::WrappedAffine;
     use w3f_pcs::pcs::PcsParams;
     use w3f_pcs::pcs::{RawVerifierKey, PCS};
     use w3f_pcs::shplonk::Shplonk;
@@ -239,7 +238,7 @@ mod tests {
     use w3f_plonk_common::domain::Domain;
 
     type PallasIPA = IPA<ark_pallas::Projective>;
-    type PallasC = WrappedAffine<ark_pallas::Affine>;
+    type PallasC = WrappedAffine<ark_pallas::Projective>;
 
 
     fn random_witness<C: CurveGroup, G: AffineRepr<BaseField=C::ScalarField>, R: Rng>(
@@ -380,7 +379,6 @@ mod tests {
         let valid = params.verify(auth_path, proof, wrapped_root);
         end_timer!(t_verify);
         assert!(valid);
-
     }
 
     // cargo test test_proof --release --features="print-trace" -- --show-output
@@ -524,7 +522,7 @@ mod tests {
             &pcs_ck,
             &polys,
             &coord_sets,
-            ark_pallas::Fr::zero(),
+            // ark_pallas::Fr::zero(),
             transcript,
         );
         end_timer!(t_open);

@@ -1,9 +1,10 @@
 mod prover;
 mod verifier;
 
-use crate::ipa_hiding::HidingIpa;
+
 use crate::Coeffs;
-use ark_ec::{CurveGroup, PrimeGroup};
+use ark_ec::CurveGroup;
+use w3f_pcs::pcs::ipa::hiding::HidingIpa;
 use w3f_pcs::pcs::PCS;
 use w3f_pcs::shplonk::AggregateProof;
 use w3f_plonk_common::PiopProof;

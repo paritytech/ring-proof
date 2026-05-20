@@ -1,5 +1,4 @@
 use crate::auth_path::node::LevelWitnessWithBlinding;
-use crate::ipa_hiding::HidingIpa;
 use crate::level::LevelProof;
 use crate::{Coeffs, CycleSideParams, IPACommitment};
 use ark_ec::short_weierstrass::{Affine, SWCurveConfig};
@@ -8,10 +7,9 @@ use ark_poly::Polynomial;
 use ark_std::rand::Rng;
 use ark_std::{end_timer, start_timer, UniformRand};
 use std::collections::BTreeSet;
-use ark_ff::PrimeField;
-use ark_std::iterable::Iterable;
-use w3f_pcs::aggregation::multiple::{MultipointClaim, Transcript};
-use w3f_pcs::pcs::{PcsParams, PCS};
+use ark_ff::Zero;
+use w3f_pcs::pcs::ipa::hiding::HidingIpa;
+use w3f_pcs::pcs::PcsParams;
 use w3f_pcs::shplonk::Shplonk;
 use w3f_plonk_common::piop::ProverPiop;
 use w3f_plonk_common::prover::{PcsOpeningAt2Points, PlonkProver};
@@ -51,6 +49,8 @@ impl<C: CurveGroup, G: SWCurveConfig<BaseField = C::ScalarField, ScalarField = C
         let mut coord_vecs = vec![vec![zeta]; polys_at_zeta.len()];
         coord_vecs.push(vec![zeta_omega]);
         let polys = [polys_at_zeta, polys_at_zeta_omega].concat();
+        let mut bfs = vec![C::ScalarField::zero(); polys.len()];
+        bfs[0] = witness.parent_bf;
 
         let coord_sets: Vec<BTreeSet<C::ScalarField>> = coord_vecs
             .iter()
@@ -64,12 +64,13 @@ impl<C: CurveGroup, G: SWCurveConfig<BaseField = C::ScalarField, ScalarField = C
             polys.len(),
             polys[polys.len() - 2].degree() // the quotient
         ));
-        let pcs_opening_proof = Shplonk::<C::ScalarField, HidingIpa<C>>::open_many(
+        let pcs_opening_proof = Shplonk::<C::ScalarField, HidingIpa<C>>::open_many_hiding(
             &self.pcs_params,
             &polys,
+            &bfs,
             &coord_sets,
-            witness.parent_bf,
             &mut todo.clone(),
+            rng,
         );
         end_timer!(t_open);
 

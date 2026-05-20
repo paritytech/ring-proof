@@ -1,9 +1,9 @@
-use crate::ipa_hiding::HidingIpa;
 use crate::level::LevelProof;
 use crate::{CycleSideParams, IPACommitment};
 use ark_ec::short_weierstrass::{Affine, SWCurveConfig};
 use ark_ec::CurveGroup;
 use ark_std::{end_timer, start_timer};
+use w3f_pcs::pcs::ipa::hiding::HidingIpa;
 use w3f_pcs::pcs::PcsParams;
 use w3f_pcs::shplonk::Shplonk;
 use w3f_plonk_common::piop::VerifierPiop;
