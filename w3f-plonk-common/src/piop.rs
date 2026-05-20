@@ -1,10 +1,10 @@
 use ark_ff::{FftField, PrimeField};
 use ark_poly::univariate::DensePolynomial;
-use ark_poly::Evaluations;
+use ark_poly::{DenseUVPolynomial, EvaluationDomain, Evaluations};
 use ark_serialize::{CanonicalDeserialize, CanonicalSerialize};
 use ark_std::vec::Vec;
 use w3f_pcs::pcs::Commitment;
-
+use w3f_pcs::utils;
 use crate::domain::{Domain, EvaluatedDomain};
 use crate::{ColumnsCommited, ColumnsEvaluated};
 
@@ -39,6 +39,30 @@ pub trait ProverPiop<F: PrimeField, C: Commitment<F>> {
         let agg_constraint_poly = agg_constraint_poly.interpolate();
         let quotient_poly = self.domain().divide_by_vanishing_poly(&agg_constraint_poly);
         quotient_poly
+    }
+
+    fn split_quotient(&self, q: DensePolynomial<F>) -> Vec<DensePolynomial<F>> {
+        let n = self.domain().domains.x1.size();
+        let chunks: Vec<DensePolynomial<F>> = q.coeffs.chunks(n)
+            .map(|coeffs| DensePolynomial::from_coefficients_slice(coeffs))
+            .collect();
+        chunks
+    }
+
+    fn quotient_chunks(&self, alphas: &[F]) -> Vec<DensePolynomial<F>> {
+        let q = self.quotient(alphas);
+        self.split_quotient(q)
+    }
+
+    fn folded_quotient(&self, chunks: &[DensePolynomial<F>], zeta: F) -> DensePolynomial<F> {
+        let n = self.domain().domains.x1.size() as u64;
+        let zn = zeta.pow([n]);
+        let folded = chunks.iter()
+            .zip(utils::powers(zn))
+            .map(|(chunk, coeff)| chunk * coeff)
+            .reduce(|acc, new| acc + new)
+            .unwrap();
+        folded
     }
 
     // 'Linearized' parts of constraint polynomials.
@@ -92,6 +116,12 @@ pub trait VerifierPiop<F: PrimeField, C: Commitment<F>> {
 
     // Commitment to the aggregated linearization polynomial without the constant term.
     fn lin_poly_commitment(&self, agg_coeffs: &[F]) -> (Vec<F>, Vec<C>);
+
+    fn quotient_commitment(&self, chunks: &[C]) -> C {
+        let zn = self.domain_evaluated().z_n;
+        let quotient = chunks.iter().zip(utils::powers(zn)).map(|(chunk, coeff)| chunk.mul(coeff)).sum();
+        quotient
+    }
 
     fn domain_evaluated(&self) -> &EvaluatedDomain<F>;
 }

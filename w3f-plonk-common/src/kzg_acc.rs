@@ -109,7 +109,7 @@ impl<E: Pairing> KzgAccumulator<E> {
                 .map(|c| c.0)
                 .collect::<Vec<_>>(),
         );
-        self.acc_points.push(proof.quotient_commitment.clone().0);
+        // self.acc_points.push(proof.quotient_commitment.clone().0);
         self.acc_scalars
             .extend(challenges.nus.iter().map(|nu| *nu * r).collect::<Vec<_>>()); // numbers should match here
 

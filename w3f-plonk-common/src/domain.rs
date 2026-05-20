@@ -185,6 +185,7 @@ pub struct EvaluatedDomain<F: FftField> {
     pub l_first: F,
     pub l_last: F,
     pub vanishing_polynomial_inv: F,
+    pub z_n: F, // z^n
 }
 
 impl<F: FftField> EvaluatedDomain<F> {
@@ -224,6 +225,7 @@ impl<F: FftField> EvaluatedDomain<F> {
             l_first,
             l_last,
             vanishing_polynomial_inv,
+            z_n,
         }
     }
 

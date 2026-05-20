@@ -103,7 +103,7 @@ where
 {
     pub column_commitments: Commitments,
     pub columns_at_zeta: Evaluations,
-    pub quotient_commitment: CS::C,
+    pub quotient_commitment: Vec<CS::C>,
     pub lin_at_zeta_omega: F,
     pub agg_at_zeta_proof: CS::Proof,
     pub lin_at_zeta_omega_proof: CS::Proof,
@@ -120,7 +120,7 @@ where
 {
     pub column_commitments: Commitments,
     pub columns_at_zeta: Evaluations,
-    pub quotient_commitment: C,
+    pub quotient_commitment: Vec<C>,
     pub lin_at_zeta_omega: F,
 }
 

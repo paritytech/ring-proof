@@ -1,11 +1,10 @@
 use ark_ff::PrimeField;
 use ark_poly::univariate::DensePolynomial;
-use ark_poly::{Evaluations, Polynomial};
+use ark_poly::Polynomial;
 use ark_serialize::CanonicalSerialize;
 use ark_std::format;
 use ark_std::vec::Vec;
 use ark_std::{end_timer, start_timer, vec};
-
 use w3f_pcs::aggregation::single::aggregate_polys;
 use w3f_pcs::pcs::PCS;
 
@@ -63,15 +62,20 @@ impl<F: PrimeField, CS: PCS<F>, T: PlonkTranscript<F, CS>> PlonkProver<F, CS, T>
 
         // ROUND 2
         let alphas = transcript.get_constraints_aggregation_coeffs(P::N_CONSTRAINTS);
-        let quotient_poly = piop.quotient(&alphas);
+        // let quotient_poly = piop.quotient(&alphas);
         // The prover commits to the quotient polynomial...
-        let quotient_commitment = CS::commit(&self.pcs_ck, &quotient_poly).unwrap();
-        transcript.add_quotient_commitment(&quotient_commitment);
-
+        let quotient_chunks = piop.quotient_chunks(&alphas);
+        let chunks_committed: Vec<_> = quotient_chunks.iter()
+            .map(|qi| CS::commit(&self.pcs_ck, qi).unwrap())
+            .collect();
+        for qi_committed in chunks_committed.iter() {
+            transcript.add_quotient_commitment(&qi_committed);
+        }
         // and receives the evaluation point in response
 
         // ROUND 3
         let zeta = transcript.get_evaluation_point();
+        let q_folded = piop.folded_quotient(&quotient_chunks, zeta);
         let columns_to_open = piop.columns();
         let columns_at_zeta = piop.columns_evaluated(&zeta);
         let constraint_polys_linearized = piop.constraints_lin(&zeta);
@@ -82,11 +86,11 @@ impl<F: PrimeField, CS: PCS<F>, T: PlonkTranscript<F, CS>> PlonkProver<F, CS, T>
         transcript.add_evaluations(&columns_at_zeta, &lin_at_zeta_omega);
         let piop_proof = PiopProof {
             column_commitments,
-            quotient_commitment,
+            quotient_commitment: chunks_committed,
             columns_at_zeta,
             lin_at_zeta_omega,
         };
-        let polys_at_zeta = [columns_to_open, vec![quotient_poly]].concat();
+        let polys_at_zeta = [columns_to_open, vec![q_folded]].concat();
         let pcs_openings = PcsOpeningAt2Points {
             polys_at_zeta,
             polys_at_zeta_omega: vec![lin],
