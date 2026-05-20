@@ -165,7 +165,7 @@ impl<E: Pairing> VerifierKey<E::ScalarField, KZG<E>> {
         ring: &Ring<E::ScalarField, E, G>,
         kzg_vk: RawKzgVerifierKey<E>,
     ) -> Self {
-        let fixed_columns = ring.as_fixed_columns();
+        let fixed_columns = FixedColumnsCommitted::from_ring(&ring);
         Self::from_commitment_and_kzg_vk(fixed_columns, kzg_vk)
     }
 
