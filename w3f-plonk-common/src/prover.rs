@@ -1,11 +1,10 @@
 use ark_ff::PrimeField;
 use ark_poly::univariate::DensePolynomial;
-use ark_poly::{Evaluations, Polynomial};
+use ark_poly::Polynomial;
 use ark_serialize::CanonicalSerialize;
 use ark_std::format;
 use ark_std::vec::Vec;
 use ark_std::{end_timer, start_timer, vec};
-
 use w3f_pcs::aggregation::single::aggregate_polys;
 use w3f_pcs::pcs::PCS;
 
@@ -62,21 +61,21 @@ impl<F: PrimeField, CS: PCS<F>, T: PlonkTranscript<F, CS>> PlonkProver<F, CS, T>
         transcript.add_committed_cols(&column_commitments);
 
         // ROUND 2
-        let constraint_polys = piop.constraints();
-        let alphas = transcript.get_constraints_aggregation_coeffs(constraint_polys.len());
-        // Aggregate constraint polynomials in evaluation form...
-        let agg_constraint_poly = Self::aggregate_evaluations(&constraint_polys, &alphas);
-        // ...and then interpolate (to save some FFTs).
-        let agg_constraint_poly = agg_constraint_poly.interpolate();
-        let quotient_poly = piop.domain().divide_by_vanishing_poly(&agg_constraint_poly);
+        let alphas = transcript.get_constraints_aggregation_coeffs(P::N_CONSTRAINTS);
+        // let quotient_poly = piop.quotient(&alphas);
         // The prover commits to the quotient polynomial...
-        let quotient_commitment = CS::commit(&self.pcs_ck, &quotient_poly).unwrap();
-        transcript.add_quotient_commitment(&quotient_commitment);
-
+        let quotient_chunks = piop.quotient_chunks(&alphas);
+        let chunks_committed: Vec<_> = quotient_chunks.iter()
+            .map(|qi| CS::commit(&self.pcs_ck, qi).unwrap())
+            .collect();
+        for qi_committed in chunks_committed.iter() {
+            transcript.add_quotient_commitment(&qi_committed);
+        }
         // and receives the evaluation point in response
 
         // ROUND 3
         let zeta = transcript.get_evaluation_point();
+        let q_folded = piop.folded_quotient(&quotient_chunks, zeta);
         let columns_to_open = piop.columns();
         let columns_at_zeta = piop.columns_evaluated(&zeta);
         let constraint_polys_linearized = piop.constraints_lin(&zeta);
@@ -87,11 +86,11 @@ impl<F: PrimeField, CS: PCS<F>, T: PlonkTranscript<F, CS>> PlonkProver<F, CS, T>
         transcript.add_evaluations(&columns_at_zeta, &lin_at_zeta_omega);
         let piop_proof = PiopProof {
             column_commitments,
-            quotient_commitment,
+            quotient_commitment: chunks_committed,
             columns_at_zeta,
             lin_at_zeta_omega,
         };
-        let polys_at_zeta = [columns_to_open, vec![quotient_poly]].concat();
+        let polys_at_zeta = [columns_to_open, vec![q_folded]].concat();
         let pcs_openings = PcsOpeningAt2Points {
             polys_at_zeta,
             polys_at_zeta_omega: vec![lin],
@@ -136,15 +135,5 @@ impl<F: PrimeField, CS: PCS<F>, T: PlonkTranscript<F, CS>> PlonkProver<F, CS, T>
             agg_at_zeta_proof,
             lin_at_zeta_omega_proof,
         }
-    }
-
-    pub fn aggregate_evaluations(polys: &[Evaluations<F>], coeffs: &[F]) -> Evaluations<F> {
-        assert_eq!(coeffs.len(), polys.len());
-        polys
-            .iter()
-            .zip(coeffs.iter())
-            .map(|(p, &c)| p * c)
-            .reduce(|acc, p| &acc + &p)
-            .unwrap()
     }
 }

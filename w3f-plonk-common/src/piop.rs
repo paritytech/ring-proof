@@ -1,14 +1,16 @@
-use ark_ff::PrimeField;
+use ark_ff::{FftField, PrimeField};
 use ark_poly::univariate::DensePolynomial;
-use ark_poly::Evaluations;
+use ark_poly::{DenseUVPolynomial, EvaluationDomain, Evaluations};
 use ark_serialize::{CanonicalDeserialize, CanonicalSerialize};
 use ark_std::vec::Vec;
 use w3f_pcs::pcs::Commitment;
-
+use w3f_pcs::utils;
 use crate::domain::{Domain, EvaluatedDomain};
 use crate::{ColumnsCommited, ColumnsEvaluated};
 
 pub trait ProverPiop<F: PrimeField, C: Commitment<F>> {
+    const N_CONSTRAINTS: usize;
+
     type Commitments: ColumnsCommited<F, C>;
     type Evaluations: ColumnsEvaluated<F>;
     type Instance: CanonicalSerialize + CanonicalDeserialize;
@@ -29,6 +31,40 @@ pub trait ProverPiop<F: PrimeField, C: Commitment<F>> {
     // Constraint polynomials in evaluation form.
     fn constraints(&self) -> Vec<Evaluations<F>>;
 
+    fn quotient(&self, alphas: &[F]) -> DensePolynomial<F> {
+        let constraint_polys = self.constraints();
+        // Aggregate constraint polynomials in evaluation form...
+        let agg_constraint_poly = aggregate_evaluations(&constraint_polys, &alphas);
+        // ...and then interpolate (to save some FFTs).
+        let agg_constraint_poly = agg_constraint_poly.interpolate();
+        let quotient_poly = self.domain().divide_by_vanishing_poly(&agg_constraint_poly);
+        quotient_poly
+    }
+
+    fn split_quotient(&self, q: DensePolynomial<F>) -> Vec<DensePolynomial<F>> {
+        let n = self.domain().domains.x1.size();
+        let chunks: Vec<DensePolynomial<F>> = q.coeffs.chunks(n)
+            .map(|coeffs| DensePolynomial::from_coefficients_slice(coeffs))
+            .collect();
+        chunks
+    }
+
+    fn quotient_chunks(&self, alphas: &[F]) -> Vec<DensePolynomial<F>> {
+        let q = self.quotient(alphas);
+        self.split_quotient(q)
+    }
+
+    fn folded_quotient(&self, chunks: &[DensePolynomial<F>], zeta: F) -> DensePolynomial<F> {
+        let n = self.domain().domains.x1.size() as u64;
+        let zn = zeta.pow([n]);
+        let folded = chunks.iter()
+            .zip(utils::powers(zn))
+            .map(|(chunk, coeff)| chunk * coeff)
+            .reduce(|acc, new| acc + new)
+            .unwrap();
+        folded
+    }
+
     // 'Linearized' parts of constraint polynomials.
     // For a constraint of the form C = C(c1(X),...,ck(X),c1(wX),...,ck(wX)), where ci's are of degree n,
     // and an evaluation point z, it is a degree n polynomial r = C(c1(z),...,ck(z),c1(X),...,ck(X)).
@@ -39,6 +75,16 @@ pub trait ProverPiop<F: PrimeField, C: Commitment<F>> {
 
     // The result of the computation.
     fn result(&self) -> Self::Instance;
+}
+
+fn aggregate_evaluations<F: FftField>(polys: &[Evaluations<F>], coeffs: &[F]) -> Evaluations<F> {
+    assert_eq!(coeffs.len(), polys.len());
+    polys
+        .iter()
+        .zip(coeffs.iter())
+        .map(|(p, &c)| p * c)
+        .reduce(|acc, p| &acc + &p)
+        .unwrap()
 }
 
 pub trait VerifierPiop<F: PrimeField, C: Commitment<F>> {
@@ -70,6 +116,19 @@ pub trait VerifierPiop<F: PrimeField, C: Commitment<F>> {
 
     // Commitment to the aggregated linearization polynomial without the constant term.
     fn lin_poly_commitment(&self, agg_coeffs: &[F]) -> (Vec<F>, Vec<C>);
+
+    fn chunk_coeffs(&self) -> impl Iterator<Item = F> {
+        let zn = self.domain_evaluated().z_n;
+        utils::powers(zn)
+    }
+
+    fn quotient_commitment(&self, chunks: &[C]) -> C {
+        let zn = self.domain_evaluated().z_n;
+        let quotient = chunks.iter().zip(self.chunk_coeffs())
+            .map(|(chunk, coeff)| chunk.mul(coeff))
+            .sum();
+        quotient
+    }
 
     fn domain_evaluated(&self) -> &EvaluatedDomain<F>;
 }

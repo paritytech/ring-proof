@@ -117,7 +117,7 @@ mod tests {
     #[test]
     // cargo test test_ring_proof_kzg --release --features="print-trace" -- --show-output
     fn test_ring_proof_kzg() {
-        _test_ring_proof::<KZG<Bls12_381>>(2usize.pow(9), 1);
+        _test_ring_proof::<KZG<Bls12_381>>(2usize.pow(12), 1);
     }
 
     #[test]

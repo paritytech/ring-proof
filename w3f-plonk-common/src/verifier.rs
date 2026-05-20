@@ -53,7 +53,7 @@ impl<F: PrimeField, CS: PCS<F>, T: PlonkTranscript<F, CS>> PlonkVerifier<F, CS, 
     {
         let mut open_at_zeta = piop.precommitted_columns();
         open_at_zeta.extend(proof.column_commitments.to_vec());
-        open_at_zeta.push(proof.quotient_commitment.clone());
+        open_at_zeta.push(piop.quotient_commitment(&proof.quotient_commitment));
 
         let mut vals_at_zeta = proof.columns_at_zeta.to_vec();
         let q_zeta = piop.evaluate_q_at_zeta(&challenges.alphas, proof.lin_at_zeta_omega);
@@ -134,7 +134,9 @@ impl<F: PrimeField, CS: PCS<F>, T: PlonkTranscript<F, CS>> PlonkVerifier<F, CS, 
         // let r = transcript.get_bitmask_aggregation_challenge();
         // transcript.append_2nd_round_register_commitments(&proof.additional_commitments);
         let alphas = transcript.get_constraints_aggregation_coeffs(n_constraints);
-        transcript.add_quotient_commitment(&proof.quotient_commitment);
+        for qi_committed in proof.quotient_commitment.iter() {
+            transcript.add_quotient_commitment(&qi_committed);
+        }
         let zeta = transcript.get_evaluation_point();
         transcript.add_evaluations(&proof.columns_at_zeta, &proof.lin_at_zeta_omega);
         let nus = transcript.get_kzg_aggregation_challenges(n_polys);
