@@ -1,3 +1,5 @@
+use crate::domain::{Domain, EvaluatedDomain};
+use crate::{ColumnsCommited, ColumnsEvaluated};
 use ark_ff::{FftField, PrimeField};
 use ark_poly::univariate::DensePolynomial;
 use ark_poly::{DenseUVPolynomial, EvaluationDomain, Evaluations};
@@ -5,8 +7,6 @@ use ark_serialize::{CanonicalDeserialize, CanonicalSerialize};
 use ark_std::vec::Vec;
 use w3f_pcs::pcs::Commitment;
 use w3f_pcs::utils;
-use crate::domain::{Domain, EvaluatedDomain};
-use crate::{ColumnsCommited, ColumnsEvaluated};
 
 pub trait ProverPiop<F: PrimeField, C: Commitment<F>> {
     const N_CONSTRAINTS: usize;
@@ -43,7 +43,9 @@ pub trait ProverPiop<F: PrimeField, C: Commitment<F>> {
 
     fn split_quotient(&self, q: DensePolynomial<F>) -> Vec<DensePolynomial<F>> {
         let n = self.domain().domains.x1.size();
-        let chunks: Vec<DensePolynomial<F>> = q.coeffs.chunks(n)
+        let chunks: Vec<DensePolynomial<F>> = q
+            .coeffs
+            .chunks(n)
             .map(|coeffs| DensePolynomial::from_coefficients_slice(coeffs))
             .collect();
         chunks
@@ -57,7 +59,8 @@ pub trait ProverPiop<F: PrimeField, C: Commitment<F>> {
     fn folded_quotient(&self, chunks: &[DensePolynomial<F>], zeta: F) -> DensePolynomial<F> {
         let n = self.domain().domains.x1.size() as u64;
         let zn = zeta.pow([n]);
-        let folded = chunks.iter()
+        let folded = chunks
+            .iter()
             .zip(utils::powers(zn))
             .map(|(chunk, coeff)| chunk * coeff)
             .reduce(|acc, new| acc + new)
@@ -123,8 +126,9 @@ pub trait VerifierPiop<F: PrimeField, C: Commitment<F>> {
     }
 
     fn quotient_commitment(&self, chunks: &[C]) -> C {
-        let zn = self.domain_evaluated().z_n;
-        let quotient = chunks.iter().zip(self.chunk_coeffs())
+        let quotient = chunks
+            .iter()
+            .zip(self.chunk_coeffs())
             .map(|(chunk, coeff)| chunk.mul(coeff))
             .sum();
         quotient
