@@ -62,13 +62,8 @@ impl<F: PrimeField, CS: PCS<F>, T: PlonkTranscript<F, CS>> PlonkProver<F, CS, T>
         transcript.add_committed_cols(&column_commitments);
 
         // ROUND 2
-        let constraint_polys = piop.constraints();
-        let alphas = transcript.get_constraints_aggregation_coeffs(constraint_polys.len());
-        // Aggregate constraint polynomials in evaluation form...
-        let agg_constraint_poly = Self::aggregate_evaluations(&constraint_polys, &alphas);
-        // ...and then interpolate (to save some FFTs).
-        let agg_constraint_poly = agg_constraint_poly.interpolate();
-        let quotient_poly = piop.domain().divide_by_vanishing_poly(&agg_constraint_poly);
+        let alphas = transcript.get_constraints_aggregation_coeffs(P::N_CONSTRAINTS);
+        let quotient_poly = piop.quotient(&alphas);
         // The prover commits to the quotient polynomial...
         let quotient_commitment = CS::commit(&self.pcs_ck, &quotient_poly).unwrap();
         transcript.add_quotient_commitment(&quotient_commitment);
@@ -136,15 +131,5 @@ impl<F: PrimeField, CS: PCS<F>, T: PlonkTranscript<F, CS>> PlonkProver<F, CS, T>
             agg_at_zeta_proof,
             lin_at_zeta_omega_proof,
         }
-    }
-
-    pub fn aggregate_evaluations(polys: &[Evaluations<F>], coeffs: &[F]) -> Evaluations<F> {
-        assert_eq!(coeffs.len(), polys.len());
-        polys
-            .iter()
-            .zip(coeffs.iter())
-            .map(|(p, &c)| p * c)
-            .reduce(|acc, p| &acc + &p)
-            .unwrap()
     }
 }
