@@ -1,15 +1,13 @@
 mod prover;
 mod verifier;
 
-
 use crate::Coeffs;
 use ark_ec::CurveGroup;
-use w3f_pcs::pcs::ipa::hiding::HidingIpa;
 use w3f_pcs::pcs::PCS;
+use w3f_pcs::pcs::ipa::hiding::HidingIpa;
 use w3f_pcs::shplonk::AggregateProof;
 use w3f_plonk_common::PiopProof;
 use w3f_ring_proof::piop::{RingCommitments, RingEvaluations};
-
 
 pub struct LevelProof<C: CurveGroup> {
     piop_proof: PiopProof<
@@ -24,13 +22,13 @@ pub struct LevelProof<C: CurveGroup> {
 
 #[cfg(test)]
 mod tests {
-    use crate::tests::random_nodes;
     use crate::CycleParams;
-    use ark_ec::short_weierstrass::{Affine, Projective, SWCurveConfig};
+    use crate::tests::random_nodes;
     use ark_ec::CurveGroup;
+    use ark_ec::short_weierstrass::{Affine, Projective, SWCurveConfig};
     use ark_ff::PrimeField;
     use ark_pallas::PallasConfig;
-    use ark_std::{end_timer, start_timer, test_rng, UniformRand};
+    use ark_std::{UniformRand, end_timer, start_timer, test_rng};
     use ark_vesta::VestaConfig;
 
     fn _test_level_proof<F0, F1, C0, C1>()
@@ -69,7 +67,8 @@ mod tests {
 
         let capacity = c1_params.piop_params.keyset_part_size;
 
-        let (_, l2_vk) = c1_params.commit_children(l2_nodes.siblings.as_slice(), l1_nodes_with_bf.bf);
+        let (_, l2_vk) =
+            c1_params.commit_children(l2_nodes.siblings.as_slice(), l1_nodes_with_bf.bf);
         let l1_node_fc = l2_vk.fixed_columns_committed;
         assert_eq!(l1_node_fc.points[0].0, l1_node_blinded);
 

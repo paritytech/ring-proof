@@ -1,19 +1,18 @@
 use crate::level::LevelProof;
 use crate::{CycleSideParams, IPACommitment};
-use ark_ec::short_weierstrass::{Affine, SWCurveConfig};
 use ark_ec::CurveGroup;
+use ark_ec::short_weierstrass::{Affine, SWCurveConfig};
 use ark_std::{end_timer, start_timer};
-use w3f_pcs::pcs::ipa::hiding::HidingIpa;
 use w3f_pcs::pcs::PcsParams;
+use w3f_pcs::pcs::ipa::hiding::HidingIpa;
 use w3f_pcs::shplonk::Shplonk;
 use w3f_plonk_common::piop::VerifierPiop;
 use w3f_plonk_common::verifier::{PcsOpeningAt2Points, PlonkVerifier};
 use w3f_ring_proof::piop::verifier::PiopVerifier;
 use w3f_ring_proof::{ArkTranscript, FixedColumnsCommitted, VerifierKey};
 
-
-impl<C: CurveGroup, G: SWCurveConfig<BaseField=C::ScalarField, ScalarField=C::BaseField>>
-CycleSideParams<C, Affine<G>>
+impl<C: CurveGroup, G: SWCurveConfig<BaseField = C::ScalarField, ScalarField = C::BaseField>>
+    CycleSideParams<C, Affine<G>>
 {
     pub fn verify_level(
         &self,

@@ -1,8 +1,8 @@
 use crate::CycleSideParams;
 use ark_ec::{AffineRepr, CurveGroup};
 use ark_ff::{PrimeField, Zero};
-use ark_std::rand::Rng;
 use ark_std::UniformRand;
+use ark_std::rand::Rng;
 use w3f_pcs::pcs::ipa::hiding::HidingIpa;
 
 /// An element of a tree authentication path. A node on the path together with it's sibling.
@@ -90,7 +90,11 @@ pub struct LevelWitnessWithBlinding<G: AffineRepr> {
 
 impl<G: AffineRepr> LevelWitnessWithBlinding<G> {
     pub(crate) fn blinded_path_node(&self, ipa_pcs: &HidingIpa<G::Group>) -> Result<G, ()> {
-        let blinded_path_node = ipa_pcs.reblind(self.level_witness.path_node(), G::ScalarField::zero(), self.bf)?;
+        let blinded_path_node = ipa_pcs.reblind(
+            self.level_witness.path_node(),
+            G::ScalarField::zero(),
+            self.bf,
+        )?;
         Ok(blinded_path_node.0)
     }
 
@@ -101,6 +105,7 @@ impl<G: AffineRepr> LevelWitnessWithBlinding<G> {
     where
         G::BaseField: PrimeField,
     {
-        self.level_witness.compute_parent_with_bf(params, self.parent_bf)
+        self.level_witness
+            .compute_parent_with_bf(params, self.parent_bf)
     }
 }

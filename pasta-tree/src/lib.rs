@@ -1,18 +1,17 @@
 #![feature(bool_to_result)]
 
-
 use ark_ec::{AffineRepr, CurveGroup, PrimeGroup};
 use ark_ff::{PrimeField, Zero};
 use ark_std::rand::Rng;
 use std::marker::PhantomData;
 use w3f_pcs::aggregation::multiple::ShplonkTranscript;
+use w3f_pcs::pcs::PCS;
+use w3f_pcs::pcs::PcsParams;
 use w3f_pcs::pcs::commitment::WrappedAffine;
 use w3f_pcs::pcs::ipa::hiding::HidingIpa;
-use w3f_pcs::pcs::PcsParams;
-use w3f_pcs::pcs::PCS;
 use w3f_pcs::shplonk::AggregateProof;
-use w3f_plonk_common::domain::Domain;
 use w3f_plonk_common::PiopProof;
+use w3f_plonk_common::domain::Domain;
 use w3f_ring_proof::piop::{FixedColumns, RingCommitments, RingEvaluations};
 use w3f_ring_proof::{FixedColumnsCommitted, PiopParams, VerifierKey};
 
@@ -23,29 +22,36 @@ pub mod verifier;
 
 type IPACommitment<C> = <HidingIpa<C> as PCS<<C as PrimeGroup>::ScalarField>>::C;
 
-struct CycleSideParams<C: CurveGroup, G: AffineRepr<BaseField=C::ScalarField>> {
+struct CycleSideParams<C: CurveGroup, G: AffineRepr<BaseField = C::ScalarField>> {
     pcs_params: HidingIpa<C>,
     piop_params: PiopParams<G>,
 }
 
 struct CycleParams<
     C0: CurveGroup,
-    C1: CurveGroup<BaseField=C0::ScalarField, ScalarField=C0::BaseField>,
+    C1: CurveGroup<BaseField = C0::ScalarField, ScalarField = C0::BaseField>,
 > {
     c0_params: CycleSideParams<C0, C1::Affine>,
     c1_params: CycleSideParams<C1, C0::Affine>,
 }
 
 #[derive(Clone)]
-pub struct CycleSideProof<F: PrimeField, C: CurveGroup<ScalarField=F>> {
-    piop_proofs: Vec<PiopProof<F, WrappedAffine<C>, RingCommitments<F, WrappedAffine<C>>, RingEvaluations<F>>>,
+pub struct CycleSideProof<F: PrimeField, C: CurveGroup<ScalarField = F>> {
+    piop_proofs: Vec<
+        PiopProof<F, WrappedAffine<C>, RingCommitments<F, WrappedAffine<C>>, RingEvaluations<F>>,
+    >,
     pcs_proof: AggregateProof<F, HidingIpa<C>>,
     todo: Coeffs<F>,
     fixed_columns_committed: Vec<FixedColumnsCommitted<F, IPACommitment<C>>>,
 }
 
 #[derive(Clone)]
-pub struct CurveTreeProof<F0: PrimeField, F1: PrimeField, C0: CurveGroup<ScalarField=F0>, C1: CurveGroup<ScalarField=F1>> {
+pub struct CurveTreeProof<
+    F0: PrimeField,
+    F1: PrimeField,
+    C0: CurveGroup<ScalarField = F0>,
+    C1: CurveGroup<ScalarField = F1>,
+> {
     c0_proof: CycleSideProof<F0, C0>,
     c1_proof: CycleSideProof<F1, C1>,
 }
@@ -54,8 +60,8 @@ impl<F0, F1, C0, C1> CycleParams<C0, C1>
 where
     F0: PrimeField,
     F1: PrimeField,
-    C0: CurveGroup<BaseField=F1, ScalarField=F0>,
-    C1: CurveGroup<BaseField=F0, ScalarField=F1>,
+    C0: CurveGroup<BaseField = F1, ScalarField = F0>,
+    C1: CurveGroup<BaseField = F0, ScalarField = F1>,
 {
     pub fn setup<R: Rng>(domain_size: usize, rng: &mut R) -> Self {
         let setup_degree = 3 * domain_size;
@@ -76,14 +82,18 @@ where
     }
 }
 
-fn piop_params<G: AffineRepr<BaseField: PrimeField>, R: Rng>(domain_size: usize, h: G, rng: &mut R) -> PiopParams<G> {
+fn piop_params<G: AffineRepr<BaseField: PrimeField>, R: Rng>(
+    domain_size: usize,
+    h: G,
+    rng: &mut R,
+) -> PiopParams<G> {
     let domain = Domain::<G::BaseField>::new(domain_size, true);
     let seed = G::rand(rng);
     let padding = G::rand(rng);
     PiopParams::setup(domain, h, seed, padding)
 }
 
-impl<C: CurveGroup, G: AffineRepr<BaseField=C::ScalarField>> CycleSideParams<C, G> {
+impl<C: CurveGroup, G: AffineRepr<BaseField = C::ScalarField>> CycleSideParams<C, G> {
     pub fn commit_children(
         &self,
         children: &[G],
@@ -129,7 +139,6 @@ impl<C: CurveGroup, G: AffineRepr<BaseField=C::ScalarField>> CycleSideParams<C, 
     }
 }
 
-
 // pub struct CycleSideParams<C: CurveGroup> {
 //     ipa_pcs: HidingIpa<C>,
 //     domain: Radix2EvaluationDomain<C::ScalarField>,
@@ -141,7 +150,6 @@ impl<C: CurveGroup, G: AffineRepr<BaseField=C::ScalarField>> CycleSideParams<C, 
 //     c0_params: CycleSideParams<C0>,
 //     c1_params: CycleSideParams<C1>,
 // }
-
 
 // impl<C: CurveGroup> CycleSideParams<C> {
 //     fn setup<R: Rng>(log_n: u32, rng: &mut R) -> Result<Self, ()> {
@@ -204,10 +212,10 @@ impl<F: PrimeField, CS: PCS<F>> ShplonkTranscript<F, CS> for Coeffs<F> {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use ark_ec::AdditiveGroup;
     use ark_ec::scalar_mul::glv::GLVConfig;
     use ark_ec::scalar_mul::wnaf::WnafContext;
     use ark_ec::short_weierstrass::{Affine, Projective, SWCurveConfig};
-    use ark_ec::AdditiveGroup;
     use ark_ec::{AffineRepr, CurveGroup};
     use ark_ff::PrimeField;
     use ark_ff::{BigInteger, Field, Zero};
@@ -216,20 +224,20 @@ mod tests {
     use ark_poly::Polynomial;
     use ark_std::iterable::Iterable;
     use ark_std::rand::Rng;
-    use ark_std::{cfg_iter_mut, end_timer, start_timer, test_rng, UniformRand};
-    use std::collections::BTreeSet;
+    use ark_std::{UniformRand, cfg_iter_mut, end_timer, start_timer, test_rng};
     use ark_vesta::VestaConfig;
-    use w3f_pcs::pcs::ipa::IPA;
-    use w3f_pcs::pcs::commitment::WrappedAffine;
-    use w3f_pcs::pcs::PcsParams;
-    use w3f_pcs::pcs::{RawVerifierKey, PCS};
-    use w3f_pcs::shplonk::Shplonk;
+    use std::collections::BTreeSet;
     use w3f_pcs::Poly;
+    use w3f_pcs::pcs::PcsParams;
+    use w3f_pcs::pcs::commitment::WrappedAffine;
+    use w3f_pcs::pcs::ipa::IPA;
+    use w3f_pcs::pcs::{PCS, RawVerifierKey};
+    use w3f_pcs::shplonk::Shplonk;
     use w3f_plonk_common::piop::ProverPiop;
     use w3f_plonk_common::prover::{PcsOpeningAt2Points, PlonkProver};
     use w3f_plonk_common::test_helpers::random_vec;
     use w3f_ring_proof::piop::prover::PiopProver;
-    use w3f_ring_proof::{index, ArkTranscript, PiopParams};
+    use w3f_ring_proof::{ArkTranscript, PiopParams, index};
 
     use crate::auth_path::node::LevelWitness;
     use crate::auth_path::path::AuthenticationPath;
@@ -240,8 +248,7 @@ mod tests {
     type PallasIPA = IPA<ark_pallas::Projective>;
     type PallasC = WrappedAffine<ark_pallas::Projective>;
 
-
-    fn random_witness<C: CurveGroup, G: AffineRepr<BaseField=C::ScalarField>, R: Rng>(
+    fn random_witness<C: CurveGroup, G: AffineRepr<BaseField = C::ScalarField>, R: Rng>(
         params: &CycleSideParams<C, G>,
         path_node: G,
         rng: &mut R,
@@ -256,7 +263,7 @@ mod tests {
         }
     }
 
-    pub fn random_nodes<C: CurveGroup, G: AffineRepr<BaseField=C::ScalarField>, R: Rng>(
+    pub fn random_nodes<C: CurveGroup, G: AffineRepr<BaseField = C::ScalarField>, R: Rng>(
         params: &CycleSideParams<C, G>,
         path_node: G,
         rng: &mut R,
@@ -266,7 +273,19 @@ mod tests {
         (parent, level_witness)
     }
 
-    pub fn random_path<C0: CurveGroup, C1: CurveGroup<BaseField=C0::ScalarField, ScalarField=C0::BaseField>, R: Rng>(params: &CycleParams<C0, C1>, length: usize, rng: &mut R) -> (C0::Affine, AuthenticationPath<C0, C1>, CycleSide<C0::Affine, C1::Affine>) {
+    pub fn random_path<
+        C0: CurveGroup,
+        C1: CurveGroup<BaseField = C0::ScalarField, ScalarField = C0::BaseField>,
+        R: Rng,
+    >(
+        params: &CycleParams<C0, C1>,
+        length: usize,
+        rng: &mut R,
+    ) -> (
+        C0::Affine,
+        AuthenticationPath<C0, C1>,
+        CycleSide<C0::Affine, C1::Affine>,
+    ) {
         let c0_len = (length + 1) / 2;
         let c1_len = length / 2;
         debug_assert_eq!(c0_len + c1_len, length);
@@ -291,10 +310,7 @@ mod tests {
             CycleSide::C0(c0_path_node)
         };
 
-        let path = AuthenticationPath {
-            c0_path,
-            c1_path,
-        };
+        let path = AuthenticationPath { c0_path, c1_path };
         (leaf, path, root)
     }
 
@@ -313,8 +329,8 @@ mod tests {
     where
         F0: PrimeField,
         F1: PrimeField,
-        C0: SWCurveConfig<BaseField=F1, ScalarField=F0>,
-        C1: SWCurveConfig<BaseField=F0, ScalarField=F1>,
+        C0: SWCurveConfig<BaseField = F1, ScalarField = F0>,
+        C1: SWCurveConfig<BaseField = F0, ScalarField = F1>,
     {
         let rng = &mut test_rng();
 
@@ -323,7 +339,7 @@ mod tests {
         let (leaf, path, wrapped_root) = random_path(&params, 4, rng);
         let root = match wrapped_root {
             CycleSide::C0(root) => root,
-            _ => panic!()
+            _ => panic!(),
         };
 
         let path_with_bf = path.with_blinding(rng);
@@ -362,7 +378,6 @@ mod tests {
         let t_prove = start_timer!(|| "Proving CurveTree membership, H=4, M=512, C=252");
         let (auth_path, proof) = params.prove(path, rng);
         end_timer!(t_prove);
-
 
         // assert_eq!(auth_path.c0_path, vec![l4_node_blinded, l2_node_blinded]);
         // assert_eq!(auth_path.c1_path, vec![l3_node_blinded, l1_node_blinded]);
@@ -466,7 +481,7 @@ mod tests {
                     &constraints,
                     &alphas,
                 )
-                    .interpolate();
+                .interpolate();
             let quotient = piop_params
                 .domain
                 .divide_by_vanishing_poly(&agg_constraint_poly);

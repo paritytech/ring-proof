@@ -18,23 +18,32 @@ impl<F0, F1, C0, C1> AuthenticationPathWithBlinding<C0, C1>
 where
     F0: PrimeField,
     F1: PrimeField,
-    C0: CurveGroup<BaseField=F1, ScalarField=F0>,
-    C1: CurveGroup<BaseField=F0, ScalarField=F1>,
+    C0: CurveGroup<BaseField = F1, ScalarField = F0>,
+    C1: CurveGroup<BaseField = F0, ScalarField = F1>,
 {
     pub(crate) fn apply_bfs(
         &self,
         params: &CycleParams<C0, C1>,
     ) -> BlindedAuthenticationPath<C0, C1> {
-        let c0_path = self.c0_path.iter()
-            .map(|c0_level| c0_level.blinded_path_node(&params.c0_params.pcs_params).unwrap())
+        let c0_path = self
+            .c0_path
+            .iter()
+            .map(|c0_level| {
+                c0_level
+                    .blinded_path_node(&params.c0_params.pcs_params)
+                    .unwrap()
+            })
             .collect();
-        let c1_path = self.c1_path.iter()
-            .map(|c1_level| c1_level.blinded_path_node(&params.c1_params.pcs_params).unwrap())
+        let c1_path = self
+            .c1_path
+            .iter()
+            .map(|c1_level| {
+                c1_level
+                    .blinded_path_node(&params.c1_params.pcs_params)
+                    .unwrap()
+            })
             .collect();
-        BlindedAuthenticationPath {
-            c0_path,
-            c1_path,
-        }
+        BlindedAuthenticationPath { c0_path, c1_path }
     }
     pub(crate) fn compute_root(
         &self,

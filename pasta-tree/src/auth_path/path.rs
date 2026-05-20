@@ -23,8 +23,8 @@ impl<F0, F1, C0, C1> AuthenticationPath<C0, C1>
 where
     F0: PrimeField,
     F1: PrimeField,
-    C0: CurveGroup<BaseField=F1, ScalarField=F0>,
-    C1: CurveGroup<BaseField=F0, ScalarField=F1>,
+    C0: CurveGroup<BaseField = F1, ScalarField = F0>,
+    C1: CurveGroup<BaseField = F0, ScalarField = F1>,
 {
     pub fn with_blinding<R: Rng>(&self, rng: &mut R) -> AuthenticationPathWithBlinding<C0, C1> {
         let mut path_0 = Vec::with_capacity(self.c0_path.len());
@@ -96,15 +96,16 @@ where
 #[cfg(test)]
 mod tests {
     use super::*;
-    use ark_std::{test_rng, UniformRand};
     use crate::tests::{random_nodes, random_path};
+    use ark_std::{UniformRand, test_rng};
 
     #[test]
     fn test_auth_path() {
         let rng = &mut test_rng();
 
         let domain_size = 2usize.pow(9);
-        let params = CycleParams::<ark_pallas::Projective, ark_vesta::Projective>::setup(domain_size, rng);;
+        let params =
+            CycleParams::<ark_pallas::Projective, ark_vesta::Projective>::setup(domain_size, rng);
 
         let (leaf, path, root) = random_path(&params, 2, rng);
 
