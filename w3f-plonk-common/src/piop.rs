@@ -117,9 +117,16 @@ pub trait VerifierPiop<F: PrimeField, C: Commitment<F>> {
     // Commitment to the aggregated linearization polynomial without the constant term.
     fn lin_poly_commitment(&self, agg_coeffs: &[F]) -> (Vec<F>, Vec<C>);
 
+    fn chunk_coeffs(&self) -> impl Iterator<Item = F> {
+        let zn = self.domain_evaluated().z_n;
+        utils::powers(zn)
+    }
+
     fn quotient_commitment(&self, chunks: &[C]) -> C {
         let zn = self.domain_evaluated().z_n;
-        let quotient = chunks.iter().zip(utils::powers(zn)).map(|(chunk, coeff)| chunk.mul(coeff)).sum();
+        let quotient = chunks.iter().zip(self.chunk_coeffs())
+            .map(|(chunk, coeff)| chunk.mul(coeff))
+            .sum();
         quotient
     }
 
