@@ -1,10 +1,10 @@
 use ark_ec::pairing::Pairing;
-use ark_ec::AffineRepr;
+use ark_ec::{AffineRepr, CurveGroup};
 use ark_ff::PrimeField;
 use ark_serialize::{CanonicalDeserialize, CanonicalSerialize};
 use ark_std::marker::PhantomData;
 use ark_std::{vec, vec::Vec};
-use w3f_pcs::pcs::kzg::commitment::KzgCommitment;
+use w3f_pcs::pcs::commitment::WrappedAffine;
 use w3f_pcs::pcs::kzg::params::RawKzgVerifierKey;
 use w3f_pcs::pcs::kzg::KZG;
 use w3f_pcs::pcs::{Commitment, PcsParams, PCS};
@@ -95,15 +95,18 @@ impl<F: PrimeField, C: Commitment<F>> FixedColumnsCommitted<F, C> {
     }
 }
 
-impl<E: Pairing> FixedColumnsCommitted<E::ScalarField, KzgCommitment<E>> {
-    pub fn from_ring<G: AffineRepr<BaseField = E::ScalarField>>(
+impl<C: CurveGroup> FixedColumnsCommitted<C::ScalarField, WrappedAffine<C>> {
+    pub fn from_ring<
+        E: Pairing<G1Affine = C::Affine>,
+        G: AffineRepr<BaseField = E::ScalarField>,
+    >(
         ring: &Ring<E::ScalarField, E, G>,
     ) -> Self {
-        let cx = KzgCommitment(ring.cx);
-        let cy = KzgCommitment(ring.cy);
+        let cx = WrappedAffine(ring.cx);
+        let cy = WrappedAffine(ring.cy);
         Self {
             points: [cx, cy],
-            ring_selector: KzgCommitment(ring.selector),
+            ring_selector: WrappedAffine(ring.selector),
             phantom: Default::default(),
         }
     }
@@ -166,7 +169,7 @@ impl<E: Pairing> VerifierKey<E::ScalarField, KZG<E>> {
     }
 
     pub fn from_commitment_and_kzg_vk(
-        commitment: FixedColumnsCommitted<E::ScalarField, KzgCommitment<E>>,
+        commitment: FixedColumnsCommitted<E::ScalarField, WrappedAffine<E::G1>>,
         kzg_vk: RawKzgVerifierKey<E>,
     ) -> Self {
         Self {
@@ -175,7 +178,7 @@ impl<E: Pairing> VerifierKey<E::ScalarField, KZG<E>> {
         }
     }
 
-    pub fn commitment(&self) -> FixedColumnsCommitted<E::ScalarField, KzgCommitment<E>> {
+    pub fn commitment(&self) -> FixedColumnsCommitted<E::ScalarField, WrappedAffine<E::G1>> {
         self.fixed_columns_committed.clone()
     }
 }
