@@ -14,6 +14,7 @@ use w3f_ring_proof::piop::{FixedColumns, RingCommitments, RingEvaluations};
 use w3f_ring_proof::{FixedColumnsCommitted, PiopParams, VerifierKey};
 
 pub mod auth_path;
+// pub mod circuit;
 pub mod level;
 pub mod prover;
 pub mod verifier;
@@ -137,56 +138,6 @@ impl<C: CurveGroup, G: AffineRepr<BaseField = C::ScalarField>> CycleSideParams<C
     }
 }
 
-// pub struct CycleSideParams<C: CurveGroup> {
-//     ipa_pcs: HidingIpa<C>,
-//     domain: Radix2EvaluationDomain<C::ScalarField>,
-//     extra_elements: Vec<C::ScalarField>,
-//     extra_commitment: C,
-// }
-
-// pub struct CycleParams<C0: CurveGroup, C1: CurveGroup> {
-//     c0_params: CycleSideParams<C0>,
-//     c1_params: CycleSideParams<C1>,
-// }
-
-// impl<C: CurveGroup> CycleSideParams<C> {
-//     fn setup<R: Rng>(log_n: u32, rng: &mut R) -> Result<Self, ()> {
-//         let n = 2usize.pow(log_n);
-//         let domain = Radix2EvaluationDomain::new(n).ok_or(())?;
-//         let ipa_pcs = HidingIpa::setup(n - 1, rng);
-//         Ok(Self {
-//             ipa_pcs,
-//             domain,
-//             extra_elements: vec![],
-//             extra_commitment: C::zero(),
-//         })
-//     }
-//
-//     fn commit_node(
-//         &self,
-//         children_x_coords: Vec<C::ScalarField>,
-//         blinding: C::ScalarField,
-//     ) -> Result<C, ()> {
-//         (children_x_coords.len() <= self.domain.size() - self.extra_elements.len()).ok_or(())?;
-//         let evals = Evaluations::from_vec_and_domain(children_x_coords, self.domain);
-//         let poly = evals.interpolate_by_ref();
-//         let x_coords_committed = self.ipa_pcs.commit_hiding(&poly, blinding)?.0;
-//         let node_committed = x_coords_committed + self.extra_commitment;
-//         Ok(node_committed)
-//     }
-// }
-
-// impl<C0: CurveGroup, C1: CurveGroup> CycleParams<C0, C1> {
-//     fn setup<R: Rng>(log_n: u32, rng: &mut R) -> Result<Self, ()> {
-//         let c0_params = CycleSideParams::setup(log_n, rng)?;
-//         let c1_params = CycleSideParams::setup(log_n, rng)?;
-//         Ok(Self {
-//             c0_params,
-//             c1_params,
-//         })
-//     }
-// }
-
 #[derive(Debug, PartialEq)]
 pub enum CycleSide<C0, C1> {
     C0(C0),
@@ -219,23 +170,18 @@ mod tests {
     use ark_ff::{BigInteger, Field, Zero};
     use ark_pallas::PallasConfig;
     use ark_poly::DenseUVPolynomial;
-    use ark_poly::Polynomial;
     use ark_std::iterable::Iterable;
     use ark_std::rand::Rng;
     use ark_std::{UniformRand, cfg_iter_mut, end_timer, start_timer, test_rng};
     use ark_vesta::VestaConfig;
-    use std::collections::BTreeSet;
     use w3f_pcs::Poly;
+    use w3f_pcs::pcs::PCS;
     use w3f_pcs::pcs::PcsParams;
     use w3f_pcs::pcs::commitment::WrappedAffine;
     use w3f_pcs::pcs::ipa::IPA;
-    use w3f_pcs::pcs::{PCS, RawVerifierKey};
-    use w3f_pcs::shplonk::Shplonk;
     use w3f_plonk_common::piop::ProverPiop;
-    use w3f_plonk_common::prover::PlonkProver;
     use w3f_plonk_common::test_helpers::random_vec;
-    use w3f_ring_proof::piop::prover::PiopProver;
-    use w3f_ring_proof::{ArkTranscript, PiopParams, index};
+    use w3f_ring_proof::PiopParams;
 
     use crate::auth_path::node::LevelWitness;
     use crate::auth_path::path::AuthenticationPath;
@@ -323,7 +269,7 @@ mod tests {
         (pcs_params, piop_params)
     }
 
-    fn _test_proof<F0, F1, C0, C1>()
+    fn _test_proof<F0, F1, C0, C1>(log_n: usize, height: usize)
     where
         F0: PrimeField,
         F1: PrimeField,
@@ -332,60 +278,23 @@ mod tests {
     {
         let rng = &mut test_rng();
 
-        let domain_size = 2usize.pow(9);
+        let domain_size = 1 << log_n;
         let params = CycleParams::<Projective<C0>, Projective<C1>>::setup(domain_size, rng);
-        let (_leaf, path, wrapped_root) = random_path(&params, 4, rng);
+        let (_leaf, path, wrapped_root) = random_path(&params, height, rng);
         let _root = match wrapped_root {
-            CycleSide::C0(root) => root,
+            CycleSide::C0(root) => root, //TODO: panics on odd height
             _ => panic!(),
         };
 
-        // let l1_nodes = &path_with_bf.c1_path[1];
-        // let l2_nodes = &path_with_bf.c0_path[1];
-        // let l3_nodes = &path_with_bf.c1_path[0];
-        // let l4_nodes = &path_with_bf.c0_path[0];
-        //
-        // let (_, l1_vk) = params.c0_params.commit_children(l1_nodes.level_witness.siblings.as_slice(), l1_nodes.parent_bf);
-        // let root_fc = l1_vk.fixed_columns_committed;
-        // assert_eq!(root_fc.points[0].0, root);
-        //
-        // let (l1_node_blinded, l1_proof) = params.c0_params.prove_level(l1_nodes, rng);
-        // assert!(params.c0_params.verify_level(root_fc, l1_node_blinded, l1_proof));
-        //
-        // let (_, l2_vk) = params.c1_params.commit_children(l2_nodes.level_witness.siblings.as_slice(), l2_nodes.parent_bf);
-        // let l2_node_fc = l2_vk.fixed_columns_committed;
-        // assert_eq!(l2_node_fc.points[0].0, l1_node_blinded);
-        //
-        // let (l2_node_blinded, l2_proof) = params.c1_params.prove_level(l2_nodes, rng);
-        // assert!(params.c1_params.verify_level(l2_node_fc, l2_node_blinded, l2_proof));
-        //
-        // let (_, l3_vk) = params.c0_params.commit_children(l3_nodes.level_witness.siblings.as_slice(), l3_nodes.parent_bf);
-        // let l3_node_fc = l3_vk.fixed_columns_committed;
-        // assert_eq!(l3_node_fc.points[0].0, l2_node_blinded);
-        //
-        // let (l3_node_blinded, l3_proof) = params.c0_params.prove_level(l3_nodes, rng);
-        // assert!(params.c0_params.verify_level(l3_node_fc, l3_node_blinded, l3_proof));
-        //
-        // let (_, l4_vk) = params.c1_params.commit_children(l4_nodes.level_witness.siblings.as_slice(), l4_nodes.parent_bf);
-        // let l4_node_fc = l4_vk.fixed_columns_committed;
-        // assert_eq!(l4_node_fc.points[0].0, l3_node_blinded);
-        //
-        // let (l4_node_blinded, l4_proof) = params.c1_params.prove_level(l4_nodes, rng);
-        // assert!(params.c1_params.verify_level(l4_node_fc, l4_node_blinded, l4_proof));
-        let t_prove = start_timer!(|| "Proving CurveTree membership, H=4, M=512, C=252");
+        let capacity = params.c0_params.piop_params.keyset_part_size;
+        let t_prove = start_timer!(|| format!(
+            "Proving CurveTree membership, H={height}, M={}, C={}, C^{height}={}",
+            domain_size,
+            capacity,
+            capacity.pow(height as u32)
+        ));
         let (auth_path, proof) = params.prove(path, rng);
         end_timer!(t_prove);
-
-        // assert_eq!(auth_path.c0_path, vec![l4_node_blinded, l2_node_blinded]);
-        // assert_eq!(auth_path.c1_path, vec![l3_node_blinded, l1_node_blinded]);
-        //
-        // assert!(params.c0_params.verify_side(auth_path.c1_path, proof.c0_proof.clone()));
-        //
-        // assert_eq!(proof.c1_proof.fixed_columns_committed.len(), 2);
-        // assert_eq!(proof.c1_proof.fixed_columns_committed[0].points[0].0, l3_node_blinded);
-        // assert_eq!(proof.c1_proof.fixed_columns_committed[1].points[0].0, l1_node_blinded);
-        //
-        // assert!(params.c1_params.verify_side(auth_path.c0_path, proof.c1_proof.clone()));
 
         let t_verify = start_timer!(|| "Verifying CurveTree opening");
         let valid = params.verify(auth_path, proof, wrapped_root);
@@ -397,161 +306,7 @@ mod tests {
     // cargo test test_proof --release --features="print-trace parallel" -- --show-output
     #[test]
     fn test_proof() {
-        _test_proof::<_, _, PallasConfig, VestaConfig>();
-    }
-
-    // // cargo test test_pasta_ring_plonk --release --features="print-trace" -- --show-output
-    // #[test]
-    // fn test_pasta_ring_plonk() {
-    //     let rng = &mut test_rng();
-    //
-    //     // setup
-    //     let domain_size = 2usize.pow(9);
-    //     let (pcs_params, piop_params) =
-    //         setup::<_, PallasIPA, ark_vesta::Affine>(rng, domain_size);
-    //     let keyset_size = piop_params.keyset_part_size;
-    //     let pks = random_vec::<ark_vesta::Affine, _>(keyset_size, rng);
-    //     let (prover_key, verifier_key) = index::<_, PallasIPA, _>(&pcs_params, &piop_params, &pks);
-    //     let blinding = ark_vesta::Fr::rand(rng);
-    //     let pk_idx = rng.gen_range(0..keyset_size);
-    //     let blinded_pk = piop_params.blind_pk(pks[pk_idx], blinding);
-    //
-    //     // prover
-    //     let fs = ArkTranscript::new(b"pasta-ring-proof-test");
-    //     let prover = RingProver::init(prover_key, piop_params.clone(), 0, fs.clone());
-    //     let t_prove = start_timer!(|| format!(
-    //         "Proving IPA ring-proof with plonk, domain_size={domain_size}, keyset_size={keyset_size}"
-    //     ));
-    //     let (blinded_pk_, proof) = prover.rerandomize_pk(pk_idx, blinding);
-    //     end_timer!(t_prove);
-    //     assert_eq!(blinded_pk_, blinded_pk);
-    //
-    //     // verifier
-    //     let ring_verifier = RingVerifier::init(verifier_key, piop_params, fs);
-    //     let t_verify = start_timer!(|| "Verifying IPA plonk opening");
-    //     let valid = ring_verifier.verify(proof, blinded_pk);
-    //     end_timer!(t_verify);
-    //     assert!(valid);
-    // }
-
-    // cargo test test_pasta_ring_shplonk --release --features="print-trace" -- --show-output
-    #[test]
-    fn test_pasta_ring_shplonk() {
-        let rng = &mut test_rng();
-
-        // setup
-        let domain_size = 2usize.pow(9);
-        let (pcs_params, piop_params) = setup::<_, PallasIPA, ark_vesta::Affine>(rng, domain_size);
-        let keyset_size = piop_params.keyset_part_size;
-        let pks = random_vec::<ark_vesta::Affine, _>(keyset_size, rng);
-        let (prover_key, verifier_key) = index::<_, PallasIPA, _>(&pcs_params, &piop_params, &pks);
-        let blinding = ark_vesta::Fr::rand(rng);
-        let pk_idx = rng.gen_range(0..keyset_size);
-        // let blinded_pk = {
-        //     let prover_pk = pks[pk_idx].clone();
-        //     let blinded_pk = prover_pk + piop_params.h * blinding;
-        //     blinded_pk.into_affine()
-        // };
-        let pcs_ck = prover_key.pcs_ck;
-        let pcs_vk = verifier_key.pcs_raw_vk.prepare();
-
-        // prover
-        let piop = PiopProver::<ark_pallas::Fr, ark_vesta::Affine>::build(
-            &piop_params,
-            prover_key.fixed_columns.clone(),
-            pk_idx,
-            blinding,
-        );
-        let t_prove = start_timer!(|| format!(
-            "Proving IPA ring-proof with shplonk, domain_size={domain_size}, keyset_size={keyset_size}"
-        ));
-        let zeta = ark_pallas::Fr::rand(rng);
-        let columns = <PiopProver<_, _> as ProverPiop<ark_pallas::Fr, PallasC>>::columns(&piop);
-        let (quotient, agg_lin) = {
-            let constraints =
-                <PiopProver<_, _> as ProverPiop<ark_pallas::Fr, PallasC>>::constraints(&piop);
-            let alphas: Vec<_> = (0..constraints.len())
-                .map(|_| ark_pallas::Fr::rand(rng))
-                .collect();
-            let agg_constraint_poly =
-                PlonkProver::<ark_pallas::Fr, PallasIPA, ArkTranscript>::aggregate_evaluations(
-                    &constraints,
-                    &alphas,
-                )
-                .interpolate();
-            let quotient = piop_params
-                .domain
-                .divide_by_vanishing_poly(&agg_constraint_poly);
-            let constraints_lin =
-                <PiopProver<_, _> as ProverPiop<ark_pallas::Fr, PallasC>>::constraints_lin(
-                    &piop, &zeta,
-                );
-            let agg_lin = w3f_pcs::aggregation::single::aggregate_polys(&constraints_lin, &alphas);
-            (quotient, agg_lin)
-        };
-
-        let mut polys = columns;
-        polys.push(quotient);
-        let mut coord_vecs = vec![vec![zeta]; polys.len()];
-        polys.push(agg_lin.clone());
-        coord_vecs.push(vec![zeta * piop_params.domain.omega()]);
-
-        // commitments
-        let mut poly_cs = verifier_key.fixed_columns_committed.as_vec();
-        let t_commit = start_timer!(|| format!(
-            "Commiting to {} columns of degree = {} and the quotient of degree = {}",
-            polys.len() - 5,
-            polys[3].degree(),
-            polys[7].degree()
-        ));
-        // skip the instance columns and the linearirization polynomial `agg_lin`
-        poly_cs.extend(
-            polys[3..polys.len() - 1]
-                .iter()
-                .map(|p| PallasIPA::commit(&pcs_ck, p).unwrap()),
-        );
-        end_timer!(t_commit);
-        poly_cs.push(PallasIPA::commit(&pcs_ck, &agg_lin).unwrap());
-
-        let coord_sets: Vec<BTreeSet<ark_pallas::Fr>> = coord_vecs
-            .iter()
-            .cloned()
-            .map(BTreeSet::from_iter)
-            .collect();
-        let vals: Vec<_> = polys
-            .iter()
-            .zip(coord_vecs.iter())
-            .map(|(f, xs)| xs.iter().map(|x| f.evaluate(&x)).collect::<Vec<_>>())
-            .collect();
-
-        let transcript = &mut Coeffs(ark_pallas::Fr::rand(rng), ark_pallas::Fr::rand(rng));
-        let t_open = start_timer!(|| format!(
-            "Opening IPA ring-proof with shplonk, {} polys, max_degree = {}",
-            polys.len(),
-            polys[7].degree()
-        ));
-        let proof = Shplonk::<ark_pallas::Fr, PallasIPA>::open_many(
-            &pcs_ck,
-            &polys,
-            &coord_sets,
-            // ark_pallas::Fr::zero(),
-            transcript,
-        );
-        end_timer!(t_open);
-        end_timer!(t_prove);
-
-        // verifier
-        let t_verify = start_timer!(|| "Verifying IPA shplonk opening");
-        let valid = Shplonk::<ark_pallas::Fr, PallasIPA>::verify_many(
-            &pcs_vk,
-            &poly_cs,
-            proof,
-            &coord_vecs,
-            &vals,
-            transcript,
-        );
-        end_timer!(t_verify);
-        assert!(valid);
+        _test_proof::<_, _, PallasConfig, VestaConfig>(9, 4);
     }
 
     fn _bench_msm<C: CurveGroup>(log_n: u32) {
