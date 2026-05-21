@@ -1,21 +1,19 @@
+use crate::circuit::params::PiopParams;
+use crate::circuit::{ProofComms, ProofEvals};
 use ark_ec::{AffineRepr, CurveGroup, PrimeGroup};
 use ark_ff::{PrimeField, Zero};
 use ark_std::rand::Rng;
-use std::marker::PhantomData;
 use w3f_pcs::aggregation::multiple::ShplonkTranscript;
 use w3f_pcs::pcs::PCS;
-use w3f_pcs::pcs::PcsParams;
 use w3f_pcs::pcs::commitment::WrappedAffine;
 use w3f_pcs::pcs::ipa::hiding::HidingIpa;
 use w3f_pcs::shplonk::AggregateProof;
 use w3f_plonk_common::PiopProof;
 use w3f_plonk_common::domain::Domain;
-use w3f_ring_proof::piop::{FixedColumns, RingCommitments, RingEvaluations};
-use w3f_ring_proof::{FixedColumnsCommitted, PiopParams, VerifierKey};
 
 pub mod auth_path;
-// pub mod circuit;
-pub mod level;
+pub mod circuit;
+// pub mod level;
 pub mod prover;
 pub mod verifier;
 
@@ -36,12 +34,10 @@ pub struct CycleParams<
 
 #[derive(Clone)]
 pub struct CycleSideProof<F: PrimeField, C: CurveGroup<ScalarField = F>> {
-    piop_proofs: Vec<
-        PiopProof<F, WrappedAffine<C>, RingCommitments<F, WrappedAffine<C>>, RingEvaluations<F>>,
-    >,
+    piop_proofs:
+        Vec<PiopProof<F, WrappedAffine<C>, ProofComms<F, WrappedAffine<C>>, ProofEvals<F>>>,
     pcs_proof: AggregateProof<F, HidingIpa<C>>,
     todo: Coeffs<F>,
-    fixed_columns_committed: Vec<FixedColumnsCommitted<F, IPACommitment<C>>>,
 }
 
 #[derive(Clone)]
@@ -66,8 +62,10 @@ where
         let setup_degree = 3 * domain_size;
         let c0_pcs_params = HidingIpa::<C0>::setup(setup_degree, rng);
         let c1_pcs_params = HidingIpa::<C1>::setup(setup_degree, rng);
-        let c0_piop_params = piop_params(domain_size, c1_pcs_params.h, rng);
-        let c1_piop_params = piop_params(domain_size, c0_pcs_params.h, rng);
+        let c0_domain = Domain::<C0::ScalarField>::new(domain_size, true);
+        let c0_piop_params = PiopParams::setup(c0_domain, c1_pcs_params.h);
+        let c1_domain = Domain::<C1::ScalarField>::new(domain_size, true);
+        let c1_piop_params = PiopParams::setup(c1_domain, c0_pcs_params.h);
         Self {
             c0_params: CycleSideParams {
                 pcs_params: c0_pcs_params,
@@ -81,60 +79,27 @@ where
     }
 }
 
-fn piop_params<G: AffineRepr<BaseField: PrimeField>, R: Rng>(
-    domain_size: usize,
-    h: G,
-    rng: &mut R,
-) -> PiopParams<G> {
-    let domain = Domain::<G::BaseField>::new(domain_size, true);
-    let seed = G::rand(rng);
-    let padding = G::rand(rng);
-    PiopParams::setup(domain, h, seed, padding)
-}
-
 impl<C: CurveGroup, G: AffineRepr<BaseField = C::ScalarField>> CycleSideParams<C, G> {
-    pub fn commit_children(
+    pub fn commit_x_coords(
         &self,
-        children: &[G],
+        children_x_coords: Vec<C::ScalarField>,
         bf: C::ScalarField,
-    ) -> (
-        FixedColumns<G::BaseField, G>,
-        VerifierKey<G::BaseField, HidingIpa<C>>,
-    ) {
-        let fixed_columns = self.piop_params.fixed_columns(&children);
-        let xs = fixed_columns.points.xs.as_poly();
-        let ys = fixed_columns.points.ys.as_poly();
-        let fixed_columns_committed = FixedColumnsCommitted {
-            points: [
-                self.pcs_params.commit_hiding(xs, bf).unwrap(),
-                self.pcs_params
-                    .commit_hiding(ys, C::ScalarField::zero())
-                    .unwrap(),
-            ],
-            ring_selector: self
-                .pcs_params
-                .commit_hiding(
-                    fixed_columns.ring_selector.as_poly(),
-                    C::ScalarField::zero(),
-                )
-                .unwrap(),
-            phantom: PhantomData,
-        };
-        let verifier_key = VerifierKey {
-            pcs_raw_vk: self.pcs_params.raw_vk(),
-            fixed_columns_committed,
-        };
-        (fixed_columns, verifier_key)
+    ) -> Result<WrappedAffine<C>, ()> {
+        let x_coords = self.piop_params.x_coords_column(children_x_coords);
+        Ok(self.pcs_params.commit_hiding(x_coords.as_poly(), bf)?)
     }
 
-    pub fn commit_nodes(
-        &self,
-        nodes: &[G],
-        // children_x_coords: Vec<C::ScalarField>,
-        blinding: C::ScalarField,
-    ) -> Result<C::Affine, ()> {
-        let xs = self.piop_params.points_column(nodes).xs;
-        Ok(self.pcs_params.commit_hiding(xs.as_poly(), blinding)?.0)
+    pub fn commit_h_powers(&self) -> [IPACommitment<C>; 2] {
+        let h_powers = self.piop_params.h_powers_column();
+        let h_powers = [
+            self.pcs_params
+                .commit_hiding(h_powers.xs.as_poly(), C::ScalarField::zero())
+                .unwrap(),
+            self.pcs_params
+                .commit_hiding(h_powers.ys.as_poly(), C::ScalarField::zero())
+                .unwrap(),
+        ];
+        h_powers
     }
 }
 
@@ -170,34 +135,28 @@ mod tests {
     use ark_ff::{BigInteger, Field, Zero};
     use ark_pallas::PallasConfig;
     use ark_poly::DenseUVPolynomial;
-    use ark_std::iterable::Iterable;
     use ark_std::rand::Rng;
     use ark_std::{UniformRand, cfg_iter_mut, end_timer, start_timer, test_rng};
     use ark_vesta::VestaConfig;
     use w3f_pcs::Poly;
     use w3f_pcs::pcs::PCS;
     use w3f_pcs::pcs::PcsParams;
-    use w3f_pcs::pcs::commitment::WrappedAffine;
     use w3f_pcs::pcs::ipa::IPA;
-    use w3f_plonk_common::piop::ProverPiop;
     use w3f_plonk_common::test_helpers::random_vec;
-    use w3f_ring_proof::PiopParams;
 
     use crate::auth_path::node::LevelWitness;
     use crate::auth_path::path::AuthenticationPath;
     #[cfg(feature = "parallel")]
     use rayon::prelude::*;
-    use w3f_plonk_common::domain::Domain;
 
     type PallasIPA = IPA<ark_pallas::Projective>;
-    type PallasC = WrappedAffine<ark_pallas::Projective>;
 
     fn random_witness<C: CurveGroup, G: AffineRepr<BaseField = C::ScalarField>, R: Rng>(
         params: &CycleSideParams<C, G>,
         path_node: G,
         rng: &mut R,
     ) -> LevelWitness<G> {
-        let capacity = params.piop_params.keyset_part_size;
+        let capacity = params.piop_params.children_capacity();
         let mut nodes = random_vec::<G, _>(capacity, rng);
         let i = rng.gen_range(0..capacity);
         nodes[i] = path_node;
@@ -258,17 +217,6 @@ mod tests {
         (leaf, path, root)
     }
 
-    fn setup<R: Rng, CS: PCS<G::BaseField>, G: AffineRepr<BaseField: PrimeField>>(
-        rng: &mut R,
-        domain_size: usize,
-    ) -> (CS::Params, PiopParams<G>) {
-        let setup_degree = 3 * domain_size;
-        let pcs_params = CS::setup(setup_degree, rng);
-        let domain = Domain::new(domain_size, true);
-        let piop_params = PiopParams::setup(domain, G::rand(rng), G::rand(rng), G::rand(rng));
-        (pcs_params, piop_params)
-    }
-
     fn _test_proof<F0, F1, C0, C1>(log_n: usize, height: usize)
     where
         F0: PrimeField,
@@ -281,12 +229,12 @@ mod tests {
         let domain_size = 1 << log_n;
         let params = CycleParams::<Projective<C0>, Projective<C1>>::setup(domain_size, rng);
         let (_leaf, path, wrapped_root) = random_path(&params, height, rng);
-        let _root = match wrapped_root {
+        let root = match wrapped_root {
             CycleSide::C0(root) => root, //TODO: panics on odd height
             _ => panic!(),
         };
 
-        let capacity = params.c0_params.piop_params.keyset_part_size;
+        let capacity = params.c0_params.piop_params.children_capacity();
         let t_prove = start_timer!(|| format!(
             "Proving CurveTree membership, H={height}, M={}, C={}, C^{height}={}",
             domain_size,
@@ -297,7 +245,7 @@ mod tests {
         end_timer!(t_prove);
 
         let t_verify = start_timer!(|| "Verifying CurveTree opening");
-        let valid = params.verify(auth_path, proof, wrapped_root);
+        let valid = params.verify(auth_path, proof, root);
         end_timer!(t_verify);
         assert!(valid);
     }
@@ -306,7 +254,7 @@ mod tests {
     // cargo test test_proof --release --features="print-trace parallel" -- --show-output
     #[test]
     fn test_proof() {
-        _test_proof::<_, _, PallasConfig, VestaConfig>(9, 4);
+        _test_proof::<_, _, PallasConfig, VestaConfig>(8, 4);
     }
 
     fn _bench_msm<C: CurveGroup>(log_n: u32) {

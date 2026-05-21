@@ -13,8 +13,6 @@ use w3f_pcs::pcs::ipa::hiding::HidingIpa;
 use w3f_pcs::shplonk::Shplonk;
 use w3f_plonk_common::piop::ProverPiop;
 use w3f_plonk_common::prover::{PcsOpeningAt2Points, PlonkProver};
-use w3f_ring_proof::ArkTranscript;
-use w3f_ring_proof::piop::prover::PiopProver;
 
 impl<C: CurveGroup, G: SWCurveConfig<BaseField = C::ScalarField, ScalarField = C::BaseField>>
     CycleSideParams<C, Affine<G>>
@@ -24,7 +22,7 @@ impl<C: CurveGroup, G: SWCurveConfig<BaseField = C::ScalarField, ScalarField = C
         witness: &LevelWitnessWithBlinding<Affine<G>>,
         rng: &mut R,
     ) -> (Affine<G>, LevelProof<C>) {
-        let (fixed_columns, verifier_key) =
+        let (fixed_columns, verifxier_key) =
             self.commit_children(&witness.level_witness.siblings, witness.parent_bf);
         let piop = PiopProver::build(
             &self.piop_params,
@@ -39,7 +37,7 @@ impl<C: CurveGroup, G: SWCurveConfig<BaseField = C::ScalarField, ScalarField = C
         // let blinded_parent = verifier_key.fixed_columns_committed.points[0].clone();
         let plonk_prover = PlonkProver::<C::ScalarField, HidingIpa<C>, _>::init(
             self.pcs_params.ck(),
-            verifier_key,
+            blinded_node,
             ArkTranscript::new(b"pasta-tree-level-proof"),
         );
         let (pcs_openings, piop_proof, _transcript) = plonk_prover.reduce_to_pcs_opening(piop);

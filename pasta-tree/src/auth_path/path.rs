@@ -3,6 +3,7 @@ use crate::auth_path::node::LevelWitness;
 use crate::{CycleParams, CycleSide};
 use ark_ec::CurveGroup;
 use ark_ff::PrimeField;
+use ark_ff::UniformRand;
 use ark_std::rand::Rng;
 
 /// A non-hiding authentication path from a leaf to the root, split between the curves of the cycle.
@@ -32,14 +33,14 @@ where
 
         let mut c0_path_iter = self.c0_path.iter();
         let mut c0_nodes = c0_path_iter.next().unwrap(); // shouldn't be empty
-        let mut c0_bf = C0::ScalarField::rand(rng);
+        let mut c0_bf = C0::ScalarField::from(u128::rand(rng));
         for c1_nodes in self.c1_path.iter() {
-            let c1_bf = C1::ScalarField::rand(rng);
+            let c1_bf = C1::ScalarField::from(u128::rand(rng));
             path_0.push(c0_nodes.with_blinding(c0_bf, c1_bf));
             match c0_path_iter.next() {
                 Some(c0_nodes_) => {
                     c0_nodes = c0_nodes_;
-                    c0_bf = C0::ScalarField::rand(rng);
+                    c0_bf = C0::ScalarField::from(u128::rand(rng));
                     path_1.push(c1_nodes.with_blinding(c1_bf, c0_bf));
                 }
                 None => {

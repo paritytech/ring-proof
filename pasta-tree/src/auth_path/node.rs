@@ -71,11 +71,12 @@ impl<G: AffineRepr> LevelWitness<G> {
     where
         G::BaseField: PrimeField,
     {
-        params.commit_nodes(&self.siblings, bf)
+        params.commit_x_coords(self.x_coords(), bf).map(|c| c.0)
     }
 }
 
 /// NB! It is not "blinded", meaning that the blinding factor hasn't been applied.
+#[derive(Clone)]
 pub struct LevelWitnessWithBlinding<G: AffineRepr> {
     pub(crate) level_witness: LevelWitness<G>,
     /// the verifier gets `Ci' = siblings[i] + bf.H`
