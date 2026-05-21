@@ -78,12 +78,12 @@ where
         let mut parent_on_c1 = c0_nodes.compute_parent(&params.c1_params)?;
         for c1_nodes in self.c1_path.iter() {
             debug_assert_eq!(parent_on_c1, c1_nodes.path_node());
-            (parent_on_c1 == c1_nodes.path_node()).ok_or(())?;
+            (parent_on_c1 == c1_nodes.path_node()).then_some(()).ok_or(())?;
             let parent_on_c0 = c1_nodes.compute_parent(&params.c0_params)?;
             match c0_path_iter.next() {
                 Some(c0_nodes) => {
                     debug_assert_eq!(parent_on_c0, c0_nodes.path_node());
-                    (parent_on_c0 == c0_nodes.path_node()).ok_or(())?;
+                    (parent_on_c0 == c0_nodes.path_node()).then_some(()).ok_or(())?;
                     parent_on_c1 = c0_nodes.compute_parent(&params.c1_params)?;
                 }
                 None => return Ok(CycleSide::C0(parent_on_c0)),

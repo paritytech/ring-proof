@@ -1,5 +1,3 @@
-#![feature(bool_to_result)]
-
 use ark_ec::{AffineRepr, CurveGroup, PrimeGroup};
 use ark_ff::{PrimeField, Zero};
 use ark_std::rand::Rng;

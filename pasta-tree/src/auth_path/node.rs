@@ -18,7 +18,7 @@ pub struct LevelWitness<G> {
 impl<G: AffineRepr> LevelWitness<G> {
     pub fn new(siblings: Vec<G>, path_node_idx: usize) -> Result<Self, ()> {
         debug_assert!(path_node_idx < siblings.len());
-        (path_node_idx < siblings.len()).ok_or(())?;
+        (path_node_idx < siblings.len()).then_some(()).ok_or(())?;
         Ok(Self {
             siblings,
             path_node_idx,
