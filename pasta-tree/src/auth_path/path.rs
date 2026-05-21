@@ -65,11 +65,11 @@ where
         }
     }
 
-    fn get_leaf(&self) -> C0::Affine {
+    pub fn get_leaf(&self) -> C0::Affine {
         self.c0_path[0].path_node()
     }
 
-    fn compute_root(
+    pub fn compute_root(
         &self,
         params: &CycleParams<C0, C1>,
     ) -> Result<CycleSide<C0::Affine, C1::Affine>, ()> {
@@ -96,8 +96,8 @@ where
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::tests::{random_nodes, random_path};
-    use ark_std::{UniformRand, test_rng};
+    use crate::tests::random_path;
+    use ark_std::test_rng;
 
     #[test]
     fn test_auth_path() {

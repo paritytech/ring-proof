@@ -21,17 +21,17 @@ where
         &self,
         auth_path: BlindedAuthenticationPath<Projective<C0>, Projective<C1>>,
         proof: CurveTreeProof<F0, F1, Projective<C0>, Projective<C1>>,
-        root: CycleSide<Affine<C0>, Affine<C1>>,
+        _root: CycleSide<Affine<C0>, Affine<C1>>,
     ) -> bool {
         // println!("leaf = {}", auth_path.c0_path[0]);
         // println!("root = {:?}", root);
-        let c0_x_coords: Vec<Affine<C0>> = proof
+        let _c0_x_coords: Vec<Affine<C0>> = proof
             .c0_proof
             .fixed_columns_committed
             .iter()
             .map(|c| c.points[0].0)
             .collect();
-        let c1_x_coords: Vec<Affine<C1>> = proof
+        let _c1_x_coords: Vec<Affine<C1>> = proof
             .c1_proof
             .fixed_columns_committed
             .iter()
@@ -84,7 +84,7 @@ impl<C: CurveGroup, G: SWCurveConfig<BaseField = C::ScalarField, ScalarField = C
             .zip(side_proof.piop_proofs.into_iter())
             .zip(side_proof.fixed_columns_committed.into_iter())
         {
-            let (challenges, mut rng) = plonk_verifier.restore_challenges(
+            let (challenges, _rng) = plonk_verifier.restore_challenges(
                 blinded_node,
                 &piop_proof,
                 // '1' accounts for the quotient polynomial that is aggregated together with the columns

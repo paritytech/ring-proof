@@ -45,7 +45,7 @@ where
             .collect();
         BlindedAuthenticationPath { c0_path, c1_path }
     }
-    pub(crate) fn compute_root(
+    pub fn compute_root(
         &self,
         params: &CycleParams<C0, C1>,
     ) -> Result<CycleSide<C0::Affine, C1::Affine>, ()> {

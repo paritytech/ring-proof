@@ -36,7 +36,7 @@ impl<C: CurveGroup, G: SWCurveConfig<BaseField = C::ScalarField, ScalarField = C
             mut todo,
         } = level_proof;
 
-        let (challenges, mut rng) = plonk_verifier.restore_challenges(
+        let (challenges, _rng) = plonk_verifier.restore_challenges(
             &blinded_child,
             &piop_proof,
             // '1' accounts for the quotient polynomial that is aggregated together with the columns

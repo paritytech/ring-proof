@@ -16,7 +16,7 @@ pub struct LevelWitness<G> {
 }
 
 impl<G: AffineRepr> LevelWitness<G> {
-    pub(crate) fn new(siblings: Vec<G>, path_node_idx: usize) -> Result<Self, ()> {
+    pub fn new(siblings: Vec<G>, path_node_idx: usize) -> Result<Self, ()> {
         debug_assert!(path_node_idx < siblings.len());
         (path_node_idx < siblings.len()).ok_or(())?;
         Ok(Self {
@@ -25,15 +25,15 @@ impl<G: AffineRepr> LevelWitness<G> {
         })
     }
 
-    fn x_coords(&self) -> Vec<G::BaseField> {
+    pub fn x_coords(&self) -> Vec<G::BaseField> {
         self.siblings.iter().map(|p| p.x()).flatten().collect()
     }
 
-    pub(crate) fn path_node(&self) -> G {
+    pub fn path_node(&self) -> G {
         self.siblings[self.path_node_idx]
     }
 
-    pub(crate) fn with_blinding(
+    pub fn with_blinding(
         &self,
         self_bf: G::ScalarField,
         parent_bf: G::BaseField,
@@ -45,7 +45,7 @@ impl<G: AffineRepr> LevelWitness<G> {
         }
     }
 
-    pub(crate) fn with_random_blinding<R: Rng>(
+    pub fn with_random_blinding<R: Rng>(
         &self,
         parent_bf: G::BaseField,
         rng: &mut R,
@@ -53,7 +53,7 @@ impl<G: AffineRepr> LevelWitness<G> {
         self.with_blinding(G::ScalarField::rand(rng), parent_bf)
     }
 
-    pub(crate) fn compute_parent<C: CurveGroup<ScalarField = G::BaseField>>(
+    pub fn compute_parent<C: CurveGroup<ScalarField = G::BaseField>>(
         &self,
         params: &CycleSideParams<C, G>,
     ) -> Result<C::Affine, ()>

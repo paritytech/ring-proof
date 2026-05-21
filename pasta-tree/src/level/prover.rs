@@ -42,7 +42,7 @@ impl<C: CurveGroup, G: SWCurveConfig<BaseField = C::ScalarField, ScalarField = C
             verifier_key,
             ArkTranscript::new(b"pasta-tree-level-proof"),
         );
-        let (pcs_openings, piop_proof, mut transcript) = plonk_prover.reduce_to_pcs_opening(piop);
+        let (pcs_openings, piop_proof, _transcript) = plonk_prover.reduce_to_pcs_opening(piop);
         let PcsOpeningAt2Points {
             polys_at_zeta,
             polys_at_zeta_omega,

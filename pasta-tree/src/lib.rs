@@ -22,12 +22,12 @@ pub mod verifier;
 
 type IPACommitment<C> = <HidingIpa<C> as PCS<<C as PrimeGroup>::ScalarField>>::C;
 
-struct CycleSideParams<C: CurveGroup, G: AffineRepr<BaseField = C::ScalarField>> {
+pub struct CycleSideParams<C: CurveGroup, G: AffineRepr<BaseField = C::ScalarField>> {
     pcs_params: HidingIpa<C>,
     piop_params: PiopParams<G>,
 }
 
-struct CycleParams<
+pub struct CycleParams<
     C0: CurveGroup,
     C1: CurveGroup<BaseField = C0::ScalarField, ScalarField = C0::BaseField>,
 > {
@@ -128,7 +128,7 @@ impl<C: CurveGroup, G: AffineRepr<BaseField = C::ScalarField>> CycleSideParams<C
         (fixed_columns, verifier_key)
     }
 
-    fn commit_nodes(
+    pub fn commit_nodes(
         &self,
         nodes: &[G],
         // children_x_coords: Vec<C::ScalarField>,
@@ -190,7 +190,7 @@ impl<C: CurveGroup, G: AffineRepr<BaseField = C::ScalarField>> CycleSideParams<C
 // }
 
 #[derive(Debug, PartialEq)]
-enum CycleSide<C0, C1> {
+pub enum CycleSide<C0, C1> {
     C0(C0),
     C1(C1),
 }
@@ -234,7 +234,7 @@ mod tests {
     use w3f_pcs::pcs::{PCS, RawVerifierKey};
     use w3f_pcs::shplonk::Shplonk;
     use w3f_plonk_common::piop::ProverPiop;
-    use w3f_plonk_common::prover::{PcsOpeningAt2Points, PlonkProver};
+    use w3f_plonk_common::prover::PlonkProver;
     use w3f_plonk_common::test_helpers::random_vec;
     use w3f_ring_proof::piop::prover::PiopProver;
     use w3f_ring_proof::{ArkTranscript, PiopParams, index};
@@ -336,13 +336,12 @@ mod tests {
 
         let domain_size = 2usize.pow(9);
         let params = CycleParams::<Projective<C0>, Projective<C1>>::setup(domain_size, rng);
-        let (leaf, path, wrapped_root) = random_path(&params, 4, rng);
-        let root = match wrapped_root {
+        let (_leaf, path, wrapped_root) = random_path(&params, 4, rng);
+        let _root = match wrapped_root {
             CycleSide::C0(root) => root,
             _ => panic!(),
         };
 
-        let path_with_bf = path.with_blinding(rng);
         // let l1_nodes = &path_with_bf.c1_path[1];
         // let l2_nodes = &path_with_bf.c0_path[1];
         // let l3_nodes = &path_with_bf.c1_path[0];

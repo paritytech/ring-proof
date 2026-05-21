@@ -1,5 +1,5 @@
-mod prover;
-mod verifier;
+pub mod prover;
+pub mod verifier;
 
 use crate::Coeffs;
 use ark_ec::CurveGroup;
@@ -24,7 +24,6 @@ pub struct LevelProof<C: CurveGroup> {
 mod tests {
     use crate::CycleParams;
     use crate::tests::random_nodes;
-    use ark_ec::CurveGroup;
     use ark_ec::short_weierstrass::{Affine, Projective, SWCurveConfig};
     use ark_ff::PrimeField;
     use ark_pallas::PallasConfig;
@@ -47,8 +46,8 @@ mod tests {
         } = CycleParams::<Projective<C0>, Projective<C1>>::setup(domain_size, rng);
 
         let leaf = Affine::<C0>::rand(rng);
-        let (l1_node, mut l2_nodes) = random_nodes(&c1_params, leaf, rng);
-        let (root, l1_nodes) = random_nodes(&c0_params, l1_node, rng);
+        let (l1_node, l2_nodes) = random_nodes(&c1_params, leaf, rng);
+        let (_root, l1_nodes) = random_nodes(&c0_params, l1_node, rng);
 
         let (_, l1_vk) = c0_params.commit_children(l1_nodes.siblings.as_slice(), F0::zero());
         let root_fc = l1_vk.fixed_columns_committed;

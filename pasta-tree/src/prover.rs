@@ -82,8 +82,7 @@ impl<C: CurveGroup, G: SWCurveConfig<BaseField = C::ScalarField, ScalarField = C
                 IPACommitment<C>,
             >>::result(&piop);
             debug_assert_eq!(blinded_node_, blinded_node);
-            let (pcs_openings, piop_proof, mut transcript) =
-                plonk_prover.reduce_to_pcs_opening(piop);
+            let (pcs_openings, piop_proof, _transcript) = plonk_prover.reduce_to_pcs_opening(piop);
             piop_proofs.push(piop_proof);
             let PcsOpeningAt2Points {
                 polys_at_zeta,
