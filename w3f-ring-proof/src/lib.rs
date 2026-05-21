@@ -1,5 +1,4 @@
 #![cfg_attr(not(feature = "std"), no_std)]
-
 use ark_ff::PrimeField;
 use ark_serialize::CanonicalSerialize;
 use ark_std::rand::RngCore;
@@ -61,7 +60,6 @@ mod tests {
 
     use w3f_plonk_common::test_helpers::random_vec;
 
-    use crate::piop::FixedColumnsCommitted;
     use crate::ring::{Ring, RingBuilderKey};
     use crate::ring_prover::RingProver;
     use crate::ring_verifier::RingVerifier;

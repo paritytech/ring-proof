@@ -1,7 +1,8 @@
 [workspace]
 resolver = "2"
 members = [
-    # "evm-vrfier",
+#    "evm-vrfier",
+    "pasta-tree",
     "w3f-plonk-common",
     "w3f-ring-proof",
     #    "w3f-ring-vrf-snark",
@@ -15,7 +16,7 @@ ark-poly = { version = "0.6", default-features = false }
 ark-serialize = { version = "0.6", default-features = false, features = ["derive"] }
 #w3f-pcs = { version = "0.0.6", default-features = false }
 #w3f-pcs = { path = "../fflonk", default-features = false }
-w3f-pcs = { version = "0.0.6", git = "https://github.com/paritytech/fflonk/", default-features = false }
+w3f-pcs = { version = "0.0.6", git = "https://github.com/paritytech/fflonk/", branch = "ipa-pcs", default-features = false }
 #w3f-plonk-common = { version = "0.0.7", default-features = false }
 w3f-plonk-common = { path = "w3f-plonk-common", default-features = false }
 rayon = { version = "1", default-features = false }

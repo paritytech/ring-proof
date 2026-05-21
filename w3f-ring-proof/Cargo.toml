@@ -9,15 +9,15 @@ keywords = ["cryptography", "ring-vrf"]
 repository = "https://github.com/w3f/ring-proof"
 
 [dependencies]
+w3f-pcs.workspace = true
+w3f-plonk-common.workspace = true
+ark-transcript.workspace = true
 ark-std.workspace = true
 ark-ff.workspace = true
 ark-ec.workspace = true
 ark-poly.workspace = true
 ark-serialize.workspace = true
-w3f-pcs.workspace = true
 rayon = { workspace = true, optional = true }
-w3f-plonk-common.workspace = true
-ark-transcript.workspace = true
 
 [dev-dependencies]
 ark-bls12-381.workspace = true
@@ -49,9 +49,6 @@ parallel = [
   "w3f-plonk-common/parallel",
   "w3f-pcs/parallel"
 ]
-print-trace = [
-  "ark-std/print-trace",
-  "w3f-plonk-common/print-trace"
-]
+print-trace = ["ark-std/print-trace"]
 asm = [ "w3f-pcs/asm" ]
 test-vectors = [ "w3f-plonk-common/test-vectors" ]
