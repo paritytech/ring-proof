@@ -55,14 +55,18 @@ where
         for c1_nodes in self.c1_path.iter() {
             let next_c1_path_node = c1_nodes.blinded_path_node(&params.c1_params.pcs_params)?;
             debug_assert_eq!(parent_on_c1, next_c1_path_node);
-            (parent_on_c1 == next_c1_path_node).then_some(()).ok_or(())?;
+            (parent_on_c1 == next_c1_path_node)
+                .then_some(())
+                .ok_or(())?;
             let parent_on_c0 = c1_nodes.compute_parent(&params.c0_params)?;
             match c0_path_iter.next() {
                 Some(c0_nodes) => {
                     let next_c0_path_node =
                         c0_nodes.blinded_path_node(&params.c0_params.pcs_params)?;
                     debug_assert_eq!(parent_on_c0, next_c0_path_node);
-                    (parent_on_c0 == next_c0_path_node).then_some(()).ok_or(())?;
+                    (parent_on_c0 == next_c0_path_node)
+                        .then_some(())
+                        .ok_or(())?;
                     parent_on_c1 = c0_nodes.compute_parent(&params.c1_params)?;
                 }
                 None => return Ok(CycleSide::C0(parent_on_c0)),
