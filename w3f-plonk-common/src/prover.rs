@@ -65,7 +65,8 @@ impl<F: PrimeField, CS: PCS<F>, T: PlonkTranscript<F, CS>> PlonkProver<F, CS, T>
         // let quotient_poly = piop.quotient(&alphas);
         // The prover commits to the quotient polynomial...
         let quotient_chunks = piop.quotient_chunks(&alphas);
-        let chunks_committed: Vec<_> = quotient_chunks.iter()
+        let chunks_committed: Vec<_> = quotient_chunks
+            .iter()
             .map(|qi| CS::commit(&self.pcs_ck, qi).unwrap())
             .collect();
         for qi_committed in chunks_committed.iter() {

@@ -1,4 +1,3 @@
-use std::io::Read;
 use crate::piop::VerifierPiop;
 use crate::verifier::Challenges;
 use crate::{ColumnsCommited, ColumnsEvaluated, Proof};
@@ -111,11 +110,16 @@ impl<E: Pairing> KzgAccumulator<E> {
                 .collect::<Vec<_>>(),
         );
         let mut r_nus = challenges.nus.iter().map(|nu| r * nu);
-        self.acc_scalars.extend(r_nus.by_ref().take(Piop::N_COLUMNS));
-        self.acc_points.extend(proof.quotient_commitment.iter().map(|c| c.0));
-        let r_nu_last = r_nus.next().unwrap();
         self.acc_scalars
-            .extend(piop.chunk_coeffs().map(|c| r_nu_last * c).take(proof.quotient_commitment.len()));
+            .extend(r_nus.by_ref().take(Piop::N_COLUMNS));
+        self.acc_points
+            .extend(proof.quotient_commitment.iter().map(|c| c.0));
+        let r_nu_last = r_nus.next().unwrap();
+        self.acc_scalars.extend(
+            piop.chunk_coeffs()
+                .map(|c| r_nu_last * c)
+                .take(proof.quotient_commitment.len()),
+        );
 
         self.acc_points.push(proof.agg_at_zeta_proof);
         self.acc_scalars.push(zeta * r);
