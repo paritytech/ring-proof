@@ -69,7 +69,6 @@ pub struct Domain<F: FftField> {
 }
 
 impl<F: FftField> Domain<F> {
-
     pub fn new(n: usize, hiding: bool) -> Self {
         if hiding {
             Self::with_zk_rows(n, ZK_ROWS)
@@ -112,11 +111,14 @@ impl<F: FftField> Domain<F> {
         r.is_zero().then_some(q)
     }
 
-    fn div_by_z_with_remainder(&self, p: &DensePolynomial<F>) -> (DensePolynomial<F>, DensePolynomial<F>) {
-       let dividend = if self.is_hiding() {
-           &(p * &self.zk_rows_prod)
+    fn div_by_z_with_remainder(
+        &self,
+        p: &DensePolynomial<F>,
+    ) -> (DensePolynomial<F>, DensePolynomial<F>) {
+        let dividend = if self.is_hiding() {
+            &(p * &self.zk_rows_prod)
         } else {
-          p
+            p
         };
         dividend.divide_by_vanishing_poly(self.domains.x1)
     }
@@ -167,7 +169,7 @@ fn l_i<F: FftField>(i: usize, n: usize) -> Vec<F> {
 }
 
 /// For the generator `w = domain.group_gen()` of a domain of size `N`, returns `w^{N-1}, w^{N-2}, ..., w^0 = 1`.
-fn elements_rev<F: FftField, D: EvaluationDomain<F>>(domain: D) -> impl Iterator<Item=F> {
+fn elements_rev<F: FftField, D: EvaluationDomain<F>>(domain: D) -> impl Iterator<Item = F> {
     let w_inv = domain.group_gen_inv();
     debug_assert_eq!(w_inv * domain.group_gen(), F::one()); // w^{n-1} = w^{-1}
     ark_std::iter::successors(Some(w_inv), move |wi| (!wi.is_one()).then(|| w_inv * wi))
@@ -184,7 +186,10 @@ fn one<F: Field>() -> DensePolynomial<F> {
 
 /// For a domain of size `N`, returns `(Z(X), (X - w^{N - zk_rows - 1}))`,
 /// where `Z(X) = (X - w^{N-1}) * (X - w^{N-2}) * ... * (X - w^{N - zk_rows})`.
-fn compute_row_polys<F: FftField, D: EvaluationDomain<F>>(domain: D, zk_rows: usize) -> Option<(DensePolynomial<F>, DensePolynomial<F>)> {
+fn compute_row_polys<F: FftField, D: EvaluationDomain<F>>(
+    domain: D,
+    zk_rows: usize,
+) -> Option<(DensePolynomial<F>, DensePolynomial<F>)> {
     if domain.size() < zk_rows + 1 {
         return None;
     }
@@ -252,11 +257,11 @@ impl<F: FftField> EvaluatedDomain<F> {
 
 #[cfg(test)]
 mod tests {
+    use super::*;
     use ark_ed_on_bls12_381_bandersnatch::Fq;
     use ark_ff::One;
     use ark_poly::Radix2EvaluationDomain;
     use ark_std::{test_rng, UniformRand};
-    use super::*;
 
     fn _test_evaluated_domain(hiding: bool) {
         let rng = &mut test_rng();
@@ -268,7 +273,10 @@ mod tests {
         let domain_eval = domain.evaluate(z);
         assert_eq!(domain.l_first.poly.evaluate(&z), domain_eval.l_first);
         assert_eq!(domain.l_last.poly.evaluate(&z), domain_eval.l_last);
-        assert_eq!(domain.not_last_row.poly.evaluate(&z), domain_eval.not_last_row);
+        assert_eq!(
+            domain.not_last_row.poly.evaluate(&z),
+            domain_eval.not_last_row
+        );
     }
 
     #[test]
@@ -290,7 +298,10 @@ mod tests {
         let zk_rows = n - 1;
         let (zk_rows_prod, last_row) = compute_row_polys(domain, zk_rows).unwrap();
         assert_eq!(last_row, z(Fq::one()));
-        assert_eq!(zk_rows_prod * last_row, domain.vanishing_polynomial().into());
+        assert_eq!(
+            zk_rows_prod * last_row,
+            domain.vanishing_polynomial().into()
+        );
 
         let zk_rows = n;
         assert!(compute_row_polys(domain, zk_rows).is_none());

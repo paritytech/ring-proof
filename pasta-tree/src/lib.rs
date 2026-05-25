@@ -3,13 +3,13 @@ use ark_ff::{PrimeField, Zero};
 use ark_std::rand::Rng;
 use std::marker::PhantomData;
 use w3f_pcs::aggregation::multiple::ShplonkTranscript;
+use w3f_pcs::pcs::PCS;
+use w3f_pcs::pcs::PcsParams;
 use w3f_pcs::pcs::commitment::WrappedAffine;
 use w3f_pcs::pcs::ipa::hiding::HidingIpa;
-use w3f_pcs::pcs::PcsParams;
-use w3f_pcs::pcs::PCS;
 use w3f_pcs::shplonk::AggregateProof;
-use w3f_plonk_common::domain::Domain;
 use w3f_plonk_common::PiopProof;
+use w3f_plonk_common::domain::Domain;
 use w3f_ring_proof::piop::{FixedColumns, RingCommitments, RingEvaluations};
 use w3f_ring_proof::{FixedColumnsCommitted, PiopParams, VerifierKey};
 
@@ -161,22 +161,22 @@ impl<F: PrimeField, CS: PCS<F>> ShplonkTranscript<F, CS> for Coeffs<F> {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use ark_ec::AdditiveGroup;
     use ark_ec::scalar_mul::glv::GLVConfig;
     use ark_ec::scalar_mul::wnaf::WnafContext;
     use ark_ec::short_weierstrass::{Affine, Projective, SWCurveConfig};
-    use ark_ec::AdditiveGroup;
     use ark_ec::{AffineRepr, CurveGroup};
     use ark_ff::PrimeField;
     use ark_ff::{BigInteger, Field, Zero};
     use ark_pallas::PallasConfig;
     use ark_poly::DenseUVPolynomial;
     use ark_std::rand::Rng;
-    use ark_std::{cfg_iter_mut, end_timer, start_timer, test_rng, UniformRand};
+    use ark_std::{UniformRand, cfg_iter_mut, end_timer, start_timer, test_rng};
     use ark_vesta::VestaConfig;
-    use w3f_pcs::pcs::ipa::IPA;
-    use w3f_pcs::pcs::PcsParams;
-    use w3f_pcs::pcs::PCS;
     use w3f_pcs::Poly;
+    use w3f_pcs::pcs::PCS;
+    use w3f_pcs::pcs::PcsParams;
+    use w3f_pcs::pcs::ipa::IPA;
     use w3f_plonk_common::test_helpers::random_vec;
     use w3f_ring_proof::PiopParams;
 

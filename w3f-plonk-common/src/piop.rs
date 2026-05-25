@@ -52,7 +52,10 @@ pub trait ProverPiop<F: PrimeField, C: Commitment<F>> {
     fn result(&self) -> Self::Instance;
 }
 
-pub fn aggregate_evaluations<F: FftField>(polys: &[Evaluations<F>], coeffs: &[F]) -> Evaluations<F> {
+pub fn aggregate_evaluations<F: FftField>(
+    polys: &[Evaluations<F>],
+    coeffs: &[F],
+) -> Evaluations<F> {
     assert_eq!(coeffs.len(), polys.len());
     polys
         .iter()
