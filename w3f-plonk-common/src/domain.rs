@@ -60,12 +60,12 @@ impl<F: FftField> Domains<F> {
 #[derive(Clone)]
 pub struct Domain<F: FftField> {
     pub domains: Domains<F>,
-    pub hiding: bool,
+    pub zk_rows: usize,
     pub capacity: usize,
     pub not_last_row: FieldColumn<F>,
     pub l_first: FieldColumn<F>,
     pub l_last: FieldColumn<F>,
-    zk_rows_vanishing_poly: Option<DensePolynomial<F>>,
+    zk_rows_prod: DensePolynomial<F>,
 }
 
 impl<F: FftField> Domain<F> {
@@ -79,11 +79,10 @@ impl<F: FftField> Domain<F> {
     }
 
     pub fn with_zk_rows(n: usize, zk_rows: usize) -> Self {
-        let hiding = zk_rows != 0;
         let domains = Domains::new(n);
         let domain_size = domains.x1.size();
-        let domain_capacity = domain_size - zk_rows;
-        let last_row_index = domain_capacity - 1;
+        let capacity = domain_size - zk_rows;
+        let last_row_index = capacity - 1;
 
         let l_first = l_i(0, domain_size);
         let l_first = domains.column_from_evals(l_first, 0);
@@ -92,22 +91,25 @@ impl<F: FftField> Domain<F> {
 
         let (zk_rows_prod, last_row) = compute_row_polys(domains.x1, zk_rows).unwrap();
         let not_last_row = domains.column_from_poly(last_row);
-        let zk_rows_vanishing_poly = hiding.then(|| zk_rows_prod);
 
         Self {
             domains,
-            hiding,
-            capacity: domain_capacity,
+            zk_rows,
+            capacity,
             not_last_row,
             l_first,
             l_last,
-            zk_rows_vanishing_poly,
+            zk_rows_prod,
         }
     }
 
+    pub fn is_hiding(&self) -> bool {
+        self.zk_rows != 0
+    }
+
     pub fn divide_by_vanishing_poly(&self, poly: &DensePolynomial<F>) -> DensePolynomial<F> {
-        let (quotient, remainder) = if self.hiding {
-            let exclude_zk_rows = poly * self.zk_rows_vanishing_poly.as_ref().unwrap();
+        let (quotient, remainder) = if self.is_hiding() {
+            let exclude_zk_rows = poly * &self.zk_rows_prod;
             exclude_zk_rows.divide_by_vanishing_poly(self.domains.x1)
         } else {
             poly.divide_by_vanishing_poly(self.domains.x1)
@@ -120,7 +122,7 @@ impl<F: FftField> Domain<F> {
         let payload_len = values.len();
         debug_assert!(payload_len <= self.capacity);
         values.resize(self.capacity, F::zero());
-        if self.hiding && hidden && !cfg!(feature = "test-vectors") {
+        if self.is_hiding() && hidden && !cfg!(feature = "test-vectors") {
             values.resize_with(
                 self.domains.x1.size(),
                 || F::rand(&mut getrandom_or_panic()),
@@ -140,16 +142,20 @@ impl<F: FftField> Domain<F> {
         self.column(evals, false)
     }
 
-    pub fn omega(&self) -> F {
-        self.domains.x1.group_gen()
-    }
-
     pub fn domain(&self) -> GeneralEvaluationDomain<F> {
         self.domains.x1
     }
 
+    pub fn domain_size(&self) -> usize {
+        self.domain().size()
+    }
+
+    pub fn omega(&self) -> F {
+        self.domain().group_gen()
+    }
+
     pub fn evaluate(&self, zeta: F) -> EvaluatedDomain<F> {
-        EvaluatedDomain::new(self.domain(), zeta, self.hiding)
+        EvaluatedDomain::new(self.domain(), zeta, self.zk_rows)
     }
 }
 
@@ -196,8 +202,7 @@ pub struct EvaluatedDomain<F: FftField> {
 }
 
 impl<F: FftField> EvaluatedDomain<F> {
-    pub fn new(domain: GeneralEvaluationDomain<F>, z: F, hiding: bool) -> Self {
-        let k = if hiding { ZK_ROWS } else { 0 };
+    pub fn new(domain: GeneralEvaluationDomain<F>, z: F, zk_rows: usize) -> Self {
         let mut z_n = z; // z^n, n=2^d - domain size, so squarings only
         for _ in 0..domain.log_size_of_group() {
             z_n.square_in_place();
@@ -208,7 +213,7 @@ impl<F: FftField> EvaluatedDomain<F> {
         let mut wi = domain.group_gen_inv();
         // Vanishing polynomial of zk rows: prod = (z - w^{n-1})...(z - w^{n-k})
         let mut prod = F::one();
-        for _ in 0..k {
+        for _ in 0..zk_rows {
             prod *= z - wi;
             wi *= domain.group_gen_inv();
         }
@@ -216,7 +221,7 @@ impl<F: FftField> EvaluatedDomain<F> {
         let not_last_row = z - wi;
 
         // w^{k+1}
-        let wj = domain.group_gen().pow([(k + 1) as u64]);
+        let wj = domain.group_gen().pow([(zk_rows + 1) as u64]);
 
         let mut inv = [z_n_minus_one, z - F::one(), wj * z - F::one()];
         batch_inversion(&mut inv);
