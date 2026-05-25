@@ -180,8 +180,8 @@ mod tests {
         assert_eq!(c[1].degree(), 3 * n - 2);
 
         // A valid witness satisfies the constraints.
-        domain.compute_quotient(&c[0]);
-        domain.compute_quotient(&c[1]);
+        assert!(domain.compute_quotient(&c[0]).is_some());
+        assert!(domain.compute_quotient(&c[1]).is_some());
 
         let z = Fq::rand(rng);
         let z_w = z * domain.omega();

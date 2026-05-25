@@ -190,8 +190,8 @@ mod tests {
         assert_eq!(c1.degree(), 4 * n - 3);
         assert_eq!(c2.degree(), 4 * n - 3);
 
-        domain.compute_quotient(&c1);
-        domain.compute_quotient(&c2);
+        assert!(domain.compute_quotient(&c1).is_some());
+        assert!(domain.compute_quotient(&c2).is_some());
 
         // test_gadget(gadget);
     }
