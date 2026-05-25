@@ -1,19 +1,19 @@
-use ark_ec::AffineRepr;
 use ark_ec::short_weierstrass::{Affine as SwAffine, SWCurveConfig};
+use ark_ec::AffineRepr;
 use ark_ff::PrimeField;
 use ark_std::marker::PhantomData;
 use ark_std::{vec, vec::Vec};
 use w3f_pcs::pcs::Commitment;
 
-// use crate::circuit::cell_equality::CellEqualityEvals;
 use crate::circuit::{ProofComms, ProofEvals};
 use w3f_plonk_common::domain::EvaluatedDomain;
-use w3f_plonk_common::gadgets::VerifierGadget;
 use w3f_plonk_common::gadgets::booleanity::BooleanityValues;
 use w3f_plonk_common::gadgets::column_sum::ColumnSumEvals;
 use w3f_plonk_common::gadgets::ec::CondAddValues;
+use w3f_plonk_common::gadgets::equal_cells::EqualCells;
 use w3f_plonk_common::gadgets::fixed_cells::FixedCellsValues;
-use w3f_plonk_common::gadgets::inner_prod::InnerProdValues;
+use w3f_plonk_common::gadgets::inner_prod_inv::InnerProdInvValues;
+use w3f_plonk_common::gadgets::VerifierGadget;
 use w3f_plonk_common::piop::VerifierPiop;
 
 pub struct PiopVerifier<F: PrimeField, C: Commitment<F>, G: AffineRepr<BaseField = F>> {
@@ -23,13 +23,13 @@ pub struct PiopVerifier<F: PrimeField, C: Commitment<F>, G: AffineRepr<BaseField
     h_powers_comm: [C; 2],
     witness_columns: ProofComms<F, C>,
     // Gadget verifiers:
-    selected_node: InnerProdValues<F>,
+    selected_node: InnerProdInvValues<F>,
     blinded_node: CondAddValues<F, G>,
     node_idx_sum: ColumnSumEvals<F>,
     node_idx_bool: BooleanityValues<F>,
     bf_bits_bool: BooleanityValues<F>,
     node_idx_sum_vals: FixedCellsValues<F>,
-    // node_to_seed: CellEqualityEvals<F>,
+    seed_eq_node: EqualCells<F>,
 }
 
 impl<F: PrimeField, C: Commitment<F>, G: AffineRepr<BaseField = F>> PiopVerifier<F, C, G> {
@@ -41,7 +41,7 @@ impl<F: PrimeField, C: Commitment<F>, G: AffineRepr<BaseField = F>> PiopVerifier
         witness_columns: ProofComms<F, C>,
         all_evals: ProofEvals<F>,
     ) -> Self {
-        let selected_node = InnerProdValues {
+        let selected_node = InnerProdInvValues {
             a: all_evals.x_coords,
             b: all_evals.node_idx,
             not_last: domain_evals.not_last_row,
@@ -72,12 +72,11 @@ impl<F: PrimeField, C: Commitment<F>, G: AffineRepr<BaseField = F>> PiopVerifier
             l_first: domain_evals.l_first,
             l_last: domain_evals.l_last,
         };
-        // let node_to_seed = CellEqualityEvals {
-        //     a: selected_node.acc,
-        //     l_a: domain_evals.l_last,
-        //     b: blinded_node.acc.0,
-        //     l_b: domain_evals.l_first,
-        // };
+        let seed_eq_node = EqualCells {
+            a: selected_node.acc,
+            b: blinded_node.acc.0,
+            li: domain_evals.l_first,
+        };
         Self {
             instance,
             domain_evals,
@@ -91,7 +90,7 @@ impl<F: PrimeField, C: Commitment<F>, G: AffineRepr<BaseField = F>> PiopVerifier
             node_idx_bool,
             bf_bits_bool,
             node_idx_sum_vals,
-            // node_to_seed,
+            seed_eq_node,
         }
     }
 }
@@ -99,7 +98,7 @@ impl<F: PrimeField, C: Commitment<F>, G: AffineRepr<BaseField = F>> PiopVerifier
 impl<F: PrimeField, C: Commitment<F>, G: SWCurveConfig<BaseField = F>> VerifierPiop<F, C>
     for PiopVerifier<F, C, SwAffine<G>>
 {
-    const N_CONSTRAINTS: usize = 10;
+    const N_CONSTRAINTS: usize = 11;
     const N_COLUMNS: usize = 9;
 
     fn precommitted_columns(&self) -> Vec<C> {
@@ -119,7 +118,6 @@ impl<F: PrimeField, C: Commitment<F>, G: SWCurveConfig<BaseField = F>> VerifierP
             self.node_idx_bool.evaluate_constraints_main(),
             self.bf_bits_bool.evaluate_constraints_main(),
             self.node_idx_sum_vals.evaluate_constraints_main(),
-            // self.node_to_seed.evaluate_constraints_main(),
             vec![FixedCellsValues::evaluate_for_cell(
                 self.blinded_node.acc.0,
                 self.domain_evals.l_last,
@@ -132,9 +130,10 @@ impl<F: PrimeField, C: Commitment<F>, G: SWCurveConfig<BaseField = F>> VerifierP
             )],
             vec![FixedCellsValues::evaluate_for_cell(
                 self.selected_node.acc,
-                self.domain_evals.l_first,
+                self.domain_evals.l_last,
                 F::zero(),
             )],
+            self.seed_eq_node.evaluate_constraints_main(),
         ]
         .concat()
     }
@@ -143,7 +142,7 @@ impl<F: PrimeField, C: Commitment<F>, G: SWCurveConfig<BaseField = F>> VerifierP
         assert_eq!(agg_coeffs.len(), Self::N_CONSTRAINTS);
 
         let selected_node_acc = self.witness_columns.selected_node_acc.clone();
-        let selected_node_coeff = agg_coeffs[0] * self.selected_node.not_last;
+        let selected_node_coeff = -agg_coeffs[0] * self.selected_node.not_last;
 
         let blinded_node_acc_x = self.witness_columns.blinded_node_acc[0].clone();
         let blinded_node_acc_y = self.witness_columns.blinded_node_acc[1].clone();

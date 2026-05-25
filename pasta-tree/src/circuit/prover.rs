@@ -10,7 +10,6 @@ use ark_poly::univariate::DensePolynomial;
 use ark_std::marker::PhantomData;
 use ark_std::{vec, vec::Vec};
 use w3f_pcs::pcs::Commitment;
-use w3f_plonk_common::Column;
 use w3f_plonk_common::FieldColumn;
 use w3f_plonk_common::domain::Domain;
 use w3f_plonk_common::gadgets::ProverGadget;
@@ -18,10 +17,10 @@ use w3f_plonk_common::gadgets::booleanity::{BitColumn, Booleanity};
 use w3f_plonk_common::gadgets::column_sum::ColumnSumPolys;
 use w3f_plonk_common::gadgets::ec::AffineColumn;
 use w3f_plonk_common::gadgets::ec::CondAdd;
+use w3f_plonk_common::gadgets::equal_cells::CellsEqPolys;
 use w3f_plonk_common::gadgets::fixed_cells::FixedCells;
-use w3f_plonk_common::gadgets::inner_prod::InnerProd;
+use w3f_plonk_common::gadgets::inner_prod_inv::InnerProdInv;
 use w3f_plonk_common::piop::ProverPiop;
-// use crate::circuit::cell_equality::CellEqualityPolys;
 
 pub struct PiopProver<F: PrimeField, G: AffineRepr<BaseField = F>> {
     domain: Domain<F>,
@@ -33,13 +32,13 @@ pub struct PiopProver<F: PrimeField, G: AffineRepr<BaseField = F>> {
     node_idx: BitColumn<F>,
     // Bits of the chosen blinding factor. Private input.
     bf_bits: BitColumn<F>,
-    selected_node: InnerProd<F>,
+    selected_node: InnerProdInv<F>,
     blinded_node: CondAdd<F, G>, // blinded_node.acc[0] = (x_i, y_i) = Ci, blinded_node.acc[capacity] = Ci + bf.H = Ci'
     node_idx_bool: Booleanity<F>,
     bf_bits_bool: Booleanity<F>,
     node_idx_sum: ColumnSumPolys<F>,
     node_idx_sum_vals: FixedCells<F>,
-    // node_to_seed: CellEqualityPolys<F>,
+    seed_eq_node: CellsEqPolys<F>,
 }
 
 impl<F: PrimeField, G: AffineRepr<BaseField = F>> PiopProver<F, G> {
@@ -49,25 +48,19 @@ impl<F: PrimeField, G: AffineRepr<BaseField = F>> PiopProver<F, G> {
         let h_powers = params.h_powers_column();
         let node_idx = params.node_selector(level.level_witness.path_node_idx);
         let bf_bits = params.bf_bits_column(level.bf);
-        let selected_node = InnerProd::init(x_coords.clone(), node_idx.col.clone(), &domain);
+        let selected_node = InnerProdInv::init(x_coords.clone(), node_idx.col.clone(), &domain);
 
         let node = level.level_witness.path_node();
-        assert_eq!(
-            selected_node.acc.payload()[domain.capacity - 1],
-            node.x().unwrap()
-        );
+        debug_assert_eq!(selected_node.acc.evals[0], node.x().unwrap());
         // here we witness yi
         let blinded_node = CondAdd::init(bf_bits.clone(), h_powers.clone(), node, &domain);
-        assert_eq!(
-            blinded_node.seed_plus_sum(),
-            (node + params.h * level.bf).into_affine()
-        );
+        debug_assert_eq!(blinded_node.seed_plus_sum(), (node + params.h * level.bf).into_affine());
         let node_idx_bool = Booleanity::init(node_idx.clone());
         let bf_bits_bool = Booleanity::init(bf_bits.clone());
         let node_idx_sum = ColumnSumPolys::init(node_idx.col.clone(), &domain);
         let node_idx_sum_vals =
             FixedCells::init(node_idx_sum.acc.clone(), &domain, F::zero(), F::one());
-        // let node_to_seed = CellEqualityPolys::a_first_b_last(blinded_node.acc.xs.clone(), selected_node.acc.clone(), &domain);
+        let seed_eq_node = CellsEqPolys::first_cells(selected_node.acc.clone(), blinded_node.acc.xs.clone(), &domain);
 
         Self {
             domain,
@@ -81,7 +74,7 @@ impl<F: PrimeField, G: AffineRepr<BaseField = F>> PiopProver<F, G> {
             bf_bits_bool,
             node_idx_sum,
             node_idx_sum_vals,
-            // node_to_seed,
+            seed_eq_node,
         }
     }
 
@@ -152,7 +145,7 @@ impl<F: PrimeField, G: AffineRepr<BaseField = F>> PiopProver<F, G> {
 impl<F: PrimeField, C: Commitment<F>, G: SWCurveConfig<BaseField = F>> ProverPiop<F, C>
     for PiopProver<F, SwAffine<G>>
 {
-    const N_CONSTRAINTS: usize = 10;
+    const N_CONSTRAINTS: usize = 11;
     type Commitments = ProofComms<F, C>;
     type Evaluations = ProofEvals<F>;
     type Instance = SwAffine<G>;
@@ -183,7 +176,6 @@ impl<F: PrimeField, C: Commitment<F>, G: SWCurveConfig<BaseField = F>> ProverPio
             self.node_idx_bool.constraints(),
             self.bf_bits_bool.constraints(),
             self.node_idx_sum_vals.constraints(),
-            // // self.node_to_seed.constraints(),
             vec![FixedCells::constraint_cell(
                 &self.blinded_node.acc.xs,
                 &self.domain.l_last,
@@ -198,10 +190,11 @@ impl<F: PrimeField, C: Commitment<F>, G: SWCurveConfig<BaseField = F>> ProverPio
             )],
             vec![FixedCells::constraint_cell(
                 &self.selected_node.acc,
-                &self.domain.l_first,
-                0,
+                &self.domain.l_last,
+                self.domain.capacity - 1,
                 F::zero(),
             )],
+            self.seed_eq_node.constraints(),
         ]
         .concat()
     }
@@ -214,10 +207,10 @@ impl<F: PrimeField, C: Commitment<F>, G: SWCurveConfig<BaseField = F>> ProverPio
             self.node_idx_bool.constraints_linearized(zeta),
             self.bf_bits_bool.constraints_linearized(zeta),
             self.node_idx_sum_vals.constraints_linearized(zeta),
-            // self.node_to_seed.constraints_linearized(zeta),
             vec![DensePolynomial::zero()],
             vec![DensePolynomial::zero()],
             vec![DensePolynomial::zero()],
+            self.seed_eq_node.constraints_linearized(zeta),
         ]
         .concat()
     }

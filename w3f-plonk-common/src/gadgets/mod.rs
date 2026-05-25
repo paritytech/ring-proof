@@ -8,7 +8,10 @@ pub mod booleanity;
 pub mod column_sum;
 pub mod ec;
 pub mod fixed_cells;
+pub mod equal_cells;
 pub mod inner_prod;
+pub mod inner_prod_inv;
+
 
 pub trait ProverGadget<F: FftField> {
     // Columns populated by the gadget.
