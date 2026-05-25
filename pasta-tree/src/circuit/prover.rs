@@ -136,6 +136,7 @@ impl<F: PrimeField, G: AffineRepr<BaseField = F>> PiopProver<F, G> {
 impl<F: PrimeField, C: Commitment<F>, G: SWCurveConfig<BaseField = F>> ProverPiop<F, C>
     for PiopProver<F, SwAffine<G>>
 {
+    const N_CONSTRAINTS: usize = 5;
     type Commitments = ProofComms<F, C>;
     type Evaluations = ProofEvals<F>;
     type Instance = SwAffine<G>;
