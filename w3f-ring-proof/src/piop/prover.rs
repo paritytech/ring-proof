@@ -144,6 +144,8 @@ where
     C: Commitment<F>,
     Curve: TECurveConfig<BaseField = F>,
 {
+    const N_CONSTRAINTS: usize = 7;
+
     type Commitments = RingCommitments<F, C>;
     type Evaluations = RingEvaluations<F>;
     type Instance = TeAffine<Curve>;
@@ -204,6 +206,8 @@ where
     C: Commitment<F>,
     Curve: SWCurveConfig<BaseField = F>,
 {
+    const N_CONSTRAINTS: usize = 7;
+
     type Commitments = RingCommitments<F, C>;
     type Evaluations = RingEvaluations<F>;
     type Instance = SwAffine<Curve>;

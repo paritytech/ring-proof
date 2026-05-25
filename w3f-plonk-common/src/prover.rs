@@ -62,7 +62,7 @@ impl<F: PrimeField, CS: PCS<F>, T: PlonkTranscript<F, CS>> PlonkProver<F, CS, T>
         transcript.add_committed_cols(&column_commitments);
 
         // ROUND 2
-        let alphas = transcript.get_constraints_aggregation_coeffs(piop.constraints().len());
+        let alphas = transcript.get_constraints_aggregation_coeffs(P::N_CONSTRAINTS);
         let quotient_poly = piop.compute_quotient(&alphas).unwrap();
         // The prover commits to the quotient polynomial...
         let quotient_commitment = CS::commit(&self.pcs_ck, &quotient_poly).unwrap();

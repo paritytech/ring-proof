@@ -9,6 +9,8 @@ use crate::domain::{Domain, EvaluatedDomain};
 use crate::{ColumnsCommited, ColumnsEvaluated};
 
 pub trait ProverPiop<F: PrimeField, C: Commitment<F>> {
+    const N_CONSTRAINTS: usize;
+
     type Commitments: ColumnsCommited<F, C>;
     type Evaluations: ColumnsEvaluated<F>;
     type Instance: CanonicalSerialize + CanonicalDeserialize;
