@@ -1,5 +1,5 @@
-use ark_ec::short_weierstrass::{Affine as SwAffine, SWCurveConfig};
 use ark_ec::AffineRepr;
+use ark_ec::short_weierstrass::{Affine as SwAffine, SWCurveConfig};
 use ark_ff::PrimeField;
 use ark_std::marker::PhantomData;
 use ark_std::{vec, vec::Vec};
@@ -7,13 +7,13 @@ use w3f_pcs::pcs::Commitment;
 
 use crate::circuit::{ProofComms, ProofEvals};
 use w3f_plonk_common::domain::EvaluatedDomain;
+use w3f_plonk_common::gadgets::VerifierGadget;
 use w3f_plonk_common::gadgets::booleanity::BooleanityValues;
 use w3f_plonk_common::gadgets::column_sum::ColumnSumEvals;
 use w3f_plonk_common::gadgets::ec::CondAddValues;
 use w3f_plonk_common::gadgets::equal_cells::EqualCells;
 use w3f_plonk_common::gadgets::fixed_cells::FixedCellsValues;
 use w3f_plonk_common::gadgets::inner_prod_inv::InnerProdInvValues;
-use w3f_plonk_common::gadgets::VerifierGadget;
 use w3f_plonk_common::piop::VerifierPiop;
 
 pub struct PiopVerifier<F: PrimeField, C: Commitment<F>, G: AffineRepr<BaseField = F>> {

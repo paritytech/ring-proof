@@ -29,7 +29,13 @@ impl<F: FftField> CellsEqPolys<F> {
         Self::cells(a, b, domain.capacity - 1, domain.l_last.clone(), domain)
     }
 
-    pub fn cells(a: FieldColumn<F>, b: FieldColumn<F>, i: usize, li: FieldColumn<F>, domain: &Domain<F>) -> Self {
+    pub fn cells(
+        a: FieldColumn<F>,
+        b: FieldColumn<F>,
+        i: usize,
+        li: FieldColumn<F>,
+        domain: &Domain<F>,
+    ) -> Self {
         assert_eq!(a.payload_len(), domain.capacity);
         assert_eq!(b.payload_len(), domain.capacity);
         assert_eq!(a.evals.evals[i], b.evals.evals[i]);
@@ -48,12 +54,20 @@ impl<F: FftField> CellsEqPolys<F> {
         Self::constraints_lin()
     }
 
-    pub fn first_constraints(a: FieldColumn<F>, b: FieldColumn<F>, domain: &Domain<F>) -> Vec<Evaluations<F>> {
+    pub fn first_constraints(
+        a: FieldColumn<F>,
+        b: FieldColumn<F>,
+        domain: &Domain<F>,
+    ) -> Vec<Evaluations<F>> {
         let gadget = Self::first_cells(a, b, domain);
         gadget.constraints()
     }
 
-    pub fn last_constraints(a: FieldColumn<F>, b: FieldColumn<F>, domain: &Domain<F>) -> Vec<Evaluations<F>> {
+    pub fn last_constraints(
+        a: FieldColumn<F>,
+        b: FieldColumn<F>,
+        domain: &Domain<F>,
+    ) -> Vec<Evaluations<F>> {
         let gadget = Self::last_cells(a, b, domain);
         gadget.constraints()
     }
@@ -73,11 +87,10 @@ impl<F: Field> VerifierGadget<F> for EqualCells<F> {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use ark_ed_on_bls12_381_bandersnatch::Fq;
-    use ark_std::test_rng;
     use crate::test_helpers::random_vec;
+    use ark_ed_on_bls12_381_bandersnatch::Fq;
     use ark_poly::Polynomial;
-
+    use ark_std::test_rng;
 
     fn _test_equal_cells_gadget(hiding: bool) {
         let rng = &mut test_rng();
@@ -99,7 +112,7 @@ mod tests {
 
         let a = random_vec(domain.capacity, rng);
         let mut b = random_vec(domain.capacity, rng);
-        b[domain.capacity-1] = a[domain.capacity-1];
+        b[domain.capacity - 1] = a[domain.capacity - 1];
         let a = domain.column(a);
         let b = domain.column(b);
 

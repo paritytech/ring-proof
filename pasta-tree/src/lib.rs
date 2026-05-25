@@ -250,10 +250,10 @@ mod tests {
         assert!(valid);
     }
 
-    // cargo test test_proof --release --features="print-trace" -- --show-output
-    // cargo test test_proof --release --features="print-trace parallel" -- --show-output
+    // cargo test test_curve_tree_proof --release --features="print-trace" -- --show-output
+    // cargo test test_curve_tree_proof --release --features="print-trace parallel" -- --show-output
     #[test]
-    fn test_proof() {
+    fn test_curve_tree_proof() {
         _test_proof::<_, _, PallasConfig, VestaConfig>(8, 4);
     }
 

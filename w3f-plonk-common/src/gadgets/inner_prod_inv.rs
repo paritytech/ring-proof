@@ -47,7 +47,8 @@ impl<F: FftField> InnerProdInv<F> {
     /// Returns a[n-1]b[n-1], a[n-1]b[n-1] + a[n-2]b[n-2], ..., a[0]b[0] + a[1]b[1] + ... + a[n-1]b[n-1]
     fn partial_inner_prods(a: &[F], b: &[F]) -> Vec<F> {
         assert_eq!(a.len(), b.len());
-        a.iter().rev()
+        a.iter()
+            .rev()
             .zip(b.iter().rev())
             .scan(F::zero(), |state, (&a, b)| {
                 *state += a * b;

@@ -54,13 +54,20 @@ impl<F: PrimeField, G: AffineRepr<BaseField = F>> PiopProver<F, G> {
         debug_assert_eq!(selected_node.acc.evals[0], node.x().unwrap());
         // here we witness yi
         let blinded_node = CondAdd::init(bf_bits.clone(), h_powers.clone(), node, &domain);
-        debug_assert_eq!(blinded_node.seed_plus_sum(), (node + params.h * level.bf).into_affine());
+        debug_assert_eq!(
+            blinded_node.seed_plus_sum(),
+            (node + params.h * level.bf).into_affine()
+        );
         let node_idx_bool = Booleanity::init(node_idx.clone());
         let bf_bits_bool = Booleanity::init(bf_bits.clone());
         let node_idx_sum = ColumnSumPolys::init(node_idx.col.clone(), &domain);
         let node_idx_sum_vals =
             FixedCells::init(node_idx_sum.acc.clone(), &domain, F::zero(), F::one());
-        let seed_eq_node = CellsEqPolys::first_cells(selected_node.acc.clone(), blinded_node.acc.xs.clone(), &domain);
+        let seed_eq_node = CellsEqPolys::first_cells(
+            selected_node.acc.clone(),
+            blinded_node.acc.xs.clone(),
+            &domain,
+        );
 
         Self {
             domain,
