@@ -53,12 +53,14 @@ impl<F: PrimeField, G: AffineRepr<BaseField = F>> PiopProver<F, G> {
             ring_selector,
         } = fixed_columns;
         let bits = Self::bits_column(&params, prover_index_in_keys, secret);
-        let inner_prod = InnerProd::init(ring_selector.clone(), bits.col.clone(), &domain);
-        let cond_add = CondAdd::init(bits.clone(), points.clone(), params.seed, &domain);
         let booleanity = Booleanity::init(bits.clone());
-        let cond_add_acc_x = FixedCells::init(cond_add.acc.xs.clone(), &domain);
-        let cond_add_acc_y = FixedCells::init(cond_add.acc.ys.clone(), &domain);
-        let inner_prod_acc = FixedCells::init(inner_prod.acc.clone(), &domain);
+        let inner_prod = InnerProd::init(ring_selector.clone(), bits.col.clone(), &domain);
+        let inner_prod_acc = FixedCells::init(inner_prod.acc.clone(), &domain, F::zero(), F::one());
+        let cond_add = CondAdd::init(bits.clone(), points.clone(), params.seed, &domain);
+        let (seed_x, seed_y) = params.seed.xy().unwrap();
+        let (result_x, result_y) = cond_add.seed_plus_sum().xy().unwrap();
+        let cond_add_acc_x = FixedCells::init(cond_add.acc.xs.clone(), &domain, seed_x, result_x);
+        let cond_add_acc_y = FixedCells::init(cond_add.acc.ys.clone(), &domain, seed_y, result_y);
         Self {
             domain,
             points,
@@ -144,6 +146,8 @@ where
     C: Commitment<F>,
     Curve: TECurveConfig<BaseField = F>,
 {
+    const N_CONSTRAINTS: usize = 7;
+
     type Commitments = RingCommitments<F, C>;
     type Evaluations = RingEvaluations<F>;
     type Instance = TeAffine<Curve>;
@@ -204,6 +208,8 @@ where
     C: Commitment<F>,
     Curve: SWCurveConfig<BaseField = F>,
 {
+    const N_CONSTRAINTS: usize = 7;
+
     type Commitments = RingCommitments<F, C>;
     type Evaluations = RingEvaluations<F>;
     type Instance = SwAffine<Curve>;
@@ -255,5 +261,34 @@ where
 
     fn result(&self) -> Self::Instance {
         self.cond_add.result()
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::index;
+    use crate::tests::setup;
+    use ark_ed_on_bls12_381_bandersnatch::{EdwardsAffine, Fq, Fr};
+    use ark_std::{test_rng, UniformRand};
+    use w3f_pcs::pcs::id::WrappedPolynomial;
+    use w3f_pcs::pcs::IdentityCommitment;
+    use w3f_plonk_common::test_helpers::random_vec;
+
+    #[test]
+    fn test_constraints() {
+        let rng = &mut test_rng();
+
+        let log_n = 9;
+        let n = 1 << log_n;
+
+        let (pcs_params, piop_params) = setup::<_, IdentityCommitment>(rng, n);
+        let pks = random_vec::<EdwardsAffine, _>(piop_params.keyset_part_size, rng);
+        let (prover_key, _verifier_key) =
+            index::<_, IdentityCommitment, _>(&pcs_params, &piop_params, &pks);
+        let fixed_columns = prover_key.fixed_columns.clone();
+        let piop: PiopProver<Fq, EdwardsAffine> =
+            PiopProver::build(&piop_params, fixed_columns, 1, Fr::rand(rng));
+        assert!(ProverPiop::<Fq, WrappedPolynomial<Fq>>::constraints_satisfied(&piop));
     }
 }

@@ -22,19 +22,22 @@ pub struct AffineColumn<F: FftField, P: AffineRepr<BaseField = F>> {
 }
 
 impl<F: FftField, P: AffineRepr<BaseField = F>> AffineColumn<F, P> {
-    fn column(points: Vec<P>, domain: &Domain<F>, hidden: bool) -> Self {
+    fn _column(points: Vec<P>, domain: &Domain<F>, public: bool) -> Self {
         assert!(points.iter().all(|p| !p.is_zero()));
         let (xs, ys) = points.iter().map(|p| p.xy().unwrap()).unzip();
-        let xs = domain.column(xs, hidden);
-        let ys = domain.column(ys, hidden);
+        let (xs, ys) = if public {
+            (domain.public_column(xs), domain.public_column(ys))
+        } else {
+            (domain.column(xs), domain.column(ys))
+        };
         Self { points, xs, ys }
     }
-    pub fn private_column(points: Vec<P>, domain: &Domain<F>) -> Self {
-        Self::column(points, domain, true)
+    pub fn column(points: Vec<P>, domain: &Domain<F>) -> Self {
+        Self::_column(points, domain, false)
     }
 
     pub fn public_column(points: Vec<P>, domain: &Domain<F>) -> Self {
-        Self::column(points, domain, false)
+        Self::_column(points, domain, true)
     }
 
     pub fn evaluate(&self, z: &F) -> (F, F) {
@@ -100,7 +103,7 @@ where
         let mut acc = Vec::with_capacity(projective_points.len() + 1);
         acc.push(seed);
         acc.extend(P::Group::normalize_batch(&projective_points));
-        let acc = AffineColumn::private_column(acc, domain);
+        let acc = AffineColumn::column(acc, domain);
         debug_assert_eq!(acc.payload_len(), domain.capacity);
         Self {
             bitmask,

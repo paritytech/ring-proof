@@ -180,8 +180,8 @@ mod tests {
         assert_eq!(c[1].degree(), 3 * n - 2);
 
         // A valid witness satisfies the constraints.
-        domain.divide_by_vanishing_poly(&c[0]);
-        domain.divide_by_vanishing_poly(&c[1]);
+        domain.compute_quotient(&c[0]);
+        domain.compute_quotient(&c[1]);
 
         let z = Fq::rand(rng);
         let z_w = z * domain.omega();

@@ -149,7 +149,7 @@ mod tests {
         );
     }
 
-    fn setup<R: Rng, CS: PCS<Fq>>(
+    pub fn setup<R: Rng, CS: PCS<Fq>>(
         rng: &mut R,
         domain_size: usize,
     ) -> (CS::Params, PiopParams<EdwardsAffine>) {
