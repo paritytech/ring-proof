@@ -69,14 +69,19 @@ pub struct Domain<F: FftField> {
 }
 
 impl<F: FftField> Domain<F> {
+
     pub fn new(n: usize, hiding: bool) -> Self {
+        if hiding {
+            Self::with_zk_rows(n, ZK_ROWS)
+        } else {
+            Self::with_zk_rows(n, 0)
+        }
+    }
+
+    pub fn with_zk_rows(n: usize, zk_rows: usize) -> Self {
+        let hiding = zk_rows != 0;
         let domains = Domains::new(n);
         let domain_size = domains.x1.size();
-        let zk_rows = if hiding {
-            ZK_ROWS
-        } else {
-            0
-        };
         let domain_capacity = domain_size - zk_rows;
         let last_row_index = domain_capacity - 1;
 
