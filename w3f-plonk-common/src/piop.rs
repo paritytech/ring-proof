@@ -44,7 +44,7 @@ pub trait ProverPiop<F: PrimeField, C: Commitment<F>> {
         for (i, constraint) in self.constraints().into_iter().enumerate() {
             let constraint = constraint.interpolate();
             if self.domain().compute_quotient(&constraint).is_none() {
-                println!("Constraint #{i} is not satisfied");
+                ark_std::println!("Constraint #{i} is not satisfied");
                 return false;
             }
         }
