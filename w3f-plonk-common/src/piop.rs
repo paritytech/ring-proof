@@ -41,10 +41,11 @@ pub trait ProverPiop<F: PrimeField, C: Commitment<F>> {
     }
 
     fn constraints_satisfied(&self) -> bool {
-        for (i, constraint) in self.constraints().into_iter().enumerate() {
+        for (_i, constraint) in self.constraints().into_iter().enumerate() {
             let constraint = constraint.interpolate();
             if self.domain().compute_quotient(&constraint).is_none() {
-                ark_std::println!("Constraint #{i} is not satisfied");
+                #[cfg(feature = "std" )]
+                println!("Constraint #{_i} is not satisfied");
                 return false;
             }
         }
