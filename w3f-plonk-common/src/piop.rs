@@ -40,6 +40,17 @@ pub trait ProverPiop<F: PrimeField, C: Commitment<F>> {
         self.domain().compute_quotient(&agg_constraint)
     }
 
+    fn constraints_satisfied(&self) -> bool {
+        for (i, constraint) in self.constraints().into_iter().enumerate() {
+            let constraint = constraint.interpolate();
+            if self.domain().compute_quotient(&constraint).is_none() {
+                println!("Constraint #{i} is not satisfied");
+                return false;
+            }
+        }
+        true
+    }
+
     // 'Linearized' parts of constraint polynomials.
     // For a constraint of the form C = C(c1(X),...,ck(X),c1(wX),...,ck(wX)), where ci's are of degree n,
     // and an evaluation point z, it is a degree n polynomial r = C(c1(z),...,ck(z),c1(X),...,ck(X)).

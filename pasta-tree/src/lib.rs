@@ -178,13 +178,11 @@ mod tests {
     use w3f_pcs::pcs::PcsParams;
     use w3f_pcs::pcs::ipa::IPA;
     use w3f_plonk_common::test_helpers::random_vec;
-    use w3f_ring_proof::PiopParams;
 
     use crate::auth_path::node::LevelWitness;
     use crate::auth_path::path::AuthenticationPath;
     #[cfg(feature = "parallel")]
     use rayon::prelude::*;
-    use w3f_plonk_common::domain::Domain;
 
     type PallasIPA = IPA<ark_pallas::Projective>;
 
