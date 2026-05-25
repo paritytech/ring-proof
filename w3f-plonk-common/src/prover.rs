@@ -1,6 +1,6 @@
 use ark_ff::PrimeField;
 use ark_poly::univariate::DensePolynomial;
-use ark_poly::{Evaluations, Polynomial};
+use ark_poly::Polynomial;
 use ark_serialize::CanonicalSerialize;
 use ark_std::format;
 use ark_std::vec::Vec;
@@ -62,13 +62,8 @@ impl<F: PrimeField, CS: PCS<F>, T: PlonkTranscript<F, CS>> PlonkProver<F, CS, T>
         transcript.add_committed_cols(&column_commitments);
 
         // ROUND 2
-        let constraint_polys = piop.constraints();
-        let alphas = transcript.get_constraints_aggregation_coeffs(constraint_polys.len());
-        // Aggregate constraint polynomials in evaluation form...
-        let agg_constraint_poly = Self::aggregate_evaluations(&constraint_polys, &alphas);
-        // ...and then interpolate (to save some FFTs).
-        let agg_constraint_poly = agg_constraint_poly.interpolate();
-        let quotient_poly = piop.domain().compute_quotient(&agg_constraint_poly).unwrap();
+        let alphas = transcript.get_constraints_aggregation_coeffs(piop.constraints().len());
+        let quotient_poly = piop.compute_quotient(&alphas).unwrap();
         // The prover commits to the quotient polynomial...
         let quotient_commitment = CS::commit(&self.pcs_ck, &quotient_poly).unwrap();
         transcript.add_quotient_commitment(&quotient_commitment);
@@ -136,15 +131,5 @@ impl<F: PrimeField, CS: PCS<F>, T: PlonkTranscript<F, CS>> PlonkProver<F, CS, T>
             agg_at_zeta_proof,
             lin_at_zeta_omega_proof,
         }
-    }
-
-    pub fn aggregate_evaluations(polys: &[Evaluations<F>], coeffs: &[F]) -> Evaluations<F> {
-        assert_eq!(coeffs.len(), polys.len());
-        polys
-            .iter()
-            .zip(coeffs.iter())
-            .map(|(p, &c)| p * c)
-            .reduce(|acc, p| &acc + &p)
-            .unwrap()
     }
 }

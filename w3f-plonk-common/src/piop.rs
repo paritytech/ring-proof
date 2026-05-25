@@ -1,4 +1,4 @@
-use ark_ff::PrimeField;
+use ark_ff::{FftField, PrimeField};
 use ark_poly::univariate::DensePolynomial;
 use ark_poly::Evaluations;
 use ark_serialize::{CanonicalDeserialize, CanonicalSerialize};
@@ -29,6 +29,15 @@ pub trait ProverPiop<F: PrimeField, C: Commitment<F>> {
     // Constraint polynomials in evaluation form.
     fn constraints(&self) -> Vec<Evaluations<F>>;
 
+    fn compute_quotient(&self, alphas: &[F]) -> Option<DensePolynomial<F>> {
+        let constraints = self.constraints();
+        // Aggregate constraint polynomials in evaluation form...
+        let agg_constraint = aggregate_evaluations(&constraints, &alphas);
+        // ...and then interpolate (to save some FFTs).
+        let agg_constraint = agg_constraint.interpolate();
+        self.domain().compute_quotient(&agg_constraint)
+    }
+
     // 'Linearized' parts of constraint polynomials.
     // For a constraint of the form C = C(c1(X),...,ck(X),c1(wX),...,ck(wX)), where ci's are of degree n,
     // and an evaluation point z, it is a degree n polynomial r = C(c1(z),...,ck(z),c1(X),...,ck(X)).
@@ -39,6 +48,16 @@ pub trait ProverPiop<F: PrimeField, C: Commitment<F>> {
 
     // The result of the computation.
     fn result(&self) -> Self::Instance;
+}
+
+pub fn aggregate_evaluations<F: FftField>(polys: &[Evaluations<F>], coeffs: &[F]) -> Evaluations<F> {
+    assert_eq!(coeffs.len(), polys.len());
+    polys
+        .iter()
+        .zip(coeffs.iter())
+        .map(|(p, &c)| p * c)
+        .reduce(|acc, p| &acc + &p)
+        .unwrap()
 }
 
 pub trait VerifierPiop<F: PrimeField, C: Commitment<F>> {
