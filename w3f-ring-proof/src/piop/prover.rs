@@ -53,12 +53,14 @@ impl<F: PrimeField, G: AffineRepr<BaseField = F>> PiopProver<F, G> {
             ring_selector,
         } = fixed_columns;
         let bits = Self::bits_column(&params, prover_index_in_keys, secret);
-        let inner_prod = InnerProd::init(ring_selector.clone(), bits.col.clone(), &domain);
-        let cond_add = CondAdd::init(bits.clone(), points.clone(), params.seed, &domain);
         let booleanity = Booleanity::init(bits.clone());
-        let cond_add_acc_x = FixedCells::init(cond_add.acc.xs.clone(), &domain);
-        let cond_add_acc_y = FixedCells::init(cond_add.acc.ys.clone(), &domain);
-        let inner_prod_acc = FixedCells::init(inner_prod.acc.clone(), &domain);
+        let inner_prod = InnerProd::init(ring_selector.clone(), bits.col.clone(), &domain);
+        let inner_prod_acc = FixedCells::init(inner_prod.acc.clone(), &domain, F::zero(), F::one());
+        let cond_add = CondAdd::init(bits.clone(), points.clone(), params.seed, &domain);
+        let (seed_x, seed_y) = params.seed.xy().unwrap();
+        let (result_x, result_y) = cond_add.seed_plus_sum().xy().unwrap();
+        let cond_add_acc_x = FixedCells::init(cond_add.acc.xs.clone(), &domain, seed_x, result_x);
+        let cond_add_acc_y = FixedCells::init(cond_add.acc.ys.clone(), &domain, seed_y, result_y);
         Self {
             domain,
             points,
