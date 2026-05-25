@@ -132,11 +132,7 @@ impl<F: FftField> Domain<F> {
         self.domains.column_from_evals(values, payload_len)
     }
 
-    pub(crate) fn column(&self, values: Vec<F>, hidden: bool) -> FieldColumn<F> {
-        self._column(values, !hidden)
-    }
-
-    pub fn private_column(&self, values: Vec<F>) -> FieldColumn<F> {
+    pub fn column(&self, values: Vec<F>) -> FieldColumn<F> {
         self._column(values, false)
     }
 

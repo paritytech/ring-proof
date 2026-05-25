@@ -49,7 +49,7 @@ fn bench_field_column(c: &mut Criterion) {
             },
         );
 
-        let col = domain.private_column(vals);
+        let col = domain.column(vals);
         group.bench_with_input(BenchmarkId::new("shifted_4x", n), &col, |b, col| {
             b.iter(|| col.shifted_4x());
         });
@@ -99,8 +99,8 @@ fn bench_inner_prod_gadget(c: &mut Criterion) {
             },
         );
 
-        let a_col = domain.private_column(a);
-        let b_col = domain.private_column(b_vals);
+        let a_col = domain.column(a);
+        let b_col = domain.column(b_vals);
         let gadget = InnerProd::<Fq>::init(a_col, b_col, &domain);
 
         group.bench_with_input(
@@ -140,14 +140,14 @@ fn bench_te_cond_add_gadget(c: &mut Criterion) {
             |bench, (bitmask, points, domain)| {
                 bench.iter(|| {
                     let bitmask_col = BitColumn::init(bitmask.clone(), domain);
-                    let points_col = AffineColumn::private_column(points.clone(), domain);
+                    let points_col = AffineColumn::column(points.clone(), domain);
                     CondAdd::init(bitmask_col, points_col, seed, domain);
                 });
             },
         );
 
         let bitmask_col = BitColumn::init(bitmask, &domain);
-        let points_col = AffineColumn::private_column(points, &domain);
+        let points_col = AffineColumn::column(points, &domain);
         let gadget = CondAdd::init(bitmask_col, points_col, seed, &domain);
 
         group.bench_with_input(

@@ -40,7 +40,7 @@ impl<F: FftField> ColumnSumPolys<F> {
         let partial_sums = Self::partial_sums(col.payload());
         let mut acc = vec![F::zero()];
         acc.extend(partial_sums);
-        let acc = domain.private_column(acc);
+        let acc = domain.column(acc);
         Self {
             col,
             acc,
@@ -114,7 +114,7 @@ mod tests {
 
         let col = random_vec(domain.capacity - 1, rng);
         let sum = col.iter().sum();
-        let col = domain.private_column(col);
+        let col = domain.column(col);
 
         let gadget = ColumnSumPolys::<Fq>::init(col, &domain);
 
