@@ -5,42 +5,48 @@ use ark_std::marker::PhantomData;
 use ark_std::{vec, vec::Vec};
 use w3f_pcs::pcs::Commitment;
 
+// use crate::circuit::cell_equality::CellEqualityEvals;
 use crate::circuit::{ProofComms, ProofEvals};
 use w3f_plonk_common::domain::EvaluatedDomain;
 use w3f_plonk_common::gadgets::VerifierGadget;
 use w3f_plonk_common::gadgets::booleanity::BooleanityValues;
+use w3f_plonk_common::gadgets::column_sum::ColumnSumEvals;
 use w3f_plonk_common::gadgets::ec::CondAddValues;
+use w3f_plonk_common::gadgets::fixed_cells::FixedCellsValues;
 use w3f_plonk_common::gadgets::inner_prod::InnerProdValues;
 use w3f_plonk_common::piop::VerifierPiop;
 
 pub struct PiopVerifier<F: PrimeField, C: Commitment<F>, G: AffineRepr<BaseField = F>> {
     domain_evals: EvaluatedDomain<F>,
+    instance: G,
     x_coords_comm: C,
     h_powers_comm: [C; 2],
     witness_columns: ProofComms<F, C>,
     // Gadget verifiers:
-    node_x_coord: InnerProdValues<F>,
+    selected_node: InnerProdValues<F>,
     blinded_node: CondAddValues<F, G>,
-    node_selector_bool: BooleanityValues<F>,
+    node_idx_sum: ColumnSumEvals<F>,
+    node_idx_bool: BooleanityValues<F>,
     bf_bits_bool: BooleanityValues<F>,
+    node_idx_sum_vals: FixedCellsValues<F>,
+    // node_to_seed: CellEqualityEvals<F>,
 }
 
 impl<F: PrimeField, C: Commitment<F>, G: AffineRepr<BaseField = F>> PiopVerifier<F, C, G> {
     pub fn init(
-        _blinded_node: G,
+        instance: G,
         blinded_parent: C,
         domain_evals: EvaluatedDomain<F>,
         h_powers_comm: [C; 2],
         witness_columns: ProofComms<F, C>,
         all_evals: ProofEvals<F>,
     ) -> Self {
-        let node_x_coord = InnerProdValues {
+        let selected_node = InnerProdValues {
             a: all_evals.x_coords,
-            b: all_evals.node_selector,
+            b: all_evals.node_idx,
             not_last: domain_evals.not_last_row,
-            acc: all_evals.node_x_coord_acc,
+            acc: all_evals.selected_node_acc,
         };
-
         let blinded_node = CondAddValues {
             bitmask: all_evals.bf_bits,
             points: (all_evals.h_powers[0], all_evals.h_powers[1]),
@@ -48,24 +54,44 @@ impl<F: PrimeField, C: Commitment<F>, G: AffineRepr<BaseField = F>> PiopVerifier
             acc: (all_evals.blinded_node_acc[0], all_evals.blinded_node_acc[1]),
             _phantom: PhantomData,
         };
-
-        let node_selector_bool = BooleanityValues {
-            bits: all_evals.node_selector,
+        let node_idx_sum = ColumnSumEvals {
+            col: all_evals.node_idx,
+            acc: all_evals.node_idx_sum_acc,
+            not_last: domain_evals.not_last_row,
         };
-
+        let node_idx_bool = BooleanityValues {
+            bits: all_evals.node_idx,
+        };
         let bf_bits_bool = BooleanityValues {
             bits: all_evals.bf_bits,
         };
-
+        let node_idx_sum_vals = FixedCellsValues {
+            col: all_evals.node_idx_sum_acc,
+            col_first: F::zero(),
+            col_last: F::one(),
+            l_first: domain_evals.l_first,
+            l_last: domain_evals.l_last,
+        };
+        // let node_to_seed = CellEqualityEvals {
+        //     a: selected_node.acc,
+        //     l_a: domain_evals.l_last,
+        //     b: blinded_node.acc.0,
+        //     l_b: domain_evals.l_first,
+        // };
         Self {
+            instance,
             domain_evals,
             x_coords_comm: blinded_parent,
             h_powers_comm,
             witness_columns,
-            node_x_coord,
+            // gadgets
+            selected_node,
             blinded_node,
-            node_selector_bool,
+            node_idx_sum,
+            node_idx_bool,
             bf_bits_bool,
+            node_idx_sum_vals,
+            // node_to_seed,
         }
     }
 }
@@ -73,8 +99,8 @@ impl<F: PrimeField, C: Commitment<F>, G: AffineRepr<BaseField = F>> PiopVerifier
 impl<F: PrimeField, C: Commitment<F>, G: SWCurveConfig<BaseField = F>> VerifierPiop<F, C>
     for PiopVerifier<F, C, SwAffine<G>>
 {
-    const N_CONSTRAINTS: usize = 5;
-    const N_COLUMNS: usize = 8;
+    const N_CONSTRAINTS: usize = 10;
+    const N_COLUMNS: usize = 9;
 
     fn precommitted_columns(&self) -> Vec<C> {
         vec![
@@ -85,11 +111,30 @@ impl<F: PrimeField, C: Commitment<F>, G: SWCurveConfig<BaseField = F>> VerifierP
     }
 
     fn evaluate_constraints_main(&self) -> Vec<F> {
+        let (x, y) = self.instance.xy().unwrap();
         vec![
-            self.node_x_coord.evaluate_constraints_main(),
+            self.selected_node.evaluate_constraints_main(),
             self.blinded_node.evaluate_constraints_main(),
-            self.node_selector_bool.evaluate_constraints_main(),
+            self.node_idx_sum.evaluate_constraints_main(),
+            self.node_idx_bool.evaluate_constraints_main(),
             self.bf_bits_bool.evaluate_constraints_main(),
+            self.node_idx_sum_vals.evaluate_constraints_main(),
+            // self.node_to_seed.evaluate_constraints_main(),
+            vec![FixedCellsValues::evaluate_for_cell(
+                self.blinded_node.acc.0,
+                self.domain_evals.l_last,
+                x,
+            )],
+            vec![FixedCellsValues::evaluate_for_cell(
+                self.blinded_node.acc.1,
+                self.domain_evals.l_last,
+                y,
+            )],
+            vec![FixedCellsValues::evaluate_for_cell(
+                self.selected_node.acc,
+                self.domain_evals.l_first,
+                F::zero(),
+            )],
         ]
         .concat()
     }
@@ -97,8 +142,8 @@ impl<F: PrimeField, C: Commitment<F>, G: SWCurveConfig<BaseField = F>> VerifierP
     fn lin_poly_commitment(&self, agg_coeffs: &[F]) -> (Vec<F>, Vec<C>) {
         assert_eq!(agg_coeffs.len(), Self::N_CONSTRAINTS);
 
-        let node_x_coord_acc = self.witness_columns.node_x_coord_acc.clone();
-        let node_x_coord_coeff = agg_coeffs[0] * self.node_x_coord.not_last;
+        let selected_node_acc = self.witness_columns.selected_node_acc.clone();
+        let selected_node_coeff = agg_coeffs[0] * self.selected_node.not_last;
 
         let blinded_node_acc_x = self.witness_columns.blinded_node_acc[0].clone();
         let blinded_node_acc_y = self.witness_columns.blinded_node_acc[1].clone();
@@ -108,13 +153,22 @@ impl<F: PrimeField, C: Commitment<F>, G: SWCurveConfig<BaseField = F>> VerifierP
         let (c_acc_x, c_acc_y) = self.blinded_node.acc_coeffs_2();
         blinded_node_x_coeff += agg_coeffs[2] * c_acc_x;
         blinded_node_y_coeff += agg_coeffs[2] * c_acc_y;
+
+        let node_idx_sum_acc = self.witness_columns.node_idx_sum_acc.clone();
+        let node_idx_sum_coeff = agg_coeffs[3] * self.node_idx_sum.not_last;
         (
             vec![
-                node_x_coord_coeff,
+                selected_node_coeff,
                 blinded_node_x_coeff,
                 blinded_node_y_coeff,
+                node_idx_sum_coeff,
             ],
-            vec![node_x_coord_acc, blinded_node_acc_x, blinded_node_acc_y],
+            vec![
+                selected_node_acc,
+                blinded_node_acc_x,
+                blinded_node_acc_y,
+                node_idx_sum_acc,
+            ],
         )
     }
 
