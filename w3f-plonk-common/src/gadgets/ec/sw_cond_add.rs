@@ -176,7 +176,7 @@ mod tests {
         let expected_res = seed + cond_sum(&bitmask, &points);
 
         let bitmask_col = BitColumn::init(bitmask, &domain);
-        let points_col = AffineColumn::private_column(points, &domain);
+        let points_col = AffineColumn::column(points, &domain);
         let gadget = CondAdd::init(bitmask_col, points_col, seed, &domain);
         let res = gadget.acc.points.last().unwrap();
         assert_eq!(res, &expected_res);
@@ -188,8 +188,8 @@ mod tests {
         assert_eq!(c1.degree(), 4 * n - 3);
         assert_eq!(c2.degree(), 3 * n - 2);
 
-        domain.divide_by_vanishing_poly(&c1);
-        domain.divide_by_vanishing_poly(&c2);
+        domain.compute_quotient(&c1);
+        domain.compute_quotient(&c2);
 
         // test_gadget(gadget);
     }

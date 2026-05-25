@@ -30,7 +30,7 @@ impl<F: FftField> InnerProd<F> {
         let inner_prods = Self::partial_inner_prods(a.payload(), b.payload());
         let mut acc = vec![F::zero()];
         acc.extend(inner_prods);
-        let acc = domain.private_column(acc);
+        let acc = domain.column(acc);
         Self {
             a,
             b,
@@ -111,8 +111,8 @@ mod tests {
         let a = random_vec(domain.capacity - 1, rng);
         let b = random_vec(domain.capacity - 1, rng);
         let ab = inner_prod(&a, &b);
-        let a = domain.private_column(a);
-        let b = domain.private_column(b);
+        let a = domain.column(a);
+        let b = domain.column(b);
 
         let gadget = InnerProd::<Fq>::init(a, b, &domain);
 
@@ -124,7 +124,7 @@ mod tests {
 
         assert_eq!(constraint_poly.degree(), 2 * n - 1);
 
-        domain.divide_by_vanishing_poly(&constraint_poly);
+        domain.compute_quotient(&constraint_poly);
     }
 
     #[test]
