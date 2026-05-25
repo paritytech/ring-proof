@@ -118,28 +118,30 @@ impl<F: FftField> Domain<F> {
         quotient
     }
 
-    pub(crate) fn column(&self, mut values: Vec<F>, hidden: bool) -> FieldColumn<F> {
+    fn _column(&self, mut values: Vec<F>, public: bool) -> FieldColumn<F> {
         let payload_len = values.len();
-        debug_assert!(payload_len <= self.capacity);
-        values.resize(self.capacity, F::zero());
-        if self.is_hiding() && hidden && !cfg!(feature = "test-vectors") {
-            values.resize_with(
-                self.domains.x1.size(),
-                || F::rand(&mut getrandom_or_panic()),
-            );
+        assert!(payload_len <= self.capacity);
+        let no_blinding = !self.is_hiding() || public || cfg!(feature = "test-vectors");
+        if no_blinding {
+            values.resize(self.domain_size(), F::zero());
         } else {
-            values.resize(self.domains.x1.size(), F::zero());
+            values.resize(self.capacity, F::zero());
+            let rng = &mut getrandom_or_panic();
+            values.resize_with(self.domain_size(), || F::rand(rng));
         }
         self.domains.column_from_evals(values, payload_len)
     }
 
-    pub fn private_column(&self, values: Vec<F>) -> FieldColumn<F> {
-        self.column(values, true)
+    pub(crate) fn column(&self, values: Vec<F>, hidden: bool) -> FieldColumn<F> {
+        self._column(values, !hidden)
     }
 
-    // public column
-    pub fn public_column(&self, evals: Vec<F>) -> FieldColumn<F> {
-        self.column(evals, false)
+    pub fn private_column(&self, values: Vec<F>) -> FieldColumn<F> {
+        self._column(values, false)
+    }
+
+    pub fn public_column(&self, values: Vec<F>) -> FieldColumn<F> {
+        self._column(values, true)
     }
 
     pub fn domain(&self) -> GeneralEvaluationDomain<F> {
