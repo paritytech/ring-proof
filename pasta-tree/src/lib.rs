@@ -151,12 +151,12 @@ mod tests {
 
     type PallasIPA = IPA<ark_pallas::Projective>;
 
-    fn random_witness<C: CurveGroup, G: AffineRepr<BaseField = C::ScalarField>, R: Rng>(
-        params: &CycleSideParams<C, G>,
+    pub fn random_witness<G: AffineRepr<BaseField: PrimeField>, R: Rng>(
+        piop_params: &PiopParams<G>,
         path_node: G,
         rng: &mut R,
     ) -> LevelWitness<G> {
-        let capacity = params.piop_params.children_capacity();
+        let capacity = piop_params.children_capacity();
         let mut nodes = random_vec::<G, _>(capacity, rng);
         let i = rng.gen_range(0..capacity);
         nodes[i] = path_node;
@@ -171,7 +171,7 @@ mod tests {
         path_node: G,
         rng: &mut R,
     ) -> (C::Affine, LevelWitness<G>) {
-        let level_witness = random_witness(params, path_node, rng);
+        let level_witness = random_witness(&params.piop_params, path_node, rng);
         let parent = level_witness.compute_parent(params).unwrap();
         (parent, level_witness)
     }
