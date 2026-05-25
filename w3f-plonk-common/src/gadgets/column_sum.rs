@@ -125,7 +125,7 @@ mod tests {
         let constraint_poly = gadget.constraints()[0].interpolate_by_ref();
 
         assert_eq!(constraint_poly.degree(), n);
-        domain.divide_by_vanishing_poly(&constraint_poly);
+        domain.compute_quotient(&constraint_poly);
     }
 
     #[test]

@@ -68,7 +68,7 @@ impl<F: PrimeField, CS: PCS<F>, T: PlonkTranscript<F, CS>> PlonkProver<F, CS, T>
         let agg_constraint_poly = Self::aggregate_evaluations(&constraint_polys, &alphas);
         // ...and then interpolate (to save some FFTs).
         let agg_constraint_poly = agg_constraint_poly.interpolate();
-        let quotient_poly = piop.domain().divide_by_vanishing_poly(&agg_constraint_poly);
+        let quotient_poly = piop.domain().compute_quotient(&agg_constraint_poly).unwrap();
         // The prover commits to the quotient polynomial...
         let quotient_commitment = CS::commit(&self.pcs_ck, &quotient_poly).unwrap();
         transcript.add_quotient_commitment(&quotient_commitment);

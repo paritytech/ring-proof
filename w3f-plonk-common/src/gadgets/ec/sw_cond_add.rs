@@ -188,8 +188,8 @@ mod tests {
         assert_eq!(c1.degree(), 4 * n - 3);
         assert_eq!(c2.degree(), 3 * n - 2);
 
-        domain.divide_by_vanishing_poly(&c1);
-        domain.divide_by_vanishing_poly(&c2);
+        domain.compute_quotient(&c1);
+        domain.compute_quotient(&c2);
 
         // test_gadget(gadget);
     }

@@ -107,15 +107,18 @@ impl<F: FftField> Domain<F> {
         self.zk_rows != 0
     }
 
-    pub fn divide_by_vanishing_poly(&self, poly: &DensePolynomial<F>) -> DensePolynomial<F> {
-        let (quotient, remainder) = if self.is_hiding() {
-            let exclude_zk_rows = poly * &self.zk_rows_prod;
-            exclude_zk_rows.divide_by_vanishing_poly(self.domains.x1)
+    pub fn compute_quotient(&self, poly: &DensePolynomial<F>) -> Option<DensePolynomial<F>> {
+        let (q, r) = self.div_by_z_with_remainder(poly);
+        r.is_zero().then_some(q)
+    }
+
+    fn div_by_z_with_remainder(&self, p: &DensePolynomial<F>) -> (DensePolynomial<F>, DensePolynomial<F>) {
+       let dividend = if self.is_hiding() {
+           &(p * &self.zk_rows_prod)
         } else {
-            poly.divide_by_vanishing_poly(self.domains.x1)
+          p
         };
-        assert!(remainder.is_zero()); //TODO error-handling
-        quotient
+        dividend.divide_by_vanishing_poly(self.domains.x1)
     }
 
     fn _column(&self, mut values: Vec<F>, public: bool) -> FieldColumn<F> {

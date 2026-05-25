@@ -124,7 +124,7 @@ mod tests {
 
         assert_eq!(constraint_poly.degree(), 2 * n - 1);
 
-        domain.divide_by_vanishing_poly(&constraint_poly);
+        domain.compute_quotient(&constraint_poly);
     }
 
     #[test]
