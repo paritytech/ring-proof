@@ -58,6 +58,8 @@ impl<F: PrimeField, G: AffineRepr<BaseField = F>> PiopProver<F, G> {
             blinded_node.seed_plus_sum(),
             (node + params.h * level.bf).into_affine()
         );
+        debug_assert_eq!(blinded_node.acc.xs.evals[0], node.x().unwrap());
+        debug_assert_eq!(blinded_node.acc.ys.evals[0], node.y().unwrap());
         let node_idx_bool = Booleanity::init(node_idx.clone());
         let bf_bits_bool = Booleanity::init(bf_bits.clone());
         let node_idx_sum = ColumnSumPolys::init(node_idx.col.clone(), &domain);
@@ -152,7 +154,7 @@ impl<F: PrimeField, G: AffineRepr<BaseField = F>> PiopProver<F, G> {
 impl<F: PrimeField, C: Commitment<F>, G: SWCurveConfig<BaseField = F>> ProverPiop<F, C>
     for PiopProver<F, SwAffine<G>>
 {
-    const N_CONSTRAINTS: usize = 11;
+    const N_CONSTRAINTS: usize = 12;
     type Commitments = ProofComms<F, C>;
     type Evaluations = ProofEvals<F>;
     type Instance = SwAffine<G>;
@@ -202,6 +204,7 @@ impl<F: PrimeField, C: Commitment<F>, G: SWCurveConfig<BaseField = F>> ProverPio
                 F::zero(),
             )],
             self.seed_eq_node.constraints(),
+            vec![self.blinded_node.acc.on_curve_constraint()],
         ]
         .concat()
     }
@@ -218,6 +221,7 @@ impl<F: PrimeField, C: Commitment<F>, G: SWCurveConfig<BaseField = F>> ProverPio
             vec![DensePolynomial::zero()],
             vec![DensePolynomial::zero()],
             self.seed_eq_node.constraints_linearized(zeta),
+            vec![DensePolynomial::zero()],
         ]
         .concat()
     }

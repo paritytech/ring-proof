@@ -10,7 +10,7 @@ use w3f_plonk_common::domain::EvaluatedDomain;
 use w3f_plonk_common::gadgets::VerifierGadget;
 use w3f_plonk_common::gadgets::booleanity::BooleanityValues;
 use w3f_plonk_common::gadgets::column_sum::ColumnSumEvals;
-use w3f_plonk_common::gadgets::ec::CondAddValues;
+use w3f_plonk_common::gadgets::ec::{AffineColumn, CondAddValues};
 use w3f_plonk_common::gadgets::equal_cells::EqualCells;
 use w3f_plonk_common::gadgets::fixed_cells::FixedCellsValues;
 use w3f_plonk_common::gadgets::inner_prod_inv::InnerProdInvValues;
@@ -98,7 +98,7 @@ impl<F: PrimeField, C: Commitment<F>, G: AffineRepr<BaseField = F>> PiopVerifier
 impl<F: PrimeField, C: Commitment<F>, G: SWCurveConfig<BaseField = F>> VerifierPiop<F, C>
     for PiopVerifier<F, C, SwAffine<G>>
 {
-    const N_CONSTRAINTS: usize = 11;
+    const N_CONSTRAINTS: usize = 12;
     const N_COLUMNS: usize = 9;
 
     fn precommitted_columns(&self) -> Vec<C> {
@@ -134,6 +134,7 @@ impl<F: PrimeField, C: Commitment<F>, G: SWCurveConfig<BaseField = F>> VerifierP
                 F::zero(),
             )],
             self.seed_eq_node.evaluate_constraints_main(),
+            vec![AffineColumn::<F, SwAffine<G>>::on_curve_eval(self.blinded_node.acc)],
         ]
         .concat()
     }
