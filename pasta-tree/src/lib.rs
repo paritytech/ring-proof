@@ -13,6 +13,7 @@ use w3f_plonk_common::domain::Domain;
 
 pub mod auth_path;
 pub mod circuit;
+pub mod circuit2;
 // pub mod level;
 pub mod prover;
 pub mod verifier;
@@ -152,11 +153,10 @@ mod tests {
     type PallasIPA = IPA<ark_pallas::Projective>;
 
     pub fn random_witness<G: AffineRepr<BaseField: PrimeField>, R: Rng>(
-        piop_params: &PiopParams<G>,
+        capacity: usize,
         path_node: G,
         rng: &mut R,
     ) -> LevelWitness<G> {
-        let capacity = piop_params.children_capacity();
         let mut nodes = random_vec::<G, _>(capacity, rng);
         let i = rng.gen_range(0..capacity);
         nodes[i] = path_node;
@@ -171,7 +171,7 @@ mod tests {
         path_node: G,
         rng: &mut R,
     ) -> (C::Affine, LevelWitness<G>) {
-        let level_witness = random_witness(&params.piop_params, path_node, rng);
+        let level_witness = random_witness(params.piop_params.max_nodes(), path_node, rng);
         let parent = level_witness.compute_parent(params).unwrap();
         (parent, level_witness)
     }
@@ -234,7 +234,7 @@ mod tests {
             _ => panic!(),
         };
 
-        let capacity = params.c0_params.piop_params.children_capacity();
+        let capacity = params.c0_params.piop_params.max_nodes();
         let t_prove = start_timer!(|| format!(
             "Proving CurveTree membership, H={height}, M={}, C={}, C^{height}={}",
             domain_size,

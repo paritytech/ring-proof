@@ -267,7 +267,8 @@ mod tests {
         let blinded_node = (node + h * bf).into_affine();
 
         let piop_params = PiopParams::setup(domain, h);
-        let witness = random_witness(&piop_params, node, rng).with_blinding(bf, Fq::zero());
+        let witness =
+            random_witness(piop_params.max_nodes(), node, rng).with_blinding(bf, Fq::zero());
         let piop = PiopProver::build(&piop_params, witness);
 
         assert!(ProverPiop::<_, IPACommitment<G1Projective>>::constraints_satisfied(&piop));

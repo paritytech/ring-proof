@@ -29,12 +29,12 @@ impl<G: AffineRepr<BaseField: PrimeField>> PiopParams<G> {
         }
     }
 
-    pub fn children_capacity(&self) -> usize {
+    pub fn max_nodes(&self) -> usize {
         self.domain.capacity - 1
     }
 
     pub fn x_coords_column(&self, x_coords: Vec<G::BaseField>) -> FieldColumn<G::BaseField> {
-        let c = self.children_capacity();
+        let c = self.max_nodes();
         assert!(x_coords.len() <= c);
         let mut x_coords = x_coords;
         x_coords.resize(self.domain.domain_size(), G::BaseField::zero());
@@ -44,12 +44,12 @@ impl<G: AffineRepr<BaseField: PrimeField>> PiopParams<G> {
 
     pub fn h_powers_column(&self) -> AffineColumn<G::BaseField, G> {
         let mut h_powers = self.power_of_2_multiples_of_h();
-        h_powers.truncate(self.children_capacity());
+        h_powers.truncate(self.max_nodes());
         AffineColumn::public_column(h_powers, &self.domain)
     }
 
     pub fn node_selector(&self, node_index: usize) -> BitColumn<G::BaseField> {
-        let c = self.children_capacity();
+        let c = self.max_nodes();
         let mut node_selector = vec![false; c];
         assert!(node_index < c); // allows to select a padding node
         node_selector[node_index] = true;
@@ -58,7 +58,7 @@ impl<G: AffineRepr<BaseField: PrimeField>> PiopParams<G> {
 
     pub fn bf_bits_column(&self, bf: G::ScalarField) -> BitColumn<G::BaseField> {
         let mut bf_bits = self.scalar_part(bf);
-        bf_bits.truncate(self.children_capacity());
+        bf_bits.truncate(self.max_nodes());
         BitColumn::init(bf_bits, &self.domain)
     }
 

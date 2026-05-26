@@ -32,7 +32,7 @@ impl<F: PrimeField, C: Commitment<F>> ColumnsCommited<F, C> for ProofComms<F, C>
     }
 }
 
-#[derive(Clone, CanonicalSerialize, CanonicalDeserialize)]
+#[derive(Clone, Debug, CanonicalSerialize, CanonicalDeserialize)]
 pub struct ProofEvals<F: PrimeField> {
     pub(crate) x_coords: F,
     pub(crate) h_powers: [F; 2],

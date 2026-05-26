@@ -1,11 +1,11 @@
 use ark_ff::{FftField, Field, Zero};
 use ark_poly::univariate::DensePolynomial;
-use ark_poly::Evaluations;
+use ark_poly::{Evaluations, GeneralEvaluationDomain};
 
 use ark_std::{vec, vec::Vec};
 
 use crate::domain::Domain;
-use crate::gadgets::VerifierGadget;
+use crate::gadgets::{ProverGadget, VerifierGadget};
 use crate::{const_evals, Column, FieldColumn};
 
 pub struct FixedCells<F: FftField> {
@@ -45,17 +45,6 @@ impl<F: FftField> FixedCells<F> {
         }
     }
 
-    pub fn constraints(&self) -> Vec<Evaluations<F>> {
-        let domain_capacity = self.col.payload_len(); // that's an ugly way to learn the capacity, but we've asserted it above.
-        let c = &Self::constraint_cell(&self.col, &self.l_first, 0, self.col_first)
-            + &Self::constraint_cell(&self.col, &self.l_last, domain_capacity - 1, self.col_last);
-        vec![c]
-    }
-
-    pub fn constraints_linearized(&self, _z: &F) -> Vec<DensePolynomial<F>> {
-        vec![DensePolynomial::zero()]
-    }
-
     /// Constraints the column `col` to have the value `col[i]` at index `i`.
     /// `li` should be the `i-th` Lagrange basis polynomial `li = L_i(X)`.
     /// The constraint polynomial is `c(X) = L_i(X).col(X) - col[i].L_i(X)`.
@@ -71,6 +60,27 @@ impl<F: FftField> FixedCells<F> {
         let col = &col.evals_4x;
         let li = &li.evals_4x;
         li * &(col - val)
+    }
+}
+
+impl<F: FftField> ProverGadget<F> for FixedCells<F> {
+    fn witness_columns(&self) -> Vec<DensePolynomial<F>> {
+        todo!()
+    }
+
+    fn constraints(&self) -> Vec<Evaluations<F>> {
+        let domain_capacity = self.col.payload_len(); // that's an ugly way to learn the capacity, but we've asserted it above.
+        let c = &Self::constraint_cell(&self.col, &self.l_first, 0, self.col_first)
+            + &Self::constraint_cell(&self.col, &self.l_last, domain_capacity - 1, self.col_last);
+        vec![c]
+    }
+
+    fn constraints_linearized(&self, _z: &F) -> Vec<DensePolynomial<F>> {
+        vec![DensePolynomial::zero()]
+    }
+
+    fn domain(&self) -> GeneralEvaluationDomain<F> {
+        todo!()
     }
 }
 
