@@ -1,9 +1,7 @@
-use ark_ec::short_weierstrass::{Affine as SwAffine, SWCurveConfig};
 use ark_ec::{AffineRepr, CurveGroup};
 use ark_ff::One;
 use ark_ff::{AdditiveGroup, BigInteger, PrimeField, Zero};
 use ark_std::{vec, vec::Vec};
-
 use w3f_plonk_common::FieldColumn;
 use w3f_plonk_common::domain::Domain;
 use w3f_plonk_common::gadgets::booleanity::BitColumn;
@@ -22,8 +20,8 @@ pub struct PiopParams<G: AffineRepr<BaseField: PrimeField>> {
     pub h: G,
 }
 
-impl<G: SWCurveConfig<BaseField: PrimeField>> PiopParams<SwAffine<G>> {
-    pub fn setup(domain: Domain<G::BaseField>, h: SwAffine<G>, seed: SwAffine<G>) -> Self {
+impl<G: AffineRepr<BaseField: PrimeField>> PiopParams<G> {
+    pub fn setup(domain: Domain<G::BaseField>, h: G, seed: G) -> Self {
         assert!(domain.domain_size() > 256);
         let actual_capacity = domain.capacity - 1;
         let scalar_size = Domain::<G::BaseField>::new(256, domain.is_hiding()).capacity - 1;
@@ -42,13 +40,11 @@ impl<G: SWCurveConfig<BaseField: PrimeField>> PiopParams<SwAffine<G>> {
         self.select_size
     }
 
-    pub fn points_column(
-        &self,
-        nodes: Vec<SwAffine<G>>,
-    ) -> AffineColumn<G::BaseField, SwAffine<G>> {
+    pub fn points_column(&self, nodes: Vec<G>) -> AffineColumn<G::BaseField, G> {
         assert!(nodes.len() <= self.select_size);
         let mut points = nodes;
-        let zero = SwAffine::<G>::new_unchecked(G::BaseField::ZERO, G::BaseField::ZERO);
+        // let zero = SwAffine::<G>::new_unchecked(G::BaseField::ZERO, G::BaseField::ZERO);
+        let zero = G::ZERO;
         points.resize(self.select_size, zero);
         let powers_of_h = self.power_of_h();
         assert_eq!(powers_of_h.len(), self.rerand_size);
@@ -75,7 +71,7 @@ impl<G: SWCurveConfig<BaseField: PrimeField>> PiopParams<SwAffine<G>> {
         self.domain.public_column(selector)
     }
 
-    fn power_of_h(&self) -> Vec<SwAffine<G>> {
+    fn power_of_h(&self) -> Vec<G> {
         let mut h = self.h.into_group();
         let mut res = Vec::with_capacity(self.rerand_size);
         res.push(h);
@@ -91,6 +87,25 @@ impl<G: SWCurveConfig<BaseField: PrimeField>> PiopParams<SwAffine<G>> {
         let significant_bits = &bits_with_trailing_zeroes[..self.rerand_size];
         significant_bits.to_vec()
     }
+
+    // pub fn commit_nodes<C: CurveGroup<ScalarField=G::BaseField>>(
+    //     &self,
+    //     pcs_params: HidingIpa<C>,
+    //     nodes: Vec<SwAffine<G>>,
+    //     bf: C::ScalarField,
+    // ) -> WrappedAffine<C> {
+    //     let points = self.points_column(nodes);
+    //     let points_x = pcs_params.commit_hiding(points.xs.as_poly(), bf).unwrap();
+    //     points_x
+    // }
+    //
+    // pub fn commit_selector<C: CurveGroup<ScalarField=G::BaseField>>(
+    //     &self,
+    //     pcs_params: HidingIpa<C>,
+    // ) -> HidingIpa<C>::C {
+    //     let selector = self.select_part();
+    //     pcs_params.commit_hiding(selector.as_poly(), C::ScalarField::zero())?
+    // }
 }
 
 #[cfg(test)]

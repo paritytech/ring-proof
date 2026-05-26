@@ -75,12 +75,12 @@ impl<F: PrimeField, G: SWCurveConfig<BaseField = F>> PiopProver<F, SwAffine<G>> 
         let result = cond_add.result();
 
         let mut gadgets: Vec<Box<dyn ProverGadget<F>>> = Vec::new();
-        gadgets.push(Box::new(bits_bool));
         gadgets.push(Box::new(inner_prod));
-        gadgets.push(Box::new(inner_prod_vals));
         gadgets.push(Box::new(cond_add));
+        gadgets.push(Box::new(bits_bool));
         gadgets.push(Box::new(cond_add_vals_x));
         gadgets.push(Box::new(cond_add_vals_y));
+        gadgets.push(Box::new(inner_prod_vals));
 
         Self {
             domain,
@@ -110,10 +110,12 @@ impl<F: PrimeField, C: Commitment<F>, G: SWCurveConfig<BaseField = F>> ProverPio
         &self,
         commit: Fun,
     ) -> Self::Commitments {
+        let points_y = commit(self.points.ys.as_poly());
         let bits = commit(self.bits.as_poly());
         let cond_add_acc = [commit(&self.cond_add_acc_x), commit(&self.cond_add_acc_y)];
         let inn_prod_acc = commit(&self.inner_prod_acc);
         ProofComms {
+            points_y,
             bits,
             cond_add_acc,
             inn_prod_acc,
@@ -126,8 +128,8 @@ impl<F: PrimeField, C: Commitment<F>, G: SWCurveConfig<BaseField = F>> ProverPio
     fn columns(&self) -> Vec<DensePolynomial<F>> {
         vec![
             self.points.xs.as_poly().clone(),
-            self.points.ys.as_poly().clone(),
             self.select_part.as_poly().clone(),
+            self.points.ys.as_poly().clone(),
             self.bits.as_poly().clone(),
             self.inner_prod_acc.clone(),
             self.cond_add_acc_x.clone(),

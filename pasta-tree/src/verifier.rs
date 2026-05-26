@@ -1,5 +1,5 @@
 use crate::auth_path::blinded::BlindedAuthenticationPath;
-use crate::circuit::verifier::PiopVerifier;
+use crate::circuit2::verifier::PiopVerifier;
 use crate::{CurveTreeProof, CycleParams, CycleSideParams, CycleSideProof, IPACommitment};
 use ark_ec::short_weierstrass::{Affine, Projective, SWCurveConfig};
 use ark_ec::{CurveGroup, PrimeGroup};
@@ -54,26 +54,27 @@ impl<C: CurveGroup, G: SWCurveConfig<BaseField = C::ScalarField, ScalarField = C
         // let mut s = std::any::type_name::<C>();
         // s = &s[65..s.len()];
         // println!("\n\nverifier {s}\nchildren={children:?}\nparents={parents:?}\n");
+
         let plonk_verifier: PlonkVerifier<C::ScalarField, HidingIpa<C>, _> = PlonkVerifier::init(
             self.pcs_params.vk(),
             &(),
             ArkTranscript::new(b"pasta-tree-level-proof"),
         );
 
-        let n_polys = V::<C, G>::N_COLUMNS + 2;
+        let n_polys = V::<C, G>::N_COLUMNS + 2; // plus the quotient and the linearization polys
         let mut polys = Vec::with_capacity(side_proof.piop_proofs.len() * n_polys);
         let mut coords = Vec::with_capacity(side_proof.piop_proofs.len() * n_polys);
         let mut vals = Vec::with_capacity(side_proof.piop_proofs.len() * n_polys);
 
-        let h_powers = self.commit_h_powers();
+        let selector = self.commit_selector();
 
-        for ((selected_node, parent), piop_proof) in children
+        for ((result, x_parent), piop_proof) in children
             .into_iter()
             .zip(parents.into_iter())
             .zip(side_proof.piop_proofs.into_iter())
         {
             let (challenges, _rng) = plonk_verifier.restore_challenges(
-                &selected_node,
+                &result,
                 &piop_proof,
                 // '1' accounts for the quotient polynomial that is aggregated together with the columns
                 V::<C, G>::N_COLUMNS + 1,
@@ -81,12 +82,13 @@ impl<C: CurveGroup, G: SWCurveConfig<BaseField = C::ScalarField, ScalarField = C
             );
             let domain_at_zeta = self.piop_params.domain.evaluate(challenges.zeta);
             let piop = V::<C, G>::init(
-                selected_node,
-                WrappedAffine(parent),
                 domain_at_zeta,
-                h_powers.clone(),
+                WrappedAffine(x_parent),
+                selector.clone(),
                 piop_proof.column_commitments.clone(),
                 piop_proof.columns_at_zeta.clone(),
+                self.piop_params.seed,
+                result,
             );
             let PcsOpeningAt2Points {
                 open_at_zeta,
@@ -96,7 +98,12 @@ impl<C: CurveGroup, G: SWCurveConfig<BaseField = C::ScalarField, ScalarField = C
                 vals_at_zeta,
                 vals_at_zeta_omega,
             } = plonk_verifier.evaluate_piop(piop, piop_proof, challenges);
-            // println!("zeta = {zeta}, q(zeta) = {}", vals_at_zeta[vals_at_zeta.len() - 1]);
+
+            // println!(
+            //     "zeta = {zeta}, q(zeta) = {}",
+            //     vals_at_zeta[vals_at_zeta.len() - 1]
+            // );
+
             coords.extend(vec![vec![zeta]; open_at_zeta.len()]);
             polys.extend(open_at_zeta);
             coords.extend(vec![vec![zeta_omega]; open_at_zeta_omega.len()]);

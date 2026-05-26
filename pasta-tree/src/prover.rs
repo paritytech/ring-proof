@@ -1,7 +1,7 @@
 use crate::auth_path::blinded::BlindedAuthenticationPath;
 use crate::auth_path::node::LevelWitnessWithBlinding;
 use crate::auth_path::path::AuthenticationPath;
-use crate::circuit::prover::PiopProver;
+use crate::circuit2::prover::PiopProver;
 use crate::verifier::V;
 use crate::{Coeffs, CurveTreeProof, CycleParams, CycleSideParams, CycleSideProof, IPACommitment};
 use ark_ec::CurveGroup;
@@ -57,8 +57,9 @@ impl<C: CurveGroup, G: SWCurveConfig<BaseField = C::ScalarField, ScalarField = C
         // let mut s = std::any::type_name::<C>();
         // s = &s[70..s.len()];
         // println!("\n\nprover {s}\nchildren={blinded_path:?}\n");
+
         debug_assert_eq!(blinded_path.len(), witness.len());
-        let n_polys = V::<C, G>::N_COLUMNS + 2;
+        let n_polys = V::<C, G>::N_COLUMNS + 2; // plus the quotient and the linearization polys
         let mut piop_proofs = Vec::with_capacity(witness.len());
         let mut polys = Vec::with_capacity(witness.len() * n_polys);
         let mut coords = Vec::with_capacity(witness.len() * n_polys);
@@ -85,7 +86,13 @@ impl<C: CurveGroup, G: SWCurveConfig<BaseField = C::ScalarField, ScalarField = C
                 zeta,
                 zeta_omega,
             } = pcs_openings;
-            // println!("zeta = {zeta}, q(zeta) = {}", polys_at_zeta[polys_at_zeta.len() - 1].evaluate(&zeta));
+
+            // use ark_poly::Polynomial;
+            // println!(
+            //     "zeta = {zeta}, q(zeta) = {}",
+            //     polys_at_zeta[polys_at_zeta.len() - 1].evaluate(&zeta)
+            // );
+
             coords.extend(vec![BTreeSet::from([zeta]); polys_at_zeta.len()]);
             polys.extend(polys_at_zeta);
             coords.extend(vec![

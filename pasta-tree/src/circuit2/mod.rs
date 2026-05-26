@@ -11,6 +11,7 @@ pub mod verifier;
 
 #[derive(Clone, Debug, CanonicalSerialize, CanonicalDeserialize)]
 pub struct ProofComms<F: PrimeField, C: Commitment<F>> {
+    pub(crate) points_y: C,
     pub(crate) bits: C,
     pub(crate) inn_prod_acc: C,
     pub(crate) cond_add_acc: [C; 2],
@@ -20,6 +21,7 @@ pub struct ProofComms<F: PrimeField, C: Commitment<F>> {
 impl<F: PrimeField, C: Commitment<F>> ColumnsCommited<F, C> for ProofComms<F, C> {
     fn to_vec(self) -> Vec<C> {
         vec![
+            self.points_y,
             self.bits,
             self.inn_prod_acc,
             self.cond_add_acc[0].clone(),
@@ -41,8 +43,8 @@ impl<F: PrimeField> ColumnsEvaluated<F> for ProofEvals<F> {
     fn to_vec(self) -> Vec<F> {
         vec![
             self.points[0],
-            self.points[1],
             self.ring_selector,
+            self.points[1],
             self.bits,
             self.inn_prod_acc,
             self.cond_add_acc[0],

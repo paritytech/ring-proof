@@ -71,7 +71,8 @@ impl<G: AffineRepr> LevelWitness<G> {
     where
         G::BaseField: PrimeField,
     {
-        params.commit_x_coords(self.x_coords(), bf).map(|c| c.0)
+        // params.commit_x_coords(self.x_coords(), bf).map(|c| c.0)
+        params.commit_nodes(self.siblings.clone(), bf).map(|c| c.0)
     }
 }
 

@@ -1,7 +1,8 @@
-use crate::circuit::params::PiopParams;
-use crate::circuit::{ProofComms, ProofEvals};
+use crate::circuit2::params::PiopParams;
+use crate::circuit2::{ProofComms, ProofEvals};
 use ark_ec::{AffineRepr, CurveGroup, PrimeGroup};
 use ark_ff::{PrimeField, Zero};
+use ark_std::UniformRand;
 use ark_std::rand::Rng;
 use w3f_pcs::aggregation::multiple::ShplonkTranscript;
 use w3f_pcs::pcs::PCS;
@@ -12,7 +13,7 @@ use w3f_plonk_common::PiopProof;
 use w3f_plonk_common::domain::Domain;
 
 pub mod auth_path;
-pub mod circuit;
+// pub mod circuit;
 pub mod circuit2;
 // pub mod level;
 pub mod prover;
@@ -64,9 +65,9 @@ where
         let c0_pcs_params = HidingIpa::<C0>::setup(setup_degree, rng);
         let c1_pcs_params = HidingIpa::<C1>::setup(setup_degree, rng);
         let c0_domain = Domain::<C0::ScalarField>::new(domain_size, true);
-        let c0_piop_params = PiopParams::setup(c0_domain, c1_pcs_params.h);
+        let c0_piop_params = PiopParams::setup(c0_domain, c1_pcs_params.h, C1::Affine::rand(rng));
         let c1_domain = Domain::<C1::ScalarField>::new(domain_size, true);
-        let c1_piop_params = PiopParams::setup(c1_domain, c0_pcs_params.h);
+        let c1_piop_params = PiopParams::setup(c1_domain, c0_pcs_params.h, C0::Affine::rand(rng));
         Self {
             c0_params: CycleSideParams {
                 pcs_params: c0_pcs_params,
@@ -81,27 +82,40 @@ where
 }
 
 impl<C: CurveGroup, G: AffineRepr<BaseField = C::ScalarField>> CycleSideParams<C, G> {
-    pub fn commit_x_coords(
-        &self,
-        children_x_coords: Vec<C::ScalarField>,
-        bf: C::ScalarField,
-    ) -> Result<WrappedAffine<C>, ()> {
-        let x_coords = self.piop_params.x_coords_column(children_x_coords);
-        Ok(self.pcs_params.commit_hiding(x_coords.as_poly(), bf)?)
+    pub fn commit_nodes(&self, nodes: Vec<G>, bf: C::ScalarField) -> Result<WrappedAffine<C>, ()> {
+        let points = self.piop_params.points_column(nodes);
+        let points_x = self.pcs_params.commit_hiding(points.xs.as_poly(), bf);
+        points_x
     }
 
-    pub fn commit_h_powers(&self) -> [IPACommitment<C>; 2] {
-        let h_powers = self.piop_params.h_powers_column();
-        let h_powers = [
-            self.pcs_params
-                .commit_hiding(h_powers.xs.as_poly(), C::ScalarField::zero())
-                .unwrap(),
-            self.pcs_params
-                .commit_hiding(h_powers.ys.as_poly(), C::ScalarField::zero())
-                .unwrap(),
-        ];
-        h_powers
+    pub fn commit_selector(&self) -> WrappedAffine<C> {
+        let selector = self.piop_params.select_part();
+        self.pcs_params
+            .commit_hiding(selector.as_poly(), C::ScalarField::zero())
+            .unwrap()
     }
+
+    // pub fn commit_x_coords(
+    //     &self,
+    //     children_x_coords: Vec<C::ScalarField>,
+    //     bf: C::ScalarField,
+    // ) -> Result<WrappedAffine<C>, ()> {
+    //     let x_coords = self.piop_params.x_coords_column(children_x_coords);
+    //     Ok(self.pcs_params.commit_hiding(x_coords.as_poly(), bf)?)
+    // }
+
+    // pub fn commit_h_powers(&self) -> [IPACommitment<C>; 2] {
+    //     let h_powers = self.piop_params.h_powers_column();
+    //     let h_powers = [
+    //         self.pcs_params
+    //             .commit_hiding(h_powers.xs.as_poly(), C::ScalarField::zero())
+    //             .unwrap(),
+    //         self.pcs_params
+    //             .commit_hiding(h_powers.ys.as_poly(), C::ScalarField::zero())
+    //             .unwrap(),
+    //     ];
+    //     h_powers
+    // }
 }
 
 #[derive(Debug, PartialEq)]
@@ -254,7 +268,7 @@ mod tests {
     // cargo test test_curve_tree_proof --release --features="print-trace parallel" -- --show-output
     #[test]
     fn test_curve_tree_proof() {
-        _test_proof::<_, _, PallasConfig, VestaConfig>(8, 4);
+        _test_proof::<_, _, PallasConfig, VestaConfig>(9, 4);
     }
 
     fn _bench_msm<C: CurveGroup>(log_n: u32) {

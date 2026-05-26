@@ -1,4 +1,5 @@
 use ark_ec::AffineRepr;
+use ark_ec::CurveGroup;
 use ark_ec::short_weierstrass::{Affine as SwAffine, SWCurveConfig};
 use ark_ff::PrimeField;
 use ark_std::marker::PhantomData;
@@ -18,7 +19,6 @@ pub struct PiopVerifier<F: PrimeField, C: Commitment<F>, G: AffineRepr<BaseField
     domain_evals: EvaluatedDomain<F>,
 
     points_x: C,
-    points_y: C,
     select_part: C,
     witness_cols: ProofComms<F, C>,
 
@@ -35,7 +35,6 @@ impl<F: PrimeField, C: Commitment<F>, G: AffineRepr<BaseField = F>> PiopVerifier
     pub fn init(
         domain_evals: EvaluatedDomain<F>,
         points_x: C,
-        points_y: C,
         select_part: C,
         witness_cols: ProofComms<F, C>,
         evals: ProofEvals<F>,
@@ -60,12 +59,12 @@ impl<F: PrimeField, C: Commitment<F>, G: AffineRepr<BaseField = F>> PiopVerifier
         let booleanity = BooleanityValues { bits: evals.bits };
 
         let (seed_x, seed_y) = seed.xy().unwrap();
-        let (result_x, result_y) = result.xy().unwrap();
+        let (res_x, res_y) = (seed + result).into_affine().xy().unwrap();
 
         let cond_add_acc_x = FixedCellsValues {
             col: evals.cond_add_acc[0],
             col_first: seed_x,
-            col_last: result_x,
+            col_last: res_x,
             l_first: domain_evals.l_first,
             l_last: domain_evals.l_last,
         };
@@ -73,7 +72,7 @@ impl<F: PrimeField, C: Commitment<F>, G: AffineRepr<BaseField = F>> PiopVerifier
         let cond_add_acc_y = FixedCellsValues {
             col: evals.cond_add_acc[1],
             col_first: seed_y,
-            col_last: result_y,
+            col_last: res_y,
             l_first: domain_evals.l_first,
             l_last: domain_evals.l_last,
         };
@@ -89,7 +88,6 @@ impl<F: PrimeField, C: Commitment<F>, G: AffineRepr<BaseField = F>> PiopVerifier
         Self {
             domain_evals,
             points_x,
-            points_y,
             select_part,
             witness_cols,
             booleanity,
@@ -109,11 +107,7 @@ impl<F: PrimeField, C: Commitment<F>, G: SWCurveConfig<BaseField = F>> VerifierP
     const N_COLUMNS: usize = 7;
 
     fn precommitted_columns(&self) -> Vec<C> {
-        vec![
-            self.points_x.clone(),
-            self.points_y.clone(),
-            self.select_part.clone(),
-        ]
+        vec![self.points_x.clone(), self.select_part.clone()]
     }
 
     fn evaluate_constraints_main(&self) -> Vec<F> {
