@@ -134,7 +134,9 @@ impl<F: PrimeField, C: Commitment<F>, G: SWCurveConfig<BaseField = F>> VerifierP
                 F::zero(),
             )],
             self.seed_eq_node.evaluate_constraints_main(),
-            vec![AffineColumn::<F, SwAffine<G>>::on_curve_eval(self.blinded_node.acc)],
+            vec![AffineColumn::<F, SwAffine<G>>::on_curve_eval(
+                self.blinded_node.acc,
+            )],
         ]
         .concat()
     }
