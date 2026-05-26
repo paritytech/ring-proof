@@ -25,7 +25,7 @@ impl<F: FftField> Domains<F> {
         Self { x1, x4 }
     }
 
-    fn column_from_evals(&self, padded_evals: Vec<F>, payload_len: usize) -> FieldColumn<F> {
+    pub fn column_from_evals(&self, padded_evals: Vec<F>, payload_len: usize) -> FieldColumn<F> {
         debug_assert_eq!(padded_evals.len(), self.x1.size());
         let evals = Evaluations::from_vec_and_domain(padded_evals, self.x1);
         let poly = evals.interpolate_by_ref();

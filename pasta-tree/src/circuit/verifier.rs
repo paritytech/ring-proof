@@ -98,7 +98,7 @@ impl<F: PrimeField, C: Commitment<F>, G: AffineRepr<BaseField = F>> PiopVerifier
 impl<F: PrimeField, C: Commitment<F>, G: SWCurveConfig<BaseField = F>> VerifierPiop<F, C>
     for PiopVerifier<F, C, SwAffine<G>>
 {
-    const N_CONSTRAINTS: usize = 12;
+    const N_CONSTRAINTS: usize = 13;
     const N_COLUMNS: usize = 9;
 
     fn precommitted_columns(&self) -> Vec<C> {
@@ -136,6 +136,11 @@ impl<F: PrimeField, C: Commitment<F>, G: SWCurveConfig<BaseField = F>> VerifierP
             self.seed_eq_node.evaluate_constraints_main(),
             vec![AffineColumn::<F, SwAffine<G>>::on_curve_eval(
                 self.blinded_node.acc,
+            )],
+            vec![FixedCellsValues::evaluate_for_cell(
+                self.selected_node.a,
+                self.domain_evals.l_last,
+                F::one(),
             )],
         ]
         .concat()

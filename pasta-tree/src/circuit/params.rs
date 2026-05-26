@@ -1,4 +1,5 @@
 use ark_ec::{AffineRepr, CurveGroup};
+use ark_ff::One;
 use ark_ff::{AdditiveGroup, BigInteger, PrimeField, Zero};
 use ark_std::{vec, vec::Vec};
 
@@ -36,8 +37,9 @@ impl<G: AffineRepr<BaseField: PrimeField>> PiopParams<G> {
         let c = self.children_capacity();
         assert!(x_coords.len() <= c);
         let mut x_coords = x_coords;
-        x_coords.resize(c, G::BaseField::zero()); // the last `(zk_rows + 1)` cells will be padded by the iFFT
-        self.domain.public_column(x_coords)
+        x_coords.resize(self.domain.domain_size(), G::BaseField::zero());
+        x_coords[c] = G::BaseField::one();
+        self.domain.domains.column_from_evals(x_coords, c)
     }
 
     pub fn h_powers_column(&self) -> AffineColumn<G::BaseField, G> {
@@ -60,7 +62,7 @@ impl<G: AffineRepr<BaseField: PrimeField>> PiopParams<G> {
         BitColumn::init(bf_bits, &self.domain)
     }
 
-    pub fn power_of_2_multiples_of_h(&self) -> Vec<G> {
+    fn power_of_2_multiples_of_h(&self) -> Vec<G> {
         let mut h = self.h.into_group();
         let mut multiples = Vec::with_capacity(self.scalar_bitlen);
         multiples.push(h);
@@ -71,7 +73,7 @@ impl<G: AffineRepr<BaseField: PrimeField>> PiopParams<G> {
         CurveGroup::normalize_batch(&multiples)
     }
 
-    pub fn scalar_part(&self, e: G::ScalarField) -> Vec<bool> {
+    fn scalar_part(&self, e: G::ScalarField) -> Vec<bool> {
         let bits_with_trailing_zeroes = e.into_bigint().to_bits_le();
         let significant_bits = &bits_with_trailing_zeroes[..self.scalar_bitlen];
         significant_bits.to_vec()
