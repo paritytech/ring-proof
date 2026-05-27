@@ -202,7 +202,7 @@ mod tests {
 
         let piop_params = PiopParams::setup(domain, h, seed);
         let witness =
-            random_witness(piop_params.max_nodes(), node, rng).with_blinding(bf, Fq::zero());
+            random_witness(piop_params.max_nodes, node, rng).with_blinding(bf, Fq::zero());
         let piop = PiopProver::build(&piop_params, witness);
 
         assert!(ProverPiop::<_, IPACommitment<G1Projective>>::constraints_satisfied(&piop));

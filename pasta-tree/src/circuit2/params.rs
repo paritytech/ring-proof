@@ -8,13 +8,14 @@ use w3f_plonk_common::gadgets::booleanity::BitColumn;
 use w3f_plonk_common::gadgets::ec::AffineColumn;
 
 /// Plonk Interactive Oracle Proofs (PIOP) parameters.
+/// `max_nodes + blinding_bits = domain.capacity - 1`
 #[derive(Clone)]
 pub struct PiopParams<G: AffineRepr<BaseField: PrimeField>> {
     /// Domain over which the piop is represented.
     pub domain: Domain<G::BaseField>,
-    pub select_size: usize,
-    /// Number of bits used to represent a scalar.
-    pub rerand_size: usize,
+    pub max_nodes: usize,
+    /// Number of bits used to represent a blinding factor.
+    pub blinding_bits: usize,
     pub seed: G,
     /// Blinding base point.
     pub h: G,
@@ -25,38 +26,74 @@ impl<G: AffineRepr<BaseField: PrimeField>> PiopParams<G> {
         assert!(domain.domain_size() > 256);
         let actual_capacity = domain.capacity - 1;
         let scalar_size = Domain::<G::BaseField>::new(256, domain.is_hiding()).capacity - 1;
-        let rerand_size = ark_std::cmp::min(G::ScalarField::MODULUS_BIT_SIZE as usize, scalar_size);
-        let select_size = actual_capacity - rerand_size;
+        let blinding_bits =
+            ark_std::cmp::min(G::ScalarField::MODULUS_BIT_SIZE as usize, scalar_size);
+        let max_nodes = actual_capacity - blinding_bits;
         Self {
             domain,
-            select_size,
-            rerand_size,
+            max_nodes,
+            blinding_bits,
             seed,
             h,
         }
     }
 
-    pub fn max_nodes(&self) -> usize {
-        self.select_size
+    pub fn commit_x_coords(&self, siblings_x_coords: Vec<G::BaseField>) -> FieldColumn<G::BaseField> {
+        assert!(siblings_x_coords.len() <= self.max_nodes);
+        let mut x_coords = siblings_x_coords;
+        // padding
+        x_coords.resize(self.max_nodes, G::BaseField::zero());
+        // `powers_of_h` x-coords
+        let powers_of_h = self.power_of_h();
+        assert_eq!(powers_of_h.len(), self.blinding_bits);
+        let powers_of_h_xs = powers_of_h.into_iter().filter_map(|p| p.x());
+        x_coords.extend(powers_of_h_xs);
+        let payload_len = self.domain.capacity - 1;
+        assert_eq!(x_coords.len(), payload_len);
+        // x_coords.push(G::BaseField::one());
+        // assert_eq!(x_coords.len(), self.domain.capacity);
+
+        // zk_rows
+        x_coords.resize(self.domain.domain_size(), G::BaseField::zero());
+        self.domain
+            .domains
+            .column_from_evals(x_coords, payload_len)
     }
 
-    pub fn points_column(&self, nodes: Vec<G>) -> AffineColumn<G::BaseField, G> {
-        assert!(nodes.len() <= self.select_size);
-        let mut points = nodes;
-        // let zero = SwAffine::<G>::new_unchecked(G::BaseField::ZERO, G::BaseField::ZERO);
-        let zero = G::ZERO;
-        points.resize(self.select_size, zero);
-        let powers_of_h = self.power_of_h();
-        assert_eq!(powers_of_h.len(), self.rerand_size);
-        points.extend(powers_of_h);
-        // let flag = SwAffine::<G>::new_unchecked(G::BaseField::ONE, G::BaseField::ZERO);
-        // points.push(flag);
+    pub fn x_coords_from_points(&self, child_nodes: Vec<G>) -> FieldColumn<G::BaseField> {
+        let points = self.siblings_with_blinding(child_nodes);
+        let (mut x_coords, mut y_coords): (Vec<G::BaseField>, Vec<G::BaseField>) =
+            points.iter().map(|p| p.xy().unwrap()).unzip();
+        let payload_len = self.domain.capacity - 1;
+        assert_eq!(x_coords.len(), payload_len);
+        // x_coords.push(G::BaseField::one());
+        // assert_eq!(x_coords.len(), self.domain.capacity);
+
+        // zk_rows
+        x_coords.resize(self.domain.domain_size(), G::BaseField::zero());
+        y_coords.resize(self.domain.domain_size(), G::BaseField::zero());
+        self.domain
+            .domains
+            .column_from_evals(x_coords, payload_len)
+    }
+
+    pub fn points_column(&self, child_nodes: Vec<G>) -> AffineColumn<G::BaseField, G> {
+        let points = self.siblings_with_blinding(child_nodes);
+        assert_eq!(points.len(), self.domain.capacity - 1);
         AffineColumn::public_column(points, &self.domain)
     }
 
+    fn siblings_with_blinding(&self, siblings: Vec<G>) -> Vec<G> {
+        assert!(siblings.len() <= self.max_nodes);
+        let mut points = siblings;
+        points.resize(self.max_nodes, G::ZERO); // padding
+        points.extend(self.power_of_h()); // powers of `H`
+        points
+    }
+
     pub fn bits_column(&self, node_index: usize, bf: G::ScalarField) -> BitColumn<G::BaseField> {
-        let mut bits = vec![false; self.select_size];
-        assert!(node_index < self.select_size); // allows to select a padding node
+        let mut bits = vec![false; self.max_nodes];
+        assert!(node_index < self.max_nodes); // allows to select a padding node
         bits[node_index] = true;
         bits.extend(self.scalar_part(bf));
         BitColumn::init(bits, &self.domain)
@@ -64,8 +101,8 @@ impl<G: AffineRepr<BaseField: PrimeField>> PiopParams<G> {
 
     pub fn select_part(&self) -> FieldColumn<G::BaseField> {
         let selector = [
-            vec![G::BaseField::one(); self.select_size],
-            vec![G::BaseField::zero(); self.rerand_size],
+            vec![G::BaseField::one(); self.max_nodes],
+            vec![G::BaseField::zero(); self.blinding_bits],
         ]
         .concat();
         self.domain.public_column(selector)
@@ -73,9 +110,9 @@ impl<G: AffineRepr<BaseField: PrimeField>> PiopParams<G> {
 
     fn power_of_h(&self) -> Vec<G> {
         let mut h = self.h.into_group();
-        let mut res = Vec::with_capacity(self.rerand_size);
+        let mut res = Vec::with_capacity(self.blinding_bits);
         res.push(h);
-        for _ in 1..self.rerand_size {
+        for _ in 1..self.blinding_bits {
             h.double_in_place();
             res.push(h);
         }
@@ -84,7 +121,7 @@ impl<G: AffineRepr<BaseField: PrimeField>> PiopParams<G> {
 
     fn scalar_part(&self, e: G::ScalarField) -> Vec<bool> {
         let bits_with_trailing_zeroes = e.into_bigint().to_bits_le();
-        let significant_bits = &bits_with_trailing_zeroes[..self.rerand_size];
+        let significant_bits = &bits_with_trailing_zeroes[..self.blinding_bits];
         significant_bits.to_vec()
     }
 

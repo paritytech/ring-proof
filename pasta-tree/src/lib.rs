@@ -82,10 +82,14 @@ where
 }
 
 impl<C: CurveGroup, G: AffineRepr<BaseField = C::ScalarField>> CycleSideParams<C, G> {
-    pub fn commit_nodes(&self, nodes: Vec<G>, bf: C::ScalarField) -> Result<WrappedAffine<C>, ()> {
-        let points = self.piop_params.points_column(nodes);
-        let points_x = self.pcs_params.commit_hiding(points.xs.as_poly(), bf);
-        points_x
+    pub fn commit_x_coords(
+        &self,
+        child_x_coords: Vec<G::BaseField>,
+        bf: C::ScalarField,
+    ) -> Result<WrappedAffine<C>, ()> {
+        let x_coords = self.piop_params.commit_x_coords(child_x_coords);
+        let x_parent = self.pcs_params.commit_hiding(x_coords.as_poly(), bf);
+        x_parent
     }
 
     pub fn commit_selector(&self) -> WrappedAffine<C> {
@@ -185,7 +189,7 @@ mod tests {
         path_node: G,
         rng: &mut R,
     ) -> (C::Affine, LevelWitness<G>) {
-        let level_witness = random_witness(params.piop_params.max_nodes(), path_node, rng);
+        let level_witness = random_witness(params.piop_params.max_nodes, path_node, rng);
         let parent = level_witness.compute_parent(params).unwrap();
         (parent, level_witness)
     }
@@ -248,12 +252,12 @@ mod tests {
             _ => panic!(),
         };
 
-        let capacity = params.c0_params.piop_params.max_nodes();
+        let max_nodes = params.c0_params.piop_params.max_nodes;
         let t_prove = start_timer!(|| format!(
             "Proving CurveTree membership, H={height}, M={}, C={}, C^{height}={}",
             domain_size,
-            capacity,
-            capacity.pow(height as u32)
+            max_nodes,
+            max_nodes.pow(height as u32)
         ));
         let (auth_path, proof) = params.prove(path, rng);
         end_timer!(t_prove);
