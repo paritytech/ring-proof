@@ -72,7 +72,7 @@ impl<C: CurveGroup, G: SWCurveConfig<BaseField = C::ScalarField, ScalarField = C
         );
 
         for (level, blinded_node) in witness.into_iter().zip(blinded_path.into_iter()) {
-            let piop = PiopProver::build(&self.piop_params, level.clone());
+            let piop = self.piop_params.prover_piop(level.clone());
             let blinded_node_ = <PiopProver<C::ScalarField, Affine<G>> as ProverPiop<
                 C::ScalarField,
                 IPACommitment<C>,

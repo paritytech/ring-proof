@@ -3,7 +3,7 @@ use crate::circuit2::params::PiopParams;
 use crate::circuit2::{ProofComms, ProofEvals};
 use ark_ec::AffineRepr;
 use ark_ec::short_weierstrass::{Affine as SwAffine, SWCurveConfig};
-use ark_ff::PrimeField;
+use ark_ff::{One, PrimeField, Zero};
 use ark_poly::Evaluations;
 use ark_poly::Polynomial;
 use ark_poly::univariate::DensePolynomial;
@@ -50,7 +50,7 @@ pub struct PiopProver<F: PrimeField, G: AffineRepr<BaseField = F>> {
     result: G,
 }
 
-impl<F: PrimeField, G: SWCurveConfig<BaseField = F>> PiopProver<F, SwAffine<G>> {
+impl<G: SWCurveConfig<BaseField: PrimeField>> PiopProver<G::BaseField, SwAffine<G>> {
     pub fn build(
         params: &PiopParams<SwAffine<G>>,
         level: LevelWitnessWithBlinding<SwAffine<G>>,
@@ -61,8 +61,12 @@ impl<F: PrimeField, G: SWCurveConfig<BaseField = F>> PiopProver<F, SwAffine<G>> 
         let bits_bool = Booleanity::init(bits.clone());
         let select_part = params.select_part();
         let inner_prod = InnerProd::init(select_part.clone(), bits.col.clone(), &domain);
-        let inner_prod_vals =
-            FixedCells::init(inner_prod.acc.clone(), &domain, F::zero(), F::one());
+        let inner_prod_vals = FixedCells::init(
+            inner_prod.acc.clone(),
+            &domain,
+            G::BaseField::zero(),
+            G::BaseField::one(),
+        );
         let cond_add = CondAdd::init(bits.clone(), points.clone(), params.seed, &domain);
         let (seed_x, seed_y) = params.seed.xy().unwrap();
         let (result_x, result_y) = cond_add.seed_plus_sum().xy().unwrap();
@@ -74,7 +78,7 @@ impl<F: PrimeField, G: SWCurveConfig<BaseField = F>> PiopProver<F, SwAffine<G>> 
         let cond_add_acc_y = cond_add.acc.ys.as_poly().clone();
         let result = cond_add.result();
 
-        let mut gadgets: Vec<Box<dyn ProverGadget<F>>> = Vec::new();
+        let mut gadgets: Vec<Box<dyn ProverGadget<G::BaseField>>> = Vec::new();
         gadgets.push(Box::new(inner_prod));
         gadgets.push(Box::new(cond_add));
         gadgets.push(Box::new(bits_bool));

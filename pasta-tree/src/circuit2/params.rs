@@ -1,7 +1,13 @@
+use crate::LevelProof;
+use crate::auth_path::node::LevelWitnessWithBlinding;
+use crate::circuit2::prover::PiopProver;
+use crate::circuit2::verifier::PiopVerifier;
+use ark_ec::short_weierstrass::{Affine as SwAffine, SWCurveConfig};
 use ark_ec::{AffineRepr, CurveGroup};
 use ark_ff::One;
 use ark_ff::{AdditiveGroup, BigInteger, PrimeField, Zero};
 use ark_std::{vec, vec::Vec};
+use w3f_pcs::pcs::commitment::WrappedAffine;
 use w3f_plonk_common::FieldColumn;
 use w3f_plonk_common::domain::Domain;
 use w3f_plonk_common::gadgets::booleanity::BitColumn;
@@ -21,6 +27,43 @@ pub struct PiopParams<G: AffineRepr<BaseField: PrimeField>> {
     pub h: G,
 }
 
+impl<G: SWCurveConfig<BaseField: PrimeField>> PiopParams<SwAffine<G>> {
+    pub fn prover_piop(
+        &self,
+        level: LevelWitnessWithBlinding<SwAffine<G>>,
+    ) -> PiopProver<G::BaseField, SwAffine<G>> {
+        PiopProver::build(&self, level)
+    }
+
+    pub fn verifier_piop<C: CurveGroup<ScalarField = G::BaseField>>(
+        &self,
+        // re-randomized child
+        child: SwAffine<G>,
+        // re-randomized parent
+        parent: C::Affine,
+        selector: C::Affine,
+        proof: LevelProof<C>,
+        zeta: C::ScalarField,
+    ) -> PiopVerifier<G::BaseField, WrappedAffine<C>, SwAffine<G>> {
+        let domain_at_zeta = self.domain.evaluate(zeta);
+        PiopVerifier::init(
+            domain_at_zeta,
+            WrappedAffine(parent),
+            WrappedAffine(selector),
+            proof.column_commitments.clone(),
+            proof.columns_at_zeta.clone(),
+            self.seed,
+            child,
+        )
+    }
+
+    // use crate::circuit::prover::PiopProver as PiopProver2;
+    // pub fn prover2(&self, level: LevelWitnessWithBlinding<SwAffine<G>>) -> PiopProver2<G::BaseField, SwAffine<G>> {
+    //     let piop = PiopProver2::build(&self, level);
+    //     piop
+    // }
+}
+
 impl<G: AffineRepr<BaseField: PrimeField>> PiopParams<G> {
     pub fn setup(domain: Domain<G::BaseField>, h: G, seed: G) -> Self {
         assert!(domain.domain_size() > 256);
@@ -38,7 +81,10 @@ impl<G: AffineRepr<BaseField: PrimeField>> PiopParams<G> {
         }
     }
 
-    pub fn commit_x_coords(&self, siblings_x_coords: Vec<G::BaseField>) -> FieldColumn<G::BaseField> {
+    pub fn commit_x_coords(
+        &self,
+        siblings_x_coords: Vec<G::BaseField>,
+    ) -> FieldColumn<G::BaseField> {
         assert!(siblings_x_coords.len() <= self.max_nodes);
         let mut x_coords = siblings_x_coords;
         // padding
@@ -55,9 +101,7 @@ impl<G: AffineRepr<BaseField: PrimeField>> PiopParams<G> {
 
         // zk_rows
         x_coords.resize(self.domain.domain_size(), G::BaseField::zero());
-        self.domain
-            .domains
-            .column_from_evals(x_coords, payload_len)
+        self.domain.domains.column_from_evals(x_coords, payload_len)
     }
 
     pub fn x_coords_from_points(&self, child_nodes: Vec<G>) -> FieldColumn<G::BaseField> {
@@ -72,9 +116,7 @@ impl<G: AffineRepr<BaseField: PrimeField>> PiopParams<G> {
         // zk_rows
         x_coords.resize(self.domain.domain_size(), G::BaseField::zero());
         y_coords.resize(self.domain.domain_size(), G::BaseField::zero());
-        self.domain
-            .domains
-            .column_from_evals(x_coords, payload_len)
+        self.domain.domains.column_from_evals(x_coords, payload_len)
     }
 
     pub fn points_column(&self, child_nodes: Vec<G>) -> AffineColumn<G::BaseField, G> {
@@ -124,25 +166,6 @@ impl<G: AffineRepr<BaseField: PrimeField>> PiopParams<G> {
         let significant_bits = &bits_with_trailing_zeroes[..self.blinding_bits];
         significant_bits.to_vec()
     }
-
-    // pub fn commit_nodes<C: CurveGroup<ScalarField=G::BaseField>>(
-    //     &self,
-    //     pcs_params: HidingIpa<C>,
-    //     nodes: Vec<SwAffine<G>>,
-    //     bf: C::ScalarField,
-    // ) -> WrappedAffine<C> {
-    //     let points = self.points_column(nodes);
-    //     let points_x = pcs_params.commit_hiding(points.xs.as_poly(), bf).unwrap();
-    //     points_x
-    // }
-    //
-    // pub fn commit_selector<C: CurveGroup<ScalarField=G::BaseField>>(
-    //     &self,
-    //     pcs_params: HidingIpa<C>,
-    // ) -> HidingIpa<C>::C {
-    //     let selector = self.select_part();
-    //     pcs_params.commit_hiding(selector.as_poly(), C::ScalarField::zero())?
-    // }
 }
 
 #[cfg(test)]

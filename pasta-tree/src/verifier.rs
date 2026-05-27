@@ -5,7 +5,6 @@ use ark_ec::short_weierstrass::{Affine, Projective, SWCurveConfig};
 use ark_ec::{CurveGroup, PrimeGroup};
 use ark_ff::PrimeField;
 use w3f_pcs::pcs::PcsParams;
-use w3f_pcs::pcs::commitment::WrappedAffine;
 use w3f_pcs::pcs::ipa::hiding::HidingIpa;
 use w3f_pcs::shplonk::Shplonk;
 use w3f_plonk_common::piop::VerifierPiop;
@@ -68,27 +67,24 @@ impl<C: CurveGroup, G: SWCurveConfig<BaseField = C::ScalarField, ScalarField = C
 
         let selector = self.commit_selector();
 
-        for ((result, x_parent), piop_proof) in children
+        for ((child, parent), level_proof) in children
             .into_iter()
             .zip(parents.into_iter())
             .zip(side_proof.piop_proofs.into_iter())
         {
             let (challenges, _rng) = plonk_verifier.restore_challenges(
-                &result,
-                &piop_proof,
+                &child,
+                &level_proof,
                 // '1' accounts for the quotient polynomial that is aggregated together with the columns
                 V::<C, G>::N_COLUMNS + 1,
                 V::<C, G>::N_CONSTRAINTS,
             );
-            let domain_at_zeta = self.piop_params.domain.evaluate(challenges.zeta);
-            let piop = V::<C, G>::init(
-                domain_at_zeta,
-                WrappedAffine(x_parent),
-                selector.clone(),
-                piop_proof.column_commitments.clone(),
-                piop_proof.columns_at_zeta.clone(),
-                self.piop_params.seed,
-                result,
+            let piop = self.piop_params.verifier_piop(
+                child,
+                parent,
+                selector.0,
+                level_proof.clone(),
+                challenges.zeta,
             );
             let PcsOpeningAt2Points {
                 open_at_zeta,
@@ -97,7 +93,7 @@ impl<C: CurveGroup, G: SWCurveConfig<BaseField = C::ScalarField, ScalarField = C
                 zeta_omega,
                 vals_at_zeta,
                 vals_at_zeta_omega,
-            } = plonk_verifier.evaluate_piop(piop, piop_proof, challenges);
+            } = plonk_verifier.evaluate_piop(piop, level_proof, challenges);
 
             // println!(
             //     "zeta = {zeta}, q(zeta) = {}",

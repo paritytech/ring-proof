@@ -34,10 +34,16 @@ pub struct CycleParams<
     c1_params: CycleSideParams<C1, C0::Affine>,
 }
 
+pub type LevelProof<C> = PiopProof<
+    <C as PrimeGroup>::ScalarField,
+    WrappedAffine<C>,
+    ProofComms<<C as PrimeGroup>::ScalarField, WrappedAffine<C>>,
+    ProofEvals<<C as PrimeGroup>::ScalarField>,
+>;
+
 #[derive(Clone)]
 pub struct CycleSideProof<F: PrimeField, C: CurveGroup<ScalarField = F>> {
-    piop_proofs:
-        Vec<PiopProof<F, WrappedAffine<C>, ProofComms<F, WrappedAffine<C>>, ProofEvals<F>>>,
+    piop_proofs: Vec<LevelProof<C>>,
     pcs_proof: AggregateProof<F, HidingIpa<C>>,
     todo: Coeffs<F>,
 }
@@ -98,15 +104,6 @@ impl<C: CurveGroup, G: AffineRepr<BaseField = C::ScalarField>> CycleSideParams<C
             .commit_hiding(selector.as_poly(), C::ScalarField::zero())
             .unwrap()
     }
-
-    // pub fn commit_x_coords(
-    //     &self,
-    //     children_x_coords: Vec<C::ScalarField>,
-    //     bf: C::ScalarField,
-    // ) -> Result<WrappedAffine<C>, ()> {
-    //     let x_coords = self.piop_params.x_coords_column(children_x_coords);
-    //     Ok(self.pcs_params.commit_hiding(x_coords.as_poly(), bf)?)
-    // }
 
     // pub fn commit_h_powers(&self) -> [IPACommitment<C>; 2] {
     //     let h_powers = self.piop_params.h_powers_column();
@@ -254,15 +251,13 @@ mod tests {
 
         let max_nodes = params.c0_params.piop_params.max_nodes;
         let t_prove = start_timer!(|| format!(
-            "Proving CurveTree membership, H={height}, M={}, C={}, C^{height}={}",
-            domain_size,
-            max_nodes,
+            "Proving CurveTree membership, height={height}, domain={domain_size}, arity={max_nodes}, capacity={}",
             max_nodes.pow(height as u32)
         ));
         let (auth_path, proof) = params.prove(path, rng);
         end_timer!(t_prove);
 
-        let t_verify = start_timer!(|| "Verifying CurveTree opening");
+        let t_verify = start_timer!(|| "Verifying CurveTree membership");
         let valid = params.verify(auth_path, proof, root);
         end_timer!(t_verify);
         assert!(valid);
