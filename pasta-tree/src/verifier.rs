@@ -48,7 +48,7 @@ impl<C: CurveGroup, G: SWCurveConfig<BaseField = C::ScalarField, ScalarField = C
         children: Vec<Affine<G>>,
         // parents, re-randomized at the previous step
         parents: Vec<C::Affine>,
-        side_proof: CycleSideProof<C::ScalarField, C>,
+        side_proof: CycleSideProof<C>,
     ) -> bool {
         // let mut s = std::any::type_name::<C>();
         // s = &s[65..s.len()];

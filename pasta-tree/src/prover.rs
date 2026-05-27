@@ -53,7 +53,7 @@ impl<C: CurveGroup, G: SWCurveConfig<BaseField = C::ScalarField, ScalarField = C
         blinded_path: Vec<Affine<G>>,
         witness: Vec<LevelWitnessWithBlinding<Affine<G>>>,
         rng: &mut R,
-    ) -> CycleSideProof<C::ScalarField, C> {
+    ) -> CycleSideProof<C> {
         // let mut s = std::any::type_name::<C>();
         // s = &s[70..s.len()];
         // println!("\n\nprover {s}\nchildren={blinded_path:?}\n");

@@ -42,10 +42,10 @@ pub type LevelProof<C> = PiopProof<
 >;
 
 #[derive(Clone)]
-pub struct CycleSideProof<F: PrimeField, C: CurveGroup<ScalarField = F>> {
+pub struct CycleSideProof<C: CurveGroup> {
     piop_proofs: Vec<LevelProof<C>>,
-    pcs_proof: AggregateProof<F, HidingIpa<C>>,
-    todo: Coeffs<F>,
+    pcs_proof: AggregateProof<C::ScalarField, HidingIpa<C>>,
+    todo: Coeffs<C::ScalarField>,
 }
 
 #[derive(Clone)]
@@ -55,8 +55,8 @@ pub struct CurveTreeProof<
     C0: CurveGroup<ScalarField = F0>,
     C1: CurveGroup<ScalarField = F1>,
 > {
-    c0_proof: CycleSideProof<F0, C0>,
-    c1_proof: CycleSideProof<F1, C1>,
+    c0_proof: CycleSideProof<C0>,
+    c1_proof: CycleSideProof<C1>,
 }
 
 impl<F0, F1, C0, C1> CycleParams<C0, C1>
