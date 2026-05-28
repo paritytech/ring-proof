@@ -1,6 +1,6 @@
 use crate::auth_path::node::LevelWitnessWithBlinding;
-use crate::circuit::params::PiopParams;
-use crate::circuit::{ProofComms, ProofEvals};
+use crate::circuit_fat::params::PiopParams;
+use crate::circuit_fat::{ProofComms, ProofEvals};
 use ark_ec::AffineRepr;
 use ark_ec::CurveGroup;
 use ark_ec::short_weierstrass::{Affine as SwAffine, SWCurveConfig};

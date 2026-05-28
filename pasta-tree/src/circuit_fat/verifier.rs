@@ -5,7 +5,7 @@ use ark_std::marker::PhantomData;
 use ark_std::{vec, vec::Vec};
 use w3f_pcs::pcs::Commitment;
 
-use crate::circuit::{ProofComms, ProofEvals};
+use crate::circuit_fat::{ProofComms, ProofEvals};
 use w3f_plonk_common::domain::EvaluatedDomain;
 use w3f_plonk_common::gadgets::VerifierGadget;
 use w3f_plonk_common::gadgets::booleanity::BooleanityValues;
