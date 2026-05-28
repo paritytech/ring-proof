@@ -13,7 +13,7 @@ use w3f_plonk_common::PiopProof;
 use w3f_plonk_common::domain::Domain;
 
 pub mod auth_path;
-// pub mod circuit;
+pub mod circuit;
 pub mod circuit_tall;
 // pub mod level;
 pub mod prover;

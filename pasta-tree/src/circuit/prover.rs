@@ -1,5 +1,5 @@
-use crate::PiopParams;
 use crate::auth_path::node::LevelWitnessWithBlinding;
+use crate::circuit::params::PiopParams;
 use crate::circuit::{ProofComms, ProofEvals};
 use ark_ec::AffineRepr;
 use ark_ec::CurveGroup;
@@ -248,11 +248,11 @@ impl<F: PrimeField, C: Commitment<F>, G: SWCurveConfig<BaseField = F>> ProverPio
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::IPACommitment;
     use crate::tests::random_witness;
     use ark_bls12_381::G1Projective;
     use ark_ed_on_bls12_381_bandersnatch::{Fq, Fr, SWAffine};
     use ark_std::{UniformRand, test_rng};
+    use w3f_pcs::pcs::commitment::WrappedAffine;
 
     #[test]
     fn test_constraints() {
@@ -271,9 +271,9 @@ mod tests {
             random_witness(piop_params.max_nodes(), node, rng).with_blinding(bf, Fq::zero());
         let piop = PiopProver::build(&piop_params, witness);
 
-        assert!(ProverPiop::<_, IPACommitment<G1Projective>>::constraints_satisfied(&piop));
+        assert!(ProverPiop::<_, WrappedAffine<G1Projective>>::constraints_satisfied(&piop));
         assert_eq!(
-            ProverPiop::<_, IPACommitment<G1Projective>>::result(&piop),
+            ProverPiop::<_, WrappedAffine<G1Projective>>::result(&piop),
             blinded_node
         );
     }
