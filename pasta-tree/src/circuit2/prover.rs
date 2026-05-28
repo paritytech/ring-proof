@@ -211,6 +211,5 @@ mod tests {
             ProverPiop::<_, WrappedAffine<G1Projective>>::result(&piop),
             blinded_node
         );
-        carg
     }
 }
