@@ -1,5 +1,5 @@
 use crate::auth_path::blinded::BlindedAuthenticationPath;
-use crate::circuit2::verifier::PiopVerifier;
+use crate::circuit_tall::verifier::PiopVerifier;
 use crate::{CurveTreeProof, CycleParams, CycleSideParams, CycleSideProof};
 use ark_ec::CurveGroup;
 use ark_ec::short_weierstrass::{Affine, Projective, SWCurveConfig};

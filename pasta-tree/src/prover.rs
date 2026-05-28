@@ -1,7 +1,7 @@
 use crate::auth_path::blinded::BlindedAuthenticationPath;
 use crate::auth_path::node::LevelWitnessWithBlinding;
 use crate::auth_path::path::AuthenticationPath;
-use crate::circuit2::prover::PiopProver;
+use crate::circuit_tall::prover::PiopProver;
 use crate::verifier::V;
 use crate::{Coeffs, CurveTreeProof, CycleParams, CycleSideParams, CycleSideProof};
 use ark_ec::CurveGroup;

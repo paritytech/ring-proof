@@ -1,7 +1,7 @@
 use crate::LevelProof;
 use crate::auth_path::node::LevelWitnessWithBlinding;
-use crate::circuit2::prover::PiopProver;
-use crate::circuit2::verifier::PiopVerifier;
+use crate::circuit_tall::prover::PiopProver;
+use crate::circuit_tall::verifier::PiopVerifier;
 use ark_ec::short_weierstrass::{Affine as SwAffine, SWCurveConfig};
 use ark_ec::{AffineRepr, CurveGroup};
 use ark_ff::One;

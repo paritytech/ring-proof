@@ -1,5 +1,5 @@
-use crate::circuit2::params::PiopParams;
-use crate::circuit2::{ProofComms, ProofEvals};
+use crate::circuit_tall::params::PiopParams;
+use crate::circuit_tall::{ProofComms, ProofEvals};
 use ark_ec::{AffineRepr, CurveGroup, PrimeGroup};
 use ark_ff::{PrimeField, Zero};
 use ark_std::UniformRand;
@@ -14,7 +14,7 @@ use w3f_plonk_common::domain::Domain;
 
 pub mod auth_path;
 // pub mod circuit;
-pub mod circuit2;
+pub mod circuit_tall;
 // pub mod level;
 pub mod prover;
 pub mod verifier;

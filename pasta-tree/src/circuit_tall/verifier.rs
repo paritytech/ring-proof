@@ -1,4 +1,4 @@
-use crate::circuit2::{ProofComms, ProofEvals};
+use crate::circuit_tall::{ProofComms, ProofEvals};
 use ark_ec::AffineRepr;
 use ark_ec::CurveGroup;
 use ark_ec::short_weierstrass::{Affine as SwAffine, SWCurveConfig};
