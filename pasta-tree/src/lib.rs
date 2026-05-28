@@ -11,6 +11,7 @@ use w3f_pcs::pcs::ipa::hiding::HidingIpa;
 use w3f_pcs::shplonk::AggregateProof;
 use w3f_plonk_common::PiopProof;
 use w3f_plonk_common::domain::Domain;
+use w3f_plonk_common::piop::{ProverPiop, VerifierPiop};
 
 pub mod auth_path;
 pub mod circuit_fat;
@@ -514,4 +515,23 @@ mod tests {
 
         assert_eq!(res_, res);
     }
+}
+
+/// The circuit is over `C::ScalarField`.
+pub trait CircuitParams<C: CurveGroup> {
+    type Witness;
+    type Instance;
+    type Proof;
+    type ProverCircuit: ProverPiop<C::ScalarField, WrappedAffine<C>>;
+    type VerifierCircuit: VerifierPiop<C::ScalarField, WrappedAffine<C>>;
+
+    fn prover_circuit(&self, w: Self::Witness) -> Self::ProverCircuit;
+
+    fn verifier_circuit(
+        &self,
+        instance: Self::Instance,
+        fixed_cols: &[WrappedAffine<C>],
+        proof: Self::Proof,
+        zeta: C::ScalarField,
+    ) -> Self::VerifierCircuit;
 }

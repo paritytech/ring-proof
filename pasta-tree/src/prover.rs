@@ -1,7 +1,7 @@
+use crate::CircuitParams;
 use crate::auth_path::blinded::BlindedAuthenticationPath;
 use crate::auth_path::node::LevelWitnessWithBlinding;
 use crate::auth_path::path::AuthenticationPath;
-use crate::circuit_tall::CircuitParams;
 use crate::circuit_tall::params::PiopParams;
 use crate::circuit_tall::prover::PiopProver;
 use crate::verifier::V;

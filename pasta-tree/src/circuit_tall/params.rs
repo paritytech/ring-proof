@@ -1,7 +1,8 @@
+use crate::CircuitParams;
 use crate::auth_path::node::LevelWitnessWithBlinding;
+use crate::circuit_tall::PiopProof;
 use crate::circuit_tall::prover::PiopProver;
 use crate::circuit_tall::verifier::PiopVerifier;
-use crate::circuit_tall::{CircuitParams, PiopProof};
 use ark_ec::short_weierstrass::{Affine as SwAffine, SWCurveConfig};
 use ark_ec::{AffineRepr, CurveGroup};
 use ark_ff::One;
@@ -49,8 +50,9 @@ impl<C: CurveGroup, G: SWCurveConfig<BaseField = C::ScalarField>> CircuitParams<
         proof: Self::Proof,
         zeta: C::ScalarField,
     ) -> Self::VerifierCircuit {
-        let domain_at_zeta = self.domain.evaluate(zeta);
+        assert_eq!(fixed_cols.len(), 1, "Expected 1 fixed columns");
         let selector = fixed_cols[0].clone();
+        let domain_at_zeta = self.domain.evaluate(zeta);
         let (child, x_parent) = instance;
         PiopVerifier::init(
             domain_at_zeta,

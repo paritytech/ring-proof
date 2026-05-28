@@ -1,8 +1,14 @@
+use crate::CircuitParams;
+use crate::auth_path::node::LevelWitnessWithBlinding;
+use crate::circuit_fat::PiopProof;
+use crate::circuit_fat::prover::PiopProver;
+use crate::circuit_fat::verifier::PiopVerifier;
+use ark_ec::short_weierstrass::{Affine as SwAffine, SWCurveConfig};
 use ark_ec::{AffineRepr, CurveGroup};
 use ark_ff::One;
 use ark_ff::{AdditiveGroup, BigInteger, PrimeField, Zero};
 use ark_std::{vec, vec::Vec};
-
+use w3f_pcs::pcs::commitment::WrappedAffine;
 use w3f_plonk_common::FieldColumn;
 use w3f_plonk_common::domain::Domain;
 use w3f_plonk_common::gadgets::booleanity::BitColumn;
@@ -17,6 +23,42 @@ pub struct PiopParams<G: AffineRepr<BaseField: PrimeField>> {
     pub scalar_bitlen: usize,
     /// Blinding base point.
     pub h: G,
+}
+
+impl<C: CurveGroup, G: SWCurveConfig<BaseField = C::ScalarField>> CircuitParams<C>
+    for PiopParams<SwAffine<G>>
+{
+    type Witness = LevelWitnessWithBlinding<SwAffine<G>>;
+
+    /// (re-randomized child, re-randomized parent)
+    type Instance = (SwAffine<G>, C::Affine);
+    type Proof = PiopProof<C>;
+    type ProverCircuit = PiopProver<SwAffine<G>>;
+    type VerifierCircuit = PiopVerifier<C, SwAffine<G>>;
+
+    fn prover_circuit(&self, level: Self::Witness) -> Self::ProverCircuit {
+        PiopProver::build(&self, level)
+    }
+
+    fn verifier_circuit(
+        &self,
+        instance: Self::Instance,
+        fixed_cols: &[WrappedAffine<C>],
+        proof: Self::Proof,
+        zeta: C::ScalarField,
+    ) -> Self::VerifierCircuit {
+        let h_powers_comm: &[_; 2] = fixed_cols.try_into().expect("Expected 2 fixed columns");
+        let domain_at_zeta = self.domain.evaluate(zeta);
+        let (child, x_parent) = instance;
+        PiopVerifier::init(
+            child,
+            WrappedAffine(x_parent),
+            domain_at_zeta,
+            h_powers_comm.clone(),
+            proof.column_commitments.clone(),
+            proof.columns_at_zeta.clone(),
+        )
+    }
 }
 
 impl<G: AffineRepr<BaseField: PrimeField>> PiopParams<G> {
