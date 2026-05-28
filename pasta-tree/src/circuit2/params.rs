@@ -31,7 +31,7 @@ impl<G: SWCurveConfig<BaseField: PrimeField>> PiopParams<SwAffine<G>> {
     pub fn prover_piop(
         &self,
         level: LevelWitnessWithBlinding<SwAffine<G>>,
-    ) -> PiopProver<G::BaseField, SwAffine<G>> {
+    ) -> PiopProver<SwAffine<G>> {
         PiopProver::build(&self, level)
     }
 
@@ -44,7 +44,7 @@ impl<G: SWCurveConfig<BaseField: PrimeField>> PiopParams<SwAffine<G>> {
         selector: C::Affine,
         proof: LevelProof<C>,
         zeta: C::ScalarField,
-    ) -> PiopVerifier<G::BaseField, WrappedAffine<C>, SwAffine<G>> {
+    ) -> PiopVerifier<C, SwAffine<G>> {
         let domain_at_zeta = self.domain.evaluate(zeta);
         PiopVerifier::init(
             domain_at_zeta,

@@ -19,8 +19,6 @@ pub mod circuit2;
 pub mod prover;
 pub mod verifier;
 
-type IPACommitment<C> = <HidingIpa<C> as PCS<<C as PrimeGroup>::ScalarField>>::C;
-
 pub struct CycleSideParams<C: CurveGroup, G: AffineRepr<BaseField = C::ScalarField>> {
     pcs_params: HidingIpa<C>,
     piop_params: PiopParams<G>,
@@ -37,7 +35,7 @@ pub struct CycleParams<
 pub type LevelProof<C> = PiopProof<
     <C as PrimeGroup>::ScalarField,
     WrappedAffine<C>,
-    ProofComms<<C as PrimeGroup>::ScalarField, WrappedAffine<C>>,
+    ProofComms<C>,
     ProofEvals<<C as PrimeGroup>::ScalarField>,
 >;
 

@@ -1,8 +1,8 @@
 use crate::auth_path::blinded::BlindedAuthenticationPath;
 use crate::circuit2::verifier::PiopVerifier;
-use crate::{CurveTreeProof, CycleParams, CycleSideParams, CycleSideProof, IPACommitment};
+use crate::{CurveTreeProof, CycleParams, CycleSideParams, CycleSideProof};
+use ark_ec::CurveGroup;
 use ark_ec::short_weierstrass::{Affine, Projective, SWCurveConfig};
-use ark_ec::{CurveGroup, PrimeGroup};
 use ark_ff::PrimeField;
 use w3f_pcs::pcs::PcsParams;
 use w3f_pcs::pcs::ipa::hiding::HidingIpa;
@@ -37,7 +37,7 @@ where
     }
 }
 
-pub type V<C, G> = PiopVerifier<<C as PrimeGroup>::ScalarField, IPACommitment<C>, Affine<G>>;
+pub type V<C, G> = PiopVerifier<C, Affine<G>>;
 
 impl<C: CurveGroup, G: SWCurveConfig<BaseField = C::ScalarField, ScalarField = C::BaseField>>
     CycleSideParams<C, Affine<G>>

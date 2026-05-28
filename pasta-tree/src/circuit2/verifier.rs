@@ -1,12 +1,11 @@
+use crate::circuit2::{ProofComms, ProofEvals};
 use ark_ec::AffineRepr;
 use ark_ec::CurveGroup;
 use ark_ec::short_weierstrass::{Affine as SwAffine, SWCurveConfig};
-use ark_ff::PrimeField;
+use ark_ff::{One, Zero};
 use ark_std::marker::PhantomData;
 use ark_std::{vec, vec::Vec};
-use w3f_pcs::pcs::Commitment;
-
-use crate::circuit2::{ProofComms, ProofEvals};
+use w3f_pcs::pcs::commitment::WrappedAffine;
 use w3f_plonk_common::domain::EvaluatedDomain;
 use w3f_plonk_common::gadgets::VerifierGadget;
 use w3f_plonk_common::gadgets::booleanity::BooleanityValues;
@@ -15,29 +14,29 @@ use w3f_plonk_common::gadgets::fixed_cells::FixedCellsValues;
 use w3f_plonk_common::gadgets::inner_prod::InnerProdValues;
 use w3f_plonk_common::piop::VerifierPiop;
 
-pub struct PiopVerifier<F: PrimeField, C: Commitment<F>, G: AffineRepr<BaseField = F>> {
-    domain_evals: EvaluatedDomain<F>,
+pub struct PiopVerifier<C: CurveGroup, G: AffineRepr<BaseField = C::ScalarField>> {
+    domain_evals: EvaluatedDomain<C::ScalarField>,
 
-    points_x: C,
-    select_part: C,
-    witness_cols: ProofComms<F, C>,
+    points_x: WrappedAffine<C>,
+    select_part: WrappedAffine<C>,
+    witness_cols: ProofComms<C>,
 
     // Gadget verifiers:
-    booleanity: BooleanityValues<F>,
-    inner_prod: InnerProdValues<F>,
-    inner_prod_acc: FixedCellsValues<F>,
-    cond_add: CondAddValues<F, G>,
-    cond_add_acc_x: FixedCellsValues<F>,
-    cond_add_acc_y: FixedCellsValues<F>,
+    booleanity: BooleanityValues<C::ScalarField>,
+    inner_prod: InnerProdValues<C::ScalarField>,
+    inner_prod_acc: FixedCellsValues<C::ScalarField>,
+    cond_add: CondAddValues<G::BaseField, G>,
+    cond_add_acc_x: FixedCellsValues<C::ScalarField>,
+    cond_add_acc_y: FixedCellsValues<C::ScalarField>,
 }
 
-impl<F: PrimeField, C: Commitment<F>, G: AffineRepr<BaseField = F>> PiopVerifier<F, C, G> {
+impl<C: CurveGroup, G: AffineRepr<BaseField = C::ScalarField>> PiopVerifier<C, G> {
     pub fn init(
-        domain_evals: EvaluatedDomain<F>,
-        points_x: C,
-        select_part: C,
-        witness_cols: ProofComms<F, C>,
-        evals: ProofEvals<F>,
+        domain_evals: EvaluatedDomain<C::ScalarField>,
+        points_x: WrappedAffine<C>,
+        select_part: WrappedAffine<C>,
+        witness_cols: ProofComms<C>,
+        evals: ProofEvals<C::ScalarField>,
         seed: G,
         result: G,
     ) -> Self {
@@ -79,8 +78,8 @@ impl<F: PrimeField, C: Commitment<F>, G: AffineRepr<BaseField = F>> PiopVerifier
 
         let inner_prod_acc = FixedCellsValues {
             col: evals.inn_prod_acc,
-            col_first: F::zero(),
-            col_last: F::one(),
+            col_first: C::ScalarField::zero(),
+            col_last: C::ScalarField::one(),
             l_first: domain_evals.l_first,
             l_last: domain_evals.l_last,
         };
@@ -100,17 +99,17 @@ impl<F: PrimeField, C: Commitment<F>, G: AffineRepr<BaseField = F>> PiopVerifier
     }
 }
 
-impl<F: PrimeField, C: Commitment<F>, G: SWCurveConfig<BaseField = F>> VerifierPiop<F, C>
-    for PiopVerifier<F, C, SwAffine<G>>
+impl<C: CurveGroup, G: SWCurveConfig<BaseField = C::ScalarField>>
+    VerifierPiop<C::ScalarField, WrappedAffine<C>> for PiopVerifier<C, SwAffine<G>>
 {
     const N_CONSTRAINTS: usize = 7;
     const N_COLUMNS: usize = 7;
 
-    fn precommitted_columns(&self) -> Vec<C> {
+    fn precommitted_columns(&self) -> Vec<WrappedAffine<C>> {
         vec![self.points_x.clone(), self.select_part.clone()]
     }
 
-    fn evaluate_constraints_main(&self) -> Vec<F> {
+    fn evaluate_constraints_main(&self) -> Vec<C::ScalarField> {
         vec![
             self.inner_prod.evaluate_constraints_main(),
             self.cond_add.evaluate_constraints_main(),
@@ -122,7 +121,10 @@ impl<F: PrimeField, C: Commitment<F>, G: SWCurveConfig<BaseField = F>> VerifierP
         .concat()
     }
 
-    fn lin_poly_commitment(&self, alphas: &[F]) -> (Vec<F>, Vec<C>) {
+    fn lin_poly_commitment(
+        &self,
+        alphas: &[C::ScalarField],
+    ) -> (Vec<C::ScalarField>, Vec<WrappedAffine<C>>) {
         assert_eq!(alphas.len(), Self::N_CONSTRAINTS);
 
         let inner_prod_acc = self.witness_cols.inn_prod_acc.clone();
@@ -142,7 +144,7 @@ impl<F: PrimeField, C: Commitment<F>, G: SWCurveConfig<BaseField = F>> VerifierP
         )
     }
 
-    fn domain_evaluated(&self) -> &EvaluatedDomain<F> {
+    fn domain_evaluated(&self) -> &EvaluatedDomain<C::ScalarField> {
         &self.domain_evals
     }
 }

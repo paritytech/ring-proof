@@ -1,15 +1,14 @@
 use crate::auth_path::node::LevelWitnessWithBlinding;
 use crate::circuit2::params::PiopParams;
 use crate::circuit2::{ProofComms, ProofEvals};
-use ark_ec::AffineRepr;
 use ark_ec::short_weierstrass::{Affine as SwAffine, SWCurveConfig};
-use ark_ff::{One, PrimeField, Zero};
+use ark_ec::{AffineRepr, CurveGroup};
+use ark_ff::{FftField, One, PrimeField, Zero};
 use ark_poly::Evaluations;
 use ark_poly::Polynomial;
 use ark_poly::univariate::DensePolynomial;
-use ark_std::marker::PhantomData;
 use ark_std::{vec, vec::Vec};
-use w3f_pcs::pcs::Commitment;
+use w3f_pcs::pcs::commitment::WrappedAffine;
 use w3f_plonk_common::FieldColumn;
 use w3f_plonk_common::domain::Domain;
 use w3f_plonk_common::gadgets::ProverGadget;
@@ -33,24 +32,24 @@ use w3f_plonk_common::piop::ProverPiop;
 //     cond_add_acc_y: DensePolynomial<F>,
 // }
 
-pub struct PiopProver<F: PrimeField, G: AffineRepr<BaseField = F>> {
-    domain: Domain<F>,
+pub struct PiopProver<G: AffineRepr<BaseField: FftField>> {
+    domain: Domain<G::BaseField>,
     // `x` coordinates of all the children of a node. Public input.
     // `H, 2H, 4H,...,2^sH` Fixed column.
-    points: AffineColumn<F, G>,
+    points: AffineColumn<G::BaseField, G>,
     // `node_x = self.x_coords[self.node_idx]` Private input.
     // Bits of the chosen blinding factor. Private input.
-    bits: BitColumn<F>,
-    select_part: FieldColumn<F>,
-    inner_prod_acc: DensePolynomial<F>,
-    cond_add_acc_x: DensePolynomial<F>,
-    cond_add_acc_y: DensePolynomial<F>,
+    bits: BitColumn<G::BaseField>,
+    select_part: FieldColumn<G::BaseField>,
+    inner_prod_acc: DensePolynomial<G::BaseField>,
+    cond_add_acc_x: DensePolynomial<G::BaseField>,
+    cond_add_acc_y: DensePolynomial<G::BaseField>,
     // columns: Witness<F, G>,
-    gadgets: Vec<Box<dyn ProverGadget<F>>>,
+    gadgets: Vec<Box<dyn ProverGadget<G::BaseField>>>,
     result: G,
 }
 
-impl<G: SWCurveConfig<BaseField: PrimeField>> PiopProver<G::BaseField, SwAffine<G>> {
+impl<G: SWCurveConfig<BaseField: PrimeField>> PiopProver<SwAffine<G>> {
     pub fn build(
         params: &PiopParams<SwAffine<G>>,
         level: LevelWitnessWithBlinding<SwAffine<G>>,
@@ -102,15 +101,15 @@ impl<G: SWCurveConfig<BaseField: PrimeField>> PiopProver<G::BaseField, SwAffine<
     }
 }
 
-impl<F: PrimeField, C: Commitment<F>, G: SWCurveConfig<BaseField = F>> ProverPiop<F, C>
-    for PiopProver<F, SwAffine<G>>
+impl<C: CurveGroup, G: SWCurveConfig<BaseField = C::ScalarField>>
+    ProverPiop<C::ScalarField, WrappedAffine<C>> for PiopProver<SwAffine<G>>
 {
     const N_CONSTRAINTS: usize = 7;
-    type Commitments = ProofComms<F, C>;
-    type Evaluations = ProofEvals<F>;
+    type Commitments = ProofComms<C>;
+    type Evaluations = ProofEvals<C::ScalarField>;
     type Instance = SwAffine<G>;
 
-    fn committed_columns<Fun: Fn(&DensePolynomial<F>) -> C>(
+    fn committed_columns<Fun: Fn(&DensePolynomial<C::ScalarField>) -> WrappedAffine<C>>(
         &self,
         commit: Fun,
     ) -> Self::Commitments {
@@ -123,13 +122,12 @@ impl<F: PrimeField, C: Commitment<F>, G: SWCurveConfig<BaseField = F>> ProverPio
             bits,
             cond_add_acc,
             inn_prod_acc,
-            phantom: PhantomData,
         }
     }
 
     // Should return polynomials in the consistent with
     // Self::Evaluations::to_vec() and Self::Commitments::to_vec().
-    fn columns(&self) -> Vec<DensePolynomial<F>> {
+    fn columns(&self) -> Vec<DensePolynomial<C::ScalarField>> {
         vec![
             self.points.xs.as_poly().clone(),
             self.select_part.as_poly().clone(),
@@ -141,7 +139,7 @@ impl<F: PrimeField, C: Commitment<F>, G: SWCurveConfig<BaseField = F>> ProverPio
         ]
     }
 
-    fn columns_evaluated(&self, zeta: &F) -> ProofEvals<F> {
+    fn columns_evaluated(&self, zeta: &C::ScalarField) -> Self::Evaluations {
         let points = [self.points.xs.evaluate(zeta), self.points.ys.evaluate(zeta)];
         let ring_selector = self.select_part.evaluate(zeta);
         let bits = self.bits.evaluate(zeta);
@@ -159,18 +157,18 @@ impl<F: PrimeField, C: Commitment<F>, G: SWCurveConfig<BaseField = F>> ProverPio
         }
     }
 
-    fn constraints(&self) -> Vec<Evaluations<F>> {
+    fn constraints(&self) -> Vec<Evaluations<C::ScalarField>> {
         self.gadgets.iter().flat_map(|g| g.constraints()).collect()
     }
 
-    fn constraints_lin(&self, zeta: &F) -> Vec<DensePolynomial<F>> {
+    fn constraints_lin(&self, zeta: &C::ScalarField) -> Vec<DensePolynomial<C::ScalarField>> {
         self.gadgets
             .iter()
             .flat_map(|g| g.constraints_linearized(zeta))
             .collect()
     }
 
-    fn domain(&self) -> &Domain<F> {
+    fn domain(&self) -> &Domain<C::ScalarField> {
         &self.domain
     }
 
@@ -182,7 +180,6 @@ impl<F: PrimeField, C: Commitment<F>, G: SWCurveConfig<BaseField = F>> ProverPio
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::IPACommitment;
     use crate::tests::random_witness;
     use ark_bls12_381::G1Projective;
     use ark_ec::CurveGroup;
@@ -209,10 +206,11 @@ mod tests {
             random_witness(piop_params.max_nodes, node, rng).with_blinding(bf, Fq::zero());
         let piop = PiopProver::build(&piop_params, witness);
 
-        assert!(ProverPiop::<_, IPACommitment<G1Projective>>::constraints_satisfied(&piop));
+        assert!(ProverPiop::<_, WrappedAffine<G1Projective>>::constraints_satisfied(&piop));
         assert_eq!(
-            ProverPiop::<_, IPACommitment<G1Projective>>::result(&piop),
+            ProverPiop::<_, WrappedAffine<G1Projective>>::result(&piop),
             blinded_node
         );
+        carg
     }
 }

@@ -3,7 +3,7 @@ use crate::auth_path::node::LevelWitnessWithBlinding;
 use crate::auth_path::path::AuthenticationPath;
 use crate::circuit2::prover::PiopProver;
 use crate::verifier::V;
-use crate::{Coeffs, CurveTreeProof, CycleParams, CycleSideParams, CycleSideProof, IPACommitment};
+use crate::{Coeffs, CurveTreeProof, CycleParams, CycleSideParams, CycleSideProof};
 use ark_ec::CurveGroup;
 use ark_ec::short_weierstrass::{Affine, Projective, SWCurveConfig};
 use ark_ff::{PrimeField, Zero};
@@ -11,6 +11,7 @@ use ark_std::UniformRand;
 use ark_std::rand::Rng;
 use std::collections::BTreeSet;
 use w3f_pcs::pcs::PcsParams;
+use w3f_pcs::pcs::commitment::WrappedAffine;
 use w3f_pcs::pcs::ipa::hiding::HidingIpa;
 use w3f_pcs::shplonk::Shplonk;
 use w3f_plonk_common::piop::{ProverPiop, VerifierPiop};
@@ -73,9 +74,9 @@ impl<C: CurveGroup, G: SWCurveConfig<BaseField = C::ScalarField, ScalarField = C
 
         for (level, blinded_node) in witness.into_iter().zip(blinded_path.into_iter()) {
             let piop = self.piop_params.prover_piop(level.clone());
-            let blinded_node_ = <PiopProver<C::ScalarField, Affine<G>> as ProverPiop<
+            let blinded_node_ = <PiopProver<Affine<G>> as ProverPiop<
                 C::ScalarField,
-                IPACommitment<C>,
+                WrappedAffine<C>,
             >>::result(&piop);
             debug_assert_eq!(blinded_node_, blinded_node);
             let (pcs_openings, piop_proof, _transcript) = plonk_prover.reduce_to_pcs_opening(piop);
