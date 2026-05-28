@@ -10,6 +10,7 @@ use w3f_pcs::shplonk::Shplonk;
 use w3f_plonk_common::piop::VerifierPiop;
 use w3f_plonk_common::verifier::{PcsOpeningAt2Points, PlonkVerifier};
 use w3f_ring_proof::ArkTranscript;
+use crate::circuit_tall::CircuitParams;
 
 impl<F0, F1, C0, C1> CycleParams<Projective<C0>, Projective<C1>>
 where
@@ -79,10 +80,9 @@ impl<C: CurveGroup, G: SWCurveConfig<BaseField = C::ScalarField, ScalarField = C
                 V::<C, G>::N_COLUMNS + 1,
                 V::<C, G>::N_CONSTRAINTS,
             );
-            let piop = self.piop_params.verifier_piop(
-                child,
-                parent,
-                selector.0,
+            let piop = self.piop_params.verifier_circuit(
+                (child, parent),
+                &[selector.clone()],
                 level_proof.clone(),
                 challenges.zeta,
             );

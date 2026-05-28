@@ -1,4 +1,3 @@
-use crate::LevelProof;
 use crate::auth_path::node::LevelWitnessWithBlinding;
 use crate::circuit_tall::prover::PiopProver;
 use crate::circuit_tall::verifier::PiopVerifier;
@@ -8,10 +7,11 @@ use ark_ff::One;
 use ark_ff::{AdditiveGroup, BigInteger, PrimeField, Zero};
 use ark_std::{vec, vec::Vec};
 use w3f_pcs::pcs::commitment::WrappedAffine;
-use w3f_plonk_common::FieldColumn;
+use w3f_plonk_common::{FieldColumn};
 use w3f_plonk_common::domain::Domain;
 use w3f_plonk_common::gadgets::booleanity::BitColumn;
 use w3f_plonk_common::gadgets::ec::AffineColumn;
+use crate::circuit_tall::{CircuitParams, PiopProof};
 
 /// Plonk Interactive Oracle Proofs (PIOP) parameters.
 /// `max_nodes + blinding_bits = domain.capacity - 1`
@@ -27,41 +27,33 @@ pub struct PiopParams<G: AffineRepr<BaseField: PrimeField>> {
     pub h: G,
 }
 
-impl<G: SWCurveConfig<BaseField: PrimeField>> PiopParams<SwAffine<G>> {
-    pub fn prover_piop(
-        &self,
-        level: LevelWitnessWithBlinding<SwAffine<G>>,
-    ) -> PiopProver<SwAffine<G>> {
+impl<C: CurveGroup, G: SWCurveConfig<BaseField=C::ScalarField>> CircuitParams<C> for PiopParams<SwAffine<G>> {
+    type Witness = LevelWitnessWithBlinding<SwAffine<G>>;
+
+    /// (re-randomized child, re-randomized parent)
+    type Instance = (SwAffine<G>, C::Affine);
+    type Proof = PiopProof<C>;
+    type ProverCircuit = PiopProver<SwAffine<G>>;
+    type VerifierCircuit = PiopVerifier<C, SwAffine<G>>;
+
+    fn prover_circuit(&self, level: Self::Witness) -> Self::ProverCircuit {
         PiopProver::build(&self, level)
     }
 
-    pub fn verifier_piop<C: CurveGroup<ScalarField = G::BaseField>>(
-        &self,
-        // re-randomized child
-        child: SwAffine<G>,
-        // re-randomized parent
-        parent: C::Affine,
-        selector: C::Affine,
-        proof: LevelProof<C>,
-        zeta: C::ScalarField,
-    ) -> PiopVerifier<C, SwAffine<G>> {
+    fn verifier_circuit(&self, instance: Self::Instance, fixed_cols: &[WrappedAffine<C>], proof: Self::Proof, zeta: C::ScalarField) -> Self::VerifierCircuit {
         let domain_at_zeta = self.domain.evaluate(zeta);
+        let selector = fixed_cols[0].clone();
+        let (child, x_parent) = instance;
         PiopVerifier::init(
             domain_at_zeta,
-            WrappedAffine(parent),
-            WrappedAffine(selector),
+            WrappedAffine(x_parent),
+            selector,
             proof.column_commitments.clone(),
             proof.columns_at_zeta.clone(),
             self.seed,
             child,
         )
     }
-
-    // use crate::circuit::prover::PiopProver as PiopProver2;
-    // pub fn prover2(&self, level: LevelWitnessWithBlinding<SwAffine<G>>) -> PiopProver2<G::BaseField, SwAffine<G>> {
-    //     let piop = PiopProver2::build(&self, level);
-    //     piop
-    // }
 }
 
 impl<G: AffineRepr<BaseField: PrimeField>> PiopParams<G> {
@@ -146,7 +138,7 @@ impl<G: AffineRepr<BaseField: PrimeField>> PiopParams<G> {
             vec![G::BaseField::one(); self.max_nodes],
             vec![G::BaseField::zero(); self.blinding_bits],
         ]
-        .concat();
+            .concat();
         self.domain.public_column(selector)
     }
 

@@ -1,8 +1,9 @@
-use ark_ec::CurveGroup;
+use ark_ec::{CurveGroup, PrimeGroup};
 use ark_ff::PrimeField;
 use ark_serialize::{CanonicalDeserialize, CanonicalSerialize};
 use ark_std::{vec, vec::Vec};
 use w3f_pcs::pcs::commitment::WrappedAffine;
+use w3f_plonk_common::piop::{ProverPiop, VerifierPiop};
 use w3f_plonk_common::{ColumnsCommited, ColumnsEvaluated};
 
 pub mod params;
@@ -24,6 +25,30 @@ pub mod verifier;
 //     ProofComms<C>,
 //     ProofEvals<<C as PrimeGroup>::ScalarField>,
 // >;
+
+/// The circuit is over `C::ScalarField`.
+pub trait CircuitParams<C: CurveGroup> {
+    type Witness;
+    type Instance;
+    type Proof;
+    type ProverCircuit: ProverPiop<C::ScalarField, WrappedAffine<C>>;
+    type VerifierCircuit: VerifierPiop<C::ScalarField, WrappedAffine<C>>;
+
+    fn prover_circuit(&self, w: Self::Witness) -> Self::ProverCircuit;
+
+    fn verifier_circuit(&self,
+                        instance: Self::Instance,
+                        fixed_cols: &[WrappedAffine<C>],
+                        proof: Self::Proof,
+                        zeta: C::ScalarField) -> Self::VerifierCircuit;
+}
+
+type PiopProof<C> = w3f_plonk_common::PiopProof<
+    <C as PrimeGroup>::ScalarField,
+    WrappedAffine<C>,
+    ProofComms<C>,
+    ProofEvals<<C as PrimeGroup>::ScalarField>
+>;
 
 #[derive(Clone, Debug, CanonicalSerialize, CanonicalDeserialize)]
 pub struct ProofComms<C: CurveGroup> {
