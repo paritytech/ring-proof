@@ -1,33 +1,46 @@
+use ark_ec::CurveGroup;
 use ark_ff::PrimeField;
 use ark_serialize::{CanonicalDeserialize, CanonicalSerialize};
-use ark_std::marker::PhantomData;
 use ark_std::{vec, vec::Vec};
-use w3f_pcs::pcs::Commitment;
+use w3f_pcs::pcs::commitment::WrappedAffine;
 use w3f_plonk_common::{ColumnsCommited, ColumnsEvaluated};
 
 pub mod params;
 pub mod prover;
 pub mod verifier;
 
+// type PiopProof<C> = w3f_plonk_common::PiopProof<
+//     <C as PrimeGroup>::ScalarField,
+//     WrappedAffine<C>,
+//     ProofComms<C>,
+//     ProofEvals<<C as PrimeGroup>::ScalarField>,
+// >;
+
 #[derive(Clone, Debug, CanonicalSerialize, CanonicalDeserialize)]
-pub struct ProofComms<F: PrimeField, C: Commitment<F>> {
-    pub(crate) node_idx: C,
-    pub(crate) bf_bits: C,
-    pub(crate) selected_node_acc: C,
-    pub(crate) blinded_node_acc: [C; 2],
-    pub(crate) node_idx_sum_acc: C,
-    pub(crate) phantom: PhantomData<F>,
+pub struct ProofComms<C: CurveGroup> {
+    pub(crate) node_idx: WrappedAffine<C>,
+    pub(crate) bf_bits: WrappedAffine<C>,
+    pub(crate) selected_node_acc: WrappedAffine<C>,
+    pub(crate) blinded_node_acc: [WrappedAffine<C>; 2],
+    pub(crate) node_idx_sum_acc: WrappedAffine<C>,
 }
 
-impl<F: PrimeField, C: Commitment<F>> ColumnsCommited<F, C> for ProofComms<F, C> {
-    fn to_vec(self) -> Vec<C> {
+impl<C: CurveGroup> ColumnsCommited<C::ScalarField, WrappedAffine<C>> for ProofComms<C> {
+    fn to_vec(self) -> Vec<WrappedAffine<C>> {
+        self.into()
+    }
+}
+
+impl<C: CurveGroup> From<ProofComms<C>> for Vec<WrappedAffine<C>> {
+    fn from(value: ProofComms<C>) -> Self {
+        let [blinded_node_acc_x, blinded_node_acc_y] = value.blinded_node_acc;
         vec![
-            self.node_idx,
-            self.bf_bits,
-            self.selected_node_acc,
-            self.blinded_node_acc[0].clone(),
-            self.blinded_node_acc[1].clone(),
-            self.node_idx_sum_acc,
+            value.node_idx,
+            value.bf_bits,
+            value.selected_node_acc,
+            blinded_node_acc_x,
+            blinded_node_acc_y,
+            value.node_idx_sum_acc,
         ]
     }
 }
@@ -43,18 +56,24 @@ pub struct ProofEvals<F: PrimeField> {
     pub(crate) node_idx_sum_acc: F,
 }
 
+impl<F: PrimeField> From<ProofEvals<F>> for Vec<F> {
+    fn from(value: ProofEvals<F>) -> Self {
+        vec![
+            value.x_coords,
+            value.h_powers[0],
+            value.h_powers[1],
+            value.node_idx,
+            value.bf_bits,
+            value.selected_node_acc,
+            value.blinded_node_acc[0],
+            value.blinded_node_acc[1],
+            value.node_idx_sum_acc,
+        ]
+    }
+}
+
 impl<F: PrimeField> ColumnsEvaluated<F> for ProofEvals<F> {
     fn to_vec(self) -> Vec<F> {
-        vec![
-            self.x_coords,
-            self.h_powers[0],
-            self.h_powers[1],
-            self.node_idx,
-            self.bf_bits,
-            self.selected_node_acc,
-            self.blinded_node_acc[0],
-            self.blinded_node_acc[1],
-            self.node_idx_sum_acc,
-        ]
+        self.into()
     }
 }

@@ -1,10 +1,11 @@
 use crate::auth_path::blinded::BlindedAuthenticationPath;
 use crate::auth_path::node::LevelWitnessWithBlinding;
 use crate::auth_path::path::AuthenticationPath;
+use crate::circuit_tall::CircuitParams;
+use crate::circuit_tall::params::PiopParams;
 use crate::circuit_tall::prover::PiopProver;
 use crate::verifier::V;
 use crate::{Coeffs, CurveTreeProof, CycleParams, CycleSideParams, CycleSideProof};
-use crate::circuit_tall::CircuitParams;
 use ark_ec::CurveGroup;
 use ark_ec::short_weierstrass::{Affine as SwAffine, Projective, SWCurveConfig};
 use ark_ff::{PrimeField, Zero};
@@ -18,7 +19,6 @@ use w3f_pcs::shplonk::Shplonk;
 use w3f_plonk_common::piop::{ProverPiop, VerifierPiop};
 use w3f_plonk_common::prover::{PcsOpeningAt2Points, PlonkProver};
 use w3f_ring_proof::ArkTranscript;
-use crate::circuit_tall::params::PiopParams;
 
 impl<F0, F1, C0, C1> CycleParams<Projective<C0>, Projective<C1>>
 where
@@ -75,7 +75,10 @@ impl<C: CurveGroup, G: SWCurveConfig<BaseField = C::ScalarField, ScalarField = C
         );
 
         for (level, blinded_node) in witness.into_iter().zip(blinded_path.into_iter()) {
-            let piop = <PiopParams<SwAffine<G>> as CircuitParams<C>>::prover_circuit(&self.piop_params, level.clone());
+            let piop = <PiopParams<SwAffine<G>> as CircuitParams<C>>::prover_circuit(
+                &self.piop_params,
+                level.clone(),
+            );
             let blinded_node_ = <PiopProver<SwAffine<G>> as ProverPiop<
                 C::ScalarField,
                 WrappedAffine<C>,

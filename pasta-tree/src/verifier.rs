@@ -1,4 +1,5 @@
 use crate::auth_path::blinded::BlindedAuthenticationPath;
+use crate::circuit_tall::CircuitParams;
 use crate::circuit_tall::verifier::PiopVerifier;
 use crate::{CurveTreeProof, CycleParams, CycleSideParams, CycleSideProof};
 use ark_ec::CurveGroup;
@@ -10,7 +11,6 @@ use w3f_pcs::shplonk::Shplonk;
 use w3f_plonk_common::piop::VerifierPiop;
 use w3f_plonk_common::verifier::{PcsOpeningAt2Points, PlonkVerifier};
 use w3f_ring_proof::ArkTranscript;
-use crate::circuit_tall::CircuitParams;
 
 impl<F0, F1, C0, C1> CycleParams<Projective<C0>, Projective<C1>>
 where

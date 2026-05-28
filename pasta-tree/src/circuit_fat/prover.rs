@@ -4,12 +4,12 @@ use crate::circuit_fat::{ProofComms, ProofEvals};
 use ark_ec::AffineRepr;
 use ark_ec::CurveGroup;
 use ark_ec::short_weierstrass::{Affine as SwAffine, SWCurveConfig};
-use ark_ff::{PrimeField, Zero};
+use ark_ff::One;
+use ark_ff::{FftField, PrimeField, Zero};
 use ark_poly::Evaluations;
 use ark_poly::univariate::DensePolynomial;
-use ark_std::marker::PhantomData;
 use ark_std::{vec, vec::Vec};
-use w3f_pcs::pcs::Commitment;
+use w3f_pcs::pcs::commitment::WrappedAffine;
 use w3f_plonk_common::FieldColumn;
 use w3f_plonk_common::domain::Domain;
 use w3f_plonk_common::gadgets::ProverGadget;
@@ -22,26 +22,26 @@ use w3f_plonk_common::gadgets::fixed_cells::FixedCells;
 use w3f_plonk_common::gadgets::inner_prod_inv::InnerProdInv;
 use w3f_plonk_common::piop::ProverPiop;
 
-pub struct PiopProver<F: PrimeField, G: AffineRepr<BaseField = F>> {
-    domain: Domain<F>,
+pub struct PiopProver<G: AffineRepr<BaseField: FftField>> {
+    domain: Domain<G::BaseField>,
     // `x` coordinates of all the children of a node. Public input.
-    nodes: FieldColumn<F>,
+    nodes: FieldColumn<G::BaseField>,
     // `H, 2H, 4H,...,2^sH` Fixed column.
-    h_powers: AffineColumn<F, G>,
+    h_powers: AffineColumn<G::BaseField, G>,
     // `node_x = self.x_coords[self.node_idx]` Private input.
-    node_idx: BitColumn<F>,
+    node_idx: BitColumn<G::BaseField>,
     // Bits of the chosen blinding factor. Private input.
-    bf_bits: BitColumn<F>,
-    selected_node: InnerProdInv<F>,
-    blinded_node: CondAdd<F, G>, // blinded_node.acc[0] = (x_i, y_i) = Ci, blinded_node.acc[capacity] = Ci + bf.H = Ci'
-    node_idx_bool: Booleanity<F>,
-    bf_bits_bool: Booleanity<F>,
-    node_idx_sum: ColumnSumPolys<F>,
-    node_idx_sum_vals: FixedCells<F>,
-    seed_eq_node: CellsEqPolys<F>,
+    bf_bits: BitColumn<G::BaseField>,
+    selected_node: InnerProdInv<G::BaseField>,
+    blinded_node: CondAdd<G::BaseField, G>, // blinded_node.acc[0] = (x_i, y_i) = Ci, blinded_node.acc[capacity] = Ci + bf.H = Ci'
+    node_idx_bool: Booleanity<G::BaseField>,
+    bf_bits_bool: Booleanity<G::BaseField>,
+    node_idx_sum: ColumnSumPolys<G::BaseField>,
+    node_idx_sum_vals: FixedCells<G::BaseField>,
+    seed_eq_node: CellsEqPolys<G::BaseField>,
 }
 
-impl<F: PrimeField, G: AffineRepr<BaseField = F>> PiopProver<F, G> {
+impl<G: AffineRepr<BaseField: PrimeField>> PiopProver<G> {
     pub fn build(params: &PiopParams<G>, level: LevelWitnessWithBlinding<G>) -> Self {
         let domain = params.domain.clone();
         let x_coords = params.x_coords_column(level.level_witness.x_coords());
@@ -63,8 +63,12 @@ impl<F: PrimeField, G: AffineRepr<BaseField = F>> PiopProver<F, G> {
         let node_idx_bool = Booleanity::init(node_idx.clone());
         let bf_bits_bool = Booleanity::init(bf_bits.clone());
         let node_idx_sum = ColumnSumPolys::init(node_idx.col.clone(), &domain);
-        let node_idx_sum_vals =
-            FixedCells::init(node_idx_sum.acc.clone(), &domain, F::zero(), F::one());
+        let node_idx_sum_vals = FixedCells::init(
+            node_idx_sum.acc.clone(),
+            &domain,
+            G::BaseField::zero(),
+            G::BaseField::one(),
+        );
         let seed_eq_node = CellsEqPolys::first_cells(
             selected_node.acc.clone(),
             blinded_node.acc.xs.clone(),
@@ -87,10 +91,13 @@ impl<F: PrimeField, G: AffineRepr<BaseField = F>> PiopProver<F, G> {
         }
     }
 
-    fn _committed_columns<C: Commitment<F>, Fun: Fn(&DensePolynomial<F>) -> C>(
+    fn _committed_columns<
+        C: CurveGroup,
+        Fun: Fn(&DensePolynomial<G::BaseField>) -> WrappedAffine<C>,
+    >(
         &self,
         commit: Fun,
-    ) -> ProofComms<F, C> {
+    ) -> ProofComms<C> {
         let node_idx = commit(self.node_idx.as_poly());
         let bf_bits = commit(self.bf_bits.as_poly());
         let selected_node_acc = commit(self.selected_node.acc.as_poly());
@@ -105,13 +112,12 @@ impl<F: PrimeField, G: AffineRepr<BaseField = F>> PiopProver<F, G> {
             selected_node_acc,
             blinded_node_acc,
             node_idx_sum_acc,
-            phantom: PhantomData,
         }
     }
 
     // Should return polynomials in the consistent with
     // Self::Evaluations::to_vec() and Self::Commitments::to_vec().
-    fn _columns(&self) -> Vec<DensePolynomial<F>> {
+    fn _columns(&self) -> Vec<DensePolynomial<G::BaseField>> {
         vec![
             self.nodes.as_poly().clone(),
             self.h_powers.xs.as_poly().clone(),
@@ -125,7 +131,7 @@ impl<F: PrimeField, G: AffineRepr<BaseField = F>> PiopProver<F, G> {
         ]
     }
 
-    fn _columns_evaluated(&self, zeta: &F) -> ProofEvals<F> {
+    fn _columns_evaluated(&self, zeta: &G::BaseField) -> ProofEvals<G::BaseField> {
         let x_coords = self.nodes.evaluate(zeta);
         let h_powers = [
             self.h_powers.xs.evaluate(zeta),
@@ -151,15 +157,15 @@ impl<F: PrimeField, G: AffineRepr<BaseField = F>> PiopProver<F, G> {
     }
 }
 
-impl<F: PrimeField, C: Commitment<F>, G: SWCurveConfig<BaseField = F>> ProverPiop<F, C>
-    for PiopProver<F, SwAffine<G>>
+impl<C: CurveGroup, G: SWCurveConfig<BaseField = C::ScalarField>>
+    ProverPiop<C::ScalarField, WrappedAffine<C>> for PiopProver<SwAffine<G>>
 {
     const N_CONSTRAINTS: usize = 13;
-    type Commitments = ProofComms<F, C>;
-    type Evaluations = ProofEvals<F>;
+    type Commitments = ProofComms<C>;
+    type Evaluations = ProofEvals<C::ScalarField>;
     type Instance = SwAffine<G>;
 
-    fn committed_columns<Fun: Fn(&DensePolynomial<F>) -> C>(
+    fn committed_columns<Fun: Fn(&DensePolynomial<C::ScalarField>) -> WrappedAffine<C>>(
         &self,
         commit: Fun,
     ) -> Self::Commitments {
@@ -168,15 +174,15 @@ impl<F: PrimeField, C: Commitment<F>, G: SWCurveConfig<BaseField = F>> ProverPio
 
     // Should return polynomials in the consistent with
     // Self::Evaluations::to_vec() and Self::Commitments::to_vec().
-    fn columns(&self) -> Vec<DensePolynomial<F>> {
+    fn columns(&self) -> Vec<DensePolynomial<C::ScalarField>> {
         self._columns()
     }
 
-    fn columns_evaluated(&self, zeta: &F) -> Self::Evaluations {
+    fn columns_evaluated(&self, zeta: &C::ScalarField) -> Self::Evaluations {
         self._columns_evaluated(zeta)
     }
 
-    fn constraints(&self) -> Vec<Evaluations<F>> {
+    fn constraints(&self) -> Vec<Evaluations<C::ScalarField>> {
         let (node_blinded_x, node_blinded_y) = self.blinded_node.seed_plus_sum().xy().unwrap();
         vec![
             self.selected_node.constraints(),
@@ -201,7 +207,7 @@ impl<F: PrimeField, C: Commitment<F>, G: SWCurveConfig<BaseField = F>> ProverPio
                 &self.selected_node.acc,
                 &self.domain.l_last,
                 self.domain.capacity - 1,
-                F::zero(),
+                C::ScalarField::zero(),
             )],
             self.seed_eq_node.constraints(),
             vec![self.blinded_node.acc.on_curve_constraint()],
@@ -212,13 +218,13 @@ impl<F: PrimeField, C: Commitment<F>, G: SWCurveConfig<BaseField = F>> ProverPio
                 &self.nodes,
                 &self.domain.l_last,
                 self.domain.capacity - 1,
-                F::one(),
+                C::ScalarField::one(),
             )],
         ]
         .concat()
     }
 
-    fn constraints_lin(&self, zeta: &F) -> Vec<DensePolynomial<F>> {
+    fn constraints_lin(&self, zeta: &C::ScalarField) -> Vec<DensePolynomial<C::ScalarField>> {
         vec![
             self.selected_node.constraints_linearized(zeta),
             self.blinded_node.constraints_linearized(zeta),
@@ -236,7 +242,7 @@ impl<F: PrimeField, C: Commitment<F>, G: SWCurveConfig<BaseField = F>> ProverPio
         .concat()
     }
 
-    fn domain(&self) -> &Domain<F> {
+    fn domain(&self) -> &Domain<C::ScalarField> {
         &self.domain
     }
 

@@ -36,18 +36,20 @@ pub trait CircuitParams<C: CurveGroup> {
 
     fn prover_circuit(&self, w: Self::Witness) -> Self::ProverCircuit;
 
-    fn verifier_circuit(&self,
-                        instance: Self::Instance,
-                        fixed_cols: &[WrappedAffine<C>],
-                        proof: Self::Proof,
-                        zeta: C::ScalarField) -> Self::VerifierCircuit;
+    fn verifier_circuit(
+        &self,
+        instance: Self::Instance,
+        fixed_cols: &[WrappedAffine<C>],
+        proof: Self::Proof,
+        zeta: C::ScalarField,
+    ) -> Self::VerifierCircuit;
 }
 
 type PiopProof<C> = w3f_plonk_common::PiopProof<
     <C as PrimeGroup>::ScalarField,
     WrappedAffine<C>,
     ProofComms<C>,
-    ProofEvals<<C as PrimeGroup>::ScalarField>
+    ProofEvals<<C as PrimeGroup>::ScalarField>,
 >;
 
 #[derive(Clone, Debug, CanonicalSerialize, CanonicalDeserialize)]
@@ -92,20 +94,20 @@ pub struct ProofEvals<F: PrimeField> {
 
 impl<F: PrimeField> ColumnsEvaluated<F> for ProofEvals<F> {
     fn to_vec(self) -> Vec<F> {
-        vec![
-            self.points[0],
-            self.ring_selector,
-            self.points[1],
-            self.bits,
-            self.inn_prod_acc,
-            self.cond_add_acc[0],
-            self.cond_add_acc[1],
-        ]
+        self.into()
     }
 }
 
 impl<F: PrimeField> From<ProofEvals<F>> for Vec<F> {
     fn from(value: ProofEvals<F>) -> Self {
-        value.to_vec()
+        vec![
+            value.points[0],
+            value.ring_selector,
+            value.points[1],
+            value.bits,
+            value.inn_prod_acc,
+            value.cond_add_acc[0],
+            value.cond_add_acc[1],
+        ]
     }
 }

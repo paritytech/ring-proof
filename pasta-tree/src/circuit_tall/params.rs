@@ -1,17 +1,17 @@
 use crate::auth_path::node::LevelWitnessWithBlinding;
 use crate::circuit_tall::prover::PiopProver;
 use crate::circuit_tall::verifier::PiopVerifier;
+use crate::circuit_tall::{CircuitParams, PiopProof};
 use ark_ec::short_weierstrass::{Affine as SwAffine, SWCurveConfig};
 use ark_ec::{AffineRepr, CurveGroup};
 use ark_ff::One;
 use ark_ff::{AdditiveGroup, BigInteger, PrimeField, Zero};
 use ark_std::{vec, vec::Vec};
 use w3f_pcs::pcs::commitment::WrappedAffine;
-use w3f_plonk_common::{FieldColumn};
+use w3f_plonk_common::FieldColumn;
 use w3f_plonk_common::domain::Domain;
 use w3f_plonk_common::gadgets::booleanity::BitColumn;
 use w3f_plonk_common::gadgets::ec::AffineColumn;
-use crate::circuit_tall::{CircuitParams, PiopProof};
 
 /// Plonk Interactive Oracle Proofs (PIOP) parameters.
 /// `max_nodes + blinding_bits = domain.capacity - 1`
@@ -27,7 +27,9 @@ pub struct PiopParams<G: AffineRepr<BaseField: PrimeField>> {
     pub h: G,
 }
 
-impl<C: CurveGroup, G: SWCurveConfig<BaseField=C::ScalarField>> CircuitParams<C> for PiopParams<SwAffine<G>> {
+impl<C: CurveGroup, G: SWCurveConfig<BaseField = C::ScalarField>> CircuitParams<C>
+    for PiopParams<SwAffine<G>>
+{
     type Witness = LevelWitnessWithBlinding<SwAffine<G>>;
 
     /// (re-randomized child, re-randomized parent)
@@ -40,7 +42,13 @@ impl<C: CurveGroup, G: SWCurveConfig<BaseField=C::ScalarField>> CircuitParams<C>
         PiopProver::build(&self, level)
     }
 
-    fn verifier_circuit(&self, instance: Self::Instance, fixed_cols: &[WrappedAffine<C>], proof: Self::Proof, zeta: C::ScalarField) -> Self::VerifierCircuit {
+    fn verifier_circuit(
+        &self,
+        instance: Self::Instance,
+        fixed_cols: &[WrappedAffine<C>],
+        proof: Self::Proof,
+        zeta: C::ScalarField,
+    ) -> Self::VerifierCircuit {
         let domain_at_zeta = self.domain.evaluate(zeta);
         let selector = fixed_cols[0].clone();
         let (child, x_parent) = instance;
@@ -138,7 +146,7 @@ impl<G: AffineRepr<BaseField: PrimeField>> PiopParams<G> {
             vec![G::BaseField::one(); self.max_nodes],
             vec![G::BaseField::zero(); self.blinding_bits],
         ]
-            .concat();
+        .concat();
         self.domain.public_column(selector)
     }
 
