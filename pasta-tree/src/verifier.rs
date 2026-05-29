@@ -2,8 +2,8 @@ use crate::CircuitParams;
 use crate::auth_path::blinded::BlindedAuthenticationPath;
 use crate::circuit_tall::verifier::PiopVerifier;
 use crate::{CurveTreeProof, CycleParams, CycleSideParams, CycleSideProof};
-use ark_ec::CurveGroup;
-use ark_ec::short_weierstrass::{Affine, Projective, SWCurveConfig};
+use ark_ec::{AffineRepr, CurveGroup};
+// use ark_ec::short_weierstrass::{Affine, Projective, SWCurveConfig};
 use ark_ff::PrimeField;
 use w3f_pcs::pcs::PcsParams;
 use w3f_pcs::pcs::ipa::hiding::HidingIpa;
@@ -12,18 +12,18 @@ use w3f_plonk_common::piop::VerifierPiop;
 use w3f_plonk_common::verifier::{PcsOpeningAt2Points, PlonkVerifier};
 use w3f_ring_proof::ArkTranscript;
 
-impl<F0, F1, C0, C1> CycleParams<Projective<C0>, Projective<C1>>
+impl<F0, F1, C0, C1> CycleParams<C0, C1>
 where
     F0: PrimeField,
     F1: PrimeField,
-    C0: SWCurveConfig<BaseField = F1, ScalarField = F0>,
-    C1: SWCurveConfig<BaseField = F0, ScalarField = F1>,
+    C0: CurveGroup<BaseField = F1, ScalarField = F0>,
+    C1: CurveGroup<BaseField = F0, ScalarField = F1>,
 {
     pub fn verify(
         &self,
-        auth_path: BlindedAuthenticationPath<Projective<C0>, Projective<C1>>,
-        proof: CurveTreeProof<Projective<C0>, Projective<C1>>,
-        root: Affine<C0>,
+        auth_path: BlindedAuthenticationPath<C0, C1>,
+        proof: CurveTreeProof<C0, C1>,
+        root: C0::Affine,
     ) -> bool {
         let BlindedAuthenticationPath { c0_path, c1_path } = auth_path;
         let mut c0_parents = c0_path[1..].to_vec();
@@ -38,15 +38,13 @@ where
     }
 }
 
-pub type V<C, G> = PiopVerifier<C, Affine<G>>;
-
-impl<C: CurveGroup, G: SWCurveConfig<BaseField = C::ScalarField, ScalarField = C::BaseField>>
-    CycleSideParams<C, Affine<G>>
+impl<C: CurveGroup, G: AffineRepr<BaseField = C::ScalarField, ScalarField = C::BaseField>>
+    CycleSideParams<C, G>
 {
     pub fn verify_side(
         &self,
         // selected re-randomized children
-        children: Vec<Affine<G>>,
+        children: Vec<G>,
         // parents, re-randomized at the previous step
         parents: Vec<C::Affine>,
         side_proof: CycleSideProof<C>,
@@ -61,7 +59,7 @@ impl<C: CurveGroup, G: SWCurveConfig<BaseField = C::ScalarField, ScalarField = C
             ArkTranscript::new(b"pasta-tree-level-proof"),
         );
 
-        let n_polys = V::<C, G>::N_COLUMNS + 2; // plus the quotient and the linearization polys
+        let n_polys = PiopVerifier::<C, G>::N_COLUMNS + 2; // plus the quotient and the linearization polys
         let mut polys = Vec::with_capacity(side_proof.piop_proofs.len() * n_polys);
         let mut coords = Vec::with_capacity(side_proof.piop_proofs.len() * n_polys);
         let mut vals = Vec::with_capacity(side_proof.piop_proofs.len() * n_polys);
@@ -77,8 +75,8 @@ impl<C: CurveGroup, G: SWCurveConfig<BaseField = C::ScalarField, ScalarField = C
                 &child,
                 &level_proof,
                 // '1' accounts for the quotient polynomial that is aggregated together with the columns
-                V::<C, G>::N_COLUMNS + 1,
-                V::<C, G>::N_CONSTRAINTS,
+                PiopVerifier::<C, G>::N_COLUMNS + 1,
+                PiopVerifier::<C, G>::N_CONSTRAINTS,
             );
             let piop = self.piop_params.verifier_circuit(
                 (child, parent),

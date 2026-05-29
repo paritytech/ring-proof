@@ -28,18 +28,16 @@ pub struct PiopParams<G: AffineRepr<BaseField: PrimeField>> {
     pub h: G,
 }
 
-impl<C: CurveGroup, G: AffineRepr<BaseField = C::ScalarField>> CircuitParams<C>
+impl<C: CurveGroup, G: AffineRepr<BaseField = C::ScalarField>> CircuitParams<C, G>
     for PiopParams<G>
 {
-    type Witness = LevelWitnessWithBlinding<G>;
-
     /// (re-randomized child, re-randomized parent)
     type Instance = (G, C::Affine);
     type Proof = PiopProof<C>;
     type ProverCircuit = PiopProver<G>;
     type VerifierCircuit = PiopVerifier<C, G>;
 
-    fn prover_circuit(&self, level: Self::Witness) -> Self::ProverCircuit {
+    fn prover_circuit(&self, level: LevelWitnessWithBlinding<G>) -> Self::ProverCircuit {
         PiopProver::build(&self, level)
     }
 

@@ -12,6 +12,7 @@ use w3f_pcs::shplonk::AggregateProof;
 use w3f_plonk_common::PiopProof;
 use w3f_plonk_common::domain::Domain;
 use w3f_plonk_common::piop::{ProverPiop, VerifierPiop};
+use crate::auth_path::node::LevelWitnessWithBlinding;
 
 pub mod auth_path;
 // pub mod circuit_fat;
@@ -19,6 +20,25 @@ pub mod circuit_tall;
 // pub mod level;
 pub mod prover;
 pub mod verifier;
+
+/// The circuit is over `C::ScalarField`.
+pub trait CircuitParams<C: CurveGroup, G: AffineRepr> {
+    type Instance;
+    type Proof;
+    type ProverCircuit: ProverPiop<C::ScalarField, WrappedAffine<C>>;
+    type VerifierCircuit: VerifierPiop<C::ScalarField, WrappedAffine<C>>;
+
+    fn prover_circuit(&self, level: LevelWitnessWithBlinding<G>) -> Self::ProverCircuit;
+
+    fn verifier_circuit(
+        &self,
+        instance: Self::Instance,
+        fixed_cols: &[WrappedAffine<C>],
+        proof: Self::Proof,
+        zeta: C::ScalarField,
+    ) -> Self::VerifierCircuit;
+}
+
 
 pub struct CycleSideParams<C: CurveGroup, G: AffineRepr<BaseField = C::ScalarField>> {
     pcs_params: HidingIpa<C>,
@@ -513,23 +533,4 @@ mod tests {
 
         assert_eq!(res_, res);
     }
-}
-
-/// The circuit is over `C::ScalarField`.
-pub trait CircuitParams<C: CurveGroup> {
-    type Witness;
-    type Instance;
-    type Proof;
-    type ProverCircuit: ProverPiop<C::ScalarField, WrappedAffine<C>>;
-    type VerifierCircuit: VerifierPiop<C::ScalarField, WrappedAffine<C>>;
-
-    fn prover_circuit(&self, w: Self::Witness) -> Self::ProverCircuit;
-
-    fn verifier_circuit(
-        &self,
-        instance: Self::Instance,
-        fixed_cols: &[WrappedAffine<C>],
-        proof: Self::Proof,
-        zeta: C::ScalarField,
-    ) -> Self::VerifierCircuit;
 }

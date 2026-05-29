@@ -4,10 +4,9 @@ use crate::auth_path::node::LevelWitnessWithBlinding;
 use crate::auth_path::path::AuthenticationPath;
 use crate::circuit_tall::params::PiopParams;
 use crate::circuit_tall::prover::PiopProver;
-use crate::verifier::V;
 use crate::{Coeffs, CurveTreeProof, CycleParams, CycleSideParams, CycleSideProof};
-use ark_ec::CurveGroup;
-use ark_ec::short_weierstrass::{Affine as SwAffine, Projective, SWCurveConfig};
+use ark_ec::{AffineRepr, CurveGroup};
+// use ark_ec::short_weierstrass::{Affine as SwAffine, Projective, SWCurveConfig};
 use ark_ff::{PrimeField, Zero};
 use ark_std::UniformRand;
 use ark_std::rand::Rng;
@@ -19,21 +18,22 @@ use w3f_pcs::shplonk::Shplonk;
 use w3f_plonk_common::piop::{ProverPiop, VerifierPiop};
 use w3f_plonk_common::prover::{PcsOpeningAt2Points, PlonkProver};
 use w3f_ring_proof::ArkTranscript;
+use crate::circuit_tall::verifier::PiopVerifier;
 
-impl<F0, F1, C0, C1> CycleParams<Projective<C0>, Projective<C1>>
+impl<F0, F1, C0, C1> CycleParams<C0, C1>
 where
     F0: PrimeField,
     F1: PrimeField,
-    C0: SWCurveConfig<BaseField = F1, ScalarField = F0>,
-    C1: SWCurveConfig<BaseField = F0, ScalarField = F1>,
+    C0: CurveGroup<BaseField = F1, ScalarField = F0>,
+    C1: CurveGroup<BaseField = F0, ScalarField = F1>,
 {
     pub fn prove<R: Rng>(
         &self,
-        auth_path: AuthenticationPath<Projective<C0>, Projective<C1>>,
+        auth_path: AuthenticationPath<C0, C1>,
         rng: &mut R,
     ) -> (
-        BlindedAuthenticationPath<Projective<C0>, Projective<C1>>,
-        CurveTreeProof<Projective<C0>, Projective<C1>>,
+        BlindedAuthenticationPath<C0, C1>,
+        CurveTreeProof<C0, C1>,
     ) {
         let auth_path_with_bf = auth_path.with_blinding(rng);
         let blinded_auth_path = auth_path_with_bf.apply_bfs(&self);
@@ -48,13 +48,13 @@ where
     }
 }
 
-impl<C: CurveGroup, G: SWCurveConfig<BaseField = C::ScalarField, ScalarField = C::BaseField>>
-    CycleSideParams<C, SwAffine<G>>
+impl<C: CurveGroup, G: AffineRepr<BaseField = C::ScalarField, ScalarField = C::BaseField>>
+    CycleSideParams<C, G>
 {
     pub fn prove_side<R: Rng>(
         &self,
-        blinded_path: Vec<SwAffine<G>>,
-        witness: Vec<LevelWitnessWithBlinding<SwAffine<G>>>,
+        blinded_path: Vec<G>,
+        witness: Vec<LevelWitnessWithBlinding<G>>,
         rng: &mut R,
     ) -> CycleSideProof<C> {
         // let mut s = std::any::type_name::<C>();
@@ -62,7 +62,7 @@ impl<C: CurveGroup, G: SWCurveConfig<BaseField = C::ScalarField, ScalarField = C
         // println!("\n\nprover {s}\nchildren={blinded_path:?}\n");
 
         debug_assert_eq!(blinded_path.len(), witness.len());
-        let n_polys = V::<C, G>::N_COLUMNS + 2; // plus the quotient and the linearization polys
+        let n_polys = PiopVerifier::<C, G>::N_COLUMNS + 2; // plus the quotient and the linearization polys
         let mut piop_proofs = Vec::with_capacity(witness.len());
         let mut polys = Vec::with_capacity(witness.len() * n_polys);
         let mut coords = Vec::with_capacity(witness.len() * n_polys);
@@ -75,11 +75,11 @@ impl<C: CurveGroup, G: SWCurveConfig<BaseField = C::ScalarField, ScalarField = C
         );
 
         for (level, blinded_node) in witness.into_iter().zip(blinded_path.into_iter()) {
-            let piop = <PiopParams<SwAffine<G>> as CircuitParams<C>>::prover_circuit(
+            let piop = <PiopParams<G> as CircuitParams<C, G>>::prover_circuit(
                 &self.piop_params,
                 level.clone(),
             );
-            let blinded_node_ = <PiopProver<SwAffine<G>> as ProverPiop<
+            let blinded_node_ = <PiopProver<G> as ProverPiop<
                 C::ScalarField,
                 WrappedAffine<C>,
             >>::result(&piop);
