@@ -1,3 +1,4 @@
+use std::marker::PhantomData;
 use crate::auth_path::node::LevelWitnessWithBlinding;
 use crate::circuit_tall::params::PiopParams;
 use crate::circuit_tall::{ProofComms, ProofEvals};
@@ -32,7 +33,7 @@ use w3f_plonk_common::piop::ProverPiop;
 //     cond_add_acc_y: DensePolynomial<F>,
 // }
 
-pub struct PiopProver<G: AffineRepr<BaseField: FftField>> {
+pub struct PiopProver<C: CurveGroup, G: AffineRepr<BaseField=C::ScalarField>> {
     domain: Domain<G::BaseField>,
     // `x` coordinates of all the children of a node. Public input.
     // `H, 2H, 4H,...,2^sH` Fixed column.
@@ -47,11 +48,12 @@ pub struct PiopProver<G: AffineRepr<BaseField: FftField>> {
     // columns: Witness<F, G>,
     gadgets: Vec<Box<dyn ProverGadget<G::BaseField>>>,
     result: G,
+    phantom: PhantomData<C>,
 }
 
-impl<G: AffineRepr<BaseField: PrimeField>> PiopProver<G> {
+impl<C: CurveGroup, G: AffineRepr<BaseField=C::ScalarField>> PiopProver<C, G> {
     pub fn build(
-        params: &PiopParams<G>,
+        params: &PiopParams<C, G>,
         level: LevelWitnessWithBlinding<G>,
     ) -> Self {
         let domain = params.domain.clone();
@@ -97,12 +99,13 @@ impl<G: AffineRepr<BaseField: PrimeField>> PiopProver<G> {
             cond_add_acc_x,
             cond_add_acc_y,
             result,
+            phantom: PhantomData,
         }
     }
 }
 
-impl<C: CurveGroup, G: AffineRepr<BaseField = C::ScalarField>>
-    ProverPiop<C::ScalarField, WrappedAffine<C>> for PiopProver<G>
+impl<C: CurveGroup, G: AffineRepr<BaseField=C::ScalarField>>
+ProverPiop<C::ScalarField, WrappedAffine<C>> for PiopProver<C, G>
 {
     const N_CONSTRAINTS: usize = 7;
     type Commitments = ProofComms<C>;

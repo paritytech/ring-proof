@@ -1,3 +1,4 @@
+use std::marker::PhantomData;
 use crate::CircuitParams;
 use crate::auth_path::node::LevelWitnessWithBlinding;
 use crate::circuit_tall::PiopProof;
@@ -17,7 +18,7 @@ use w3f_plonk_common::gadgets::ec::AffineColumn;
 /// Plonk Interactive Oracle Proofs (PIOP) parameters.
 /// `max_nodes + blinding_bits = domain.capacity - 1`
 #[derive(Clone)]
-pub struct PiopParams<G: AffineRepr<BaseField: PrimeField>> {
+pub struct PiopParams<C: CurveGroup, G: AffineRepr<BaseField = C::ScalarField>> {
     /// Domain over which the piop is represented.
     pub domain: Domain<G::BaseField>,
     pub max_nodes: usize,
@@ -26,15 +27,16 @@ pub struct PiopParams<G: AffineRepr<BaseField: PrimeField>> {
     pub seed: G,
     /// Blinding base point.
     pub h: G,
+    phantom: PhantomData<C>
 }
 
 impl<C: CurveGroup, G: AffineRepr<BaseField = C::ScalarField>> CircuitParams<C, G>
-    for PiopParams<G>
+    for PiopParams<C, G>
 {
     /// (re-randomized child, re-randomized parent)
     type Instance = (G, C::Affine);
     type Proof = PiopProof<C>;
-    type ProverCircuit = PiopProver<G>;
+    type ProverCircuit = PiopProver<C, G>;
     type VerifierCircuit = PiopVerifier<C, G>;
 
     fn prover_circuit(&self, level: LevelWitnessWithBlinding<G>) -> Self::ProverCircuit {
@@ -62,31 +64,13 @@ impl<C: CurveGroup, G: AffineRepr<BaseField = C::ScalarField>> CircuitParams<C, 
             child,
         )
     }
-}
 
-impl<G: AffineRepr<BaseField: PrimeField>> PiopParams<G> {
-    pub fn setup(domain: Domain<G::BaseField>, h: G, seed: G) -> Self {
-        assert!(domain.domain_size() > 256);
-        let actual_capacity = domain.capacity - 1;
-        let scalar_size = Domain::<G::BaseField>::new(256, domain.is_hiding()).capacity - 1;
-        let blinding_bits =
-            ark_std::cmp::min(G::ScalarField::MODULUS_BIT_SIZE as usize, scalar_size);
-        let max_nodes = actual_capacity - blinding_bits;
-        Self {
-            domain,
-            max_nodes,
-            blinding_bits,
-            seed,
-            h,
-        }
-    }
-
-    pub fn commit_x_coords(
+    fn tree_nodes_column(
         &self,
-        siblings_x_coords: Vec<G::BaseField>,
+        children_x_coords: &[G::BaseField],
     ) -> FieldColumn<G::BaseField> {
-        assert!(siblings_x_coords.len() <= self.max_nodes);
-        let mut x_coords = siblings_x_coords;
+        assert!(children_x_coords.len() <= self.max_nodes);
+        let mut x_coords = children_x_coords.to_vec();
         // padding
         x_coords.resize(self.max_nodes, G::BaseField::zero());
         // `powers_of_h` x-coords
@@ -104,20 +88,43 @@ impl<G: AffineRepr<BaseField: PrimeField>> PiopParams<G> {
         self.domain.domains.column_from_evals(x_coords, payload_len)
     }
 
-    pub fn x_coords_from_points(&self, child_nodes: Vec<G>) -> FieldColumn<G::BaseField> {
-        let points = self.siblings_with_blinding(child_nodes);
-        let (mut x_coords, mut y_coords): (Vec<G::BaseField>, Vec<G::BaseField>) =
-            points.iter().map(|p| p.xy().unwrap()).unzip();
-        let payload_len = self.domain.capacity - 1;
-        assert_eq!(x_coords.len(), payload_len);
-        // x_coords.push(G::BaseField::one());
-        // assert_eq!(x_coords.len(), self.domain.capacity);
-
-        // zk_rows
-        x_coords.resize(self.domain.domain_size(), G::BaseField::zero());
-        y_coords.resize(self.domain.domain_size(), G::BaseField::zero());
-        self.domain.domains.column_from_evals(x_coords, payload_len)
+    fn fixed_columns(&self) -> Vec<FieldColumn<G::BaseField>> {
+        vec![self.select_part()]
     }
+}
+
+impl<C: CurveGroup, G: AffineRepr<BaseField = C::ScalarField>> PiopParams<C, G> {
+    pub fn setup(domain: Domain<G::BaseField>, h: G, seed: G) -> Self {
+        assert!(domain.domain_size() > 256);
+        let actual_capacity = domain.capacity - 1;
+        let scalar_size = Domain::<G::BaseField>::new(256, domain.is_hiding()).capacity - 1;
+        let blinding_bits =
+            ark_std::cmp::min(G::ScalarField::MODULUS_BIT_SIZE as usize, scalar_size);
+        let max_nodes = actual_capacity - blinding_bits;
+        Self {
+            domain,
+            max_nodes,
+            blinding_bits,
+            seed,
+            h,
+            phantom: PhantomData,
+        }
+    }
+
+    // fn x_coords_from_points(&self, child_nodes: Vec<G>) -> FieldColumn<G::BaseField> {
+    //     let points = self.siblings_with_blinding(child_nodes);
+    //     let (mut x_coords, mut y_coords): (Vec<G::BaseField>, Vec<G::BaseField>) =
+    //         points.iter().map(|p| p.xy().unwrap()).unzip();
+    //     let payload_len = self.domain.capacity - 1;
+    //     assert_eq!(x_coords.len(), payload_len);
+    //     // x_coords.push(G::BaseField::one());
+    //     // assert_eq!(x_coords.len(), self.domain.capacity);
+    //
+    //     // zk_rows
+    //     x_coords.resize(self.domain.domain_size(), G::BaseField::zero());
+    //     y_coords.resize(self.domain.domain_size(), G::BaseField::zero());
+    //     self.domain.domains.column_from_evals(x_coords, payload_len)
+    // }
 
     pub fn points_column(&self, child_nodes: Vec<G>) -> AffineColumn<G::BaseField, G> {
         let points = self.siblings_with_blinding(child_nodes);
@@ -141,7 +148,7 @@ impl<G: AffineRepr<BaseField: PrimeField>> PiopParams<G> {
         BitColumn::init(bits, &self.domain)
     }
 
-    pub fn select_part(&self) -> FieldColumn<G::BaseField> {
+    pub(super) fn select_part(&self) -> FieldColumn<G::BaseField> {
         let selector = [
             vec![G::BaseField::one(); self.max_nodes],
             vec![G::BaseField::zero(); self.blinding_bits],

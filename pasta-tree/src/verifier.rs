@@ -64,7 +64,7 @@ impl<C: CurveGroup, G: AffineRepr<BaseField = C::ScalarField, ScalarField = C::B
         let mut coords = Vec::with_capacity(side_proof.piop_proofs.len() * n_polys);
         let mut vals = Vec::with_capacity(side_proof.piop_proofs.len() * n_polys);
 
-        let selector = self.commit_selector();
+        let selector = self.commit_fixed_columns()[0].clone();
 
         for ((child, parent), level_proof) in children
             .into_iter()

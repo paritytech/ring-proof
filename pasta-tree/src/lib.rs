@@ -9,7 +9,7 @@ use w3f_pcs::pcs::PCS;
 use w3f_pcs::pcs::commitment::WrappedAffine;
 use w3f_pcs::pcs::ipa::hiding::HidingIpa;
 use w3f_pcs::shplonk::AggregateProof;
-use w3f_plonk_common::PiopProof;
+use w3f_plonk_common::{FieldColumn, PiopProof};
 use w3f_plonk_common::domain::Domain;
 use w3f_plonk_common::piop::{ProverPiop, VerifierPiop};
 use crate::auth_path::node::LevelWitnessWithBlinding;
@@ -37,12 +37,16 @@ pub trait CircuitParams<C: CurveGroup, G: AffineRepr> {
         proof: Self::Proof,
         zeta: C::ScalarField,
     ) -> Self::VerifierCircuit;
+
+    fn tree_nodes_column(&self, children_x_coords: &[C::ScalarField]) -> FieldColumn<C::ScalarField>;
+
+    fn fixed_columns(&self) -> Vec<FieldColumn<C::ScalarField>>;
 }
 
 
 pub struct CycleSideParams<C: CurveGroup, G: AffineRepr<BaseField = C::ScalarField>> {
     pcs_params: HidingIpa<C>,
-    piop_params: PiopParams<G>,
+    piop_params: PiopParams<C, G>,
 }
 
 pub struct CycleParams<
@@ -76,12 +80,10 @@ pub struct CurveTreeProof<
     c1_proof: CycleSideProof<C1>,
 }
 
-impl<F0, F1, C0, C1> CycleParams<C0, C1>
+impl<C0, C1> CycleParams<C0, C1>
 where
-    F0: PrimeField,
-    F1: PrimeField,
-    C0: CurveGroup<BaseField = F1, ScalarField = F0>,
-    C1: CurveGroup<BaseField = F0, ScalarField = F1>,
+    C0: CurveGroup<BaseField: PrimeField>,
+    C1: CurveGroup<BaseField = C0::ScalarField, ScalarField = C0::BaseField>,
 {
     pub fn setup<R: Rng>(domain_size: usize, rng: &mut R) -> Self {
         let setup_degree = 3 * domain_size;
@@ -105,21 +107,21 @@ where
 }
 
 impl<C: CurveGroup, G: AffineRepr<BaseField = C::ScalarField>> CycleSideParams<C, G> {
-    pub fn commit_x_coords(
+
+    pub fn commit_tree_nodes(
         &self,
-        child_x_coords: Vec<G::BaseField>,
+        nodes_x_coords: &[C::ScalarField],
         bf: C::ScalarField,
     ) -> Result<WrappedAffine<C>, ()> {
-        let x_coords = self.piop_params.commit_x_coords(child_x_coords);
-        let x_parent = self.pcs_params.commit_hiding(x_coords.as_poly(), bf);
-        x_parent
+        let nodes_column = self.piop_params.tree_nodes_column(nodes_x_coords);
+        let parent_node = self.pcs_params.commit_hiding(nodes_column.as_poly(), bf);
+        parent_node
     }
 
-    pub fn commit_selector(&self) -> WrappedAffine<C> {
-        let selector = self.piop_params.select_part();
-        self.pcs_params
-            .commit_hiding(selector.as_poly(), C::ScalarField::zero())
-            .unwrap()
+    pub fn commit_fixed_columns(&self) -> Vec<WrappedAffine<C>> {
+        self.piop_params.fixed_columns().iter()
+            .map(|c| self.pcs_params.commit_hiding(c.as_poly(), C::ScalarField::zero()).unwrap())
+            .collect()
     }
 
     // pub fn commit_h_powers(&self) -> [IPACommitment<C>; 2] {

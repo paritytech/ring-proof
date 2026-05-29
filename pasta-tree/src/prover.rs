@@ -75,11 +75,11 @@ impl<C: CurveGroup, G: AffineRepr<BaseField = C::ScalarField, ScalarField = C::B
         );
 
         for (level, blinded_node) in witness.into_iter().zip(blinded_path.into_iter()) {
-            let piop = <PiopParams<G> as CircuitParams<C, G>>::prover_circuit(
+            let piop = <PiopParams<C, G> as CircuitParams<C, G>>::prover_circuit(
                 &self.piop_params,
                 level.clone(),
             );
-            let blinded_node_ = <PiopProver<G> as ProverPiop<
+            let blinded_node_ = <PiopProver<C, G> as ProverPiop<
                 C::ScalarField,
                 WrappedAffine<C>,
             >>::result(&piop);
