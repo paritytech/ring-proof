@@ -24,8 +24,8 @@ impl<F0, F1, C0, C1> CycleParams<C0, C1>
 where
     F0: PrimeField,
     F1: PrimeField,
-    C0: CurveGroup<BaseField = F1, ScalarField = F0>,
-    C1: CurveGroup<BaseField = F0, ScalarField = F1>,
+    C0: CurveGroup<BaseField=F1, ScalarField=F0>,
+    C1: CurveGroup<BaseField=F0, ScalarField=F1>,
 {
     pub fn prove<R: Rng>(
         &self,
@@ -48,8 +48,8 @@ where
     }
 }
 
-impl<C: CurveGroup, G: AffineRepr<BaseField = C::ScalarField, ScalarField = C::BaseField>>
-    CycleSideParams<C, G>
+impl<C: CurveGroup, G: AffineRepr<BaseField=C::ScalarField, ScalarField=C::BaseField>>
+CycleSideParams<C, G>
 {
     pub fn prove_side<R: Rng>(
         &self,
@@ -75,15 +75,8 @@ impl<C: CurveGroup, G: AffineRepr<BaseField = C::ScalarField, ScalarField = C::B
         );
 
         for (level, blinded_node) in witness.into_iter().zip(blinded_path.into_iter()) {
-            let piop = <PiopParams<C, G> as CircuitParams<C, G>>::prover_circuit(
-                &self.piop_params,
-                level.clone(),
-            );
-            let blinded_node_ = <PiopProver<C, G> as ProverPiop<
-                C::ScalarField,
-                WrappedAffine<C>,
-            >>::result(&piop);
-            debug_assert_eq!(blinded_node_, blinded_node);
+            let piop = self.piop_params.prover_circuit(level.clone());
+            debug_assert_eq!(piop.result(), blinded_node);
             let (pcs_openings, piop_proof, _transcript) = plonk_prover.reduce_to_pcs_opening(piop);
             piop_proofs.push(piop_proof);
             let PcsOpeningAt2Points {
