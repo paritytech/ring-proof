@@ -1,4 +1,3 @@
-use std::marker::PhantomData;
 use crate::CircuitParams;
 use crate::auth_path::node::LevelWitnessWithBlinding;
 use crate::circuit_tall::PiopProof;
@@ -6,7 +5,7 @@ use crate::circuit_tall::prover::PiopProver;
 use crate::circuit_tall::verifier::PiopVerifier;
 // use ark_ec::short_weierstrass::{Affine as SwAffine, SWCurveConfig};
 use ark_ec::{AffineRepr, CurveGroup};
-use ark_ff::One;
+use ark_ff::{FftField, One};
 use ark_ff::{AdditiveGroup, BigInteger, PrimeField, Zero};
 use ark_std::{vec, vec::Vec};
 use w3f_pcs::pcs::commitment::WrappedAffine;
@@ -18,7 +17,7 @@ use w3f_plonk_common::gadgets::ec::AffineColumn;
 /// Plonk Interactive Oracle Proofs (PIOP) parameters.
 /// `max_nodes + blinding_bits = domain.capacity - 1`
 #[derive(Clone)]
-pub struct PiopParams<C: CurveGroup, G: AffineRepr<BaseField = C::ScalarField>> {
+pub struct PiopParams<G: AffineRepr<BaseField: FftField>> {
     /// Domain over which the piop is represented.
     pub domain: Domain<G::BaseField>,
     pub max_nodes: usize,
@@ -27,16 +26,15 @@ pub struct PiopParams<C: CurveGroup, G: AffineRepr<BaseField = C::ScalarField>> 
     pub seed: G,
     /// Blinding base point.
     pub h: G,
-    phantom: PhantomData<C>
 }
 
 impl<C: CurveGroup, G: AffineRepr<BaseField = C::ScalarField>> CircuitParams<C, G>
-    for PiopParams<C, G>
+    for PiopParams<G>
 {
     /// (re-randomized child, re-randomized parent)
     type Instance = (G, C::Affine);
     type Proof = PiopProof<C>;
-    type ProverCircuit = PiopProver<C, G>;
+    type ProverCircuit = PiopProver<G>;
     type VerifierCircuit = PiopVerifier<C, G>;
 
     fn prover_circuit(&self, level: LevelWitnessWithBlinding<G>) -> Self::ProverCircuit {
@@ -93,7 +91,7 @@ impl<C: CurveGroup, G: AffineRepr<BaseField = C::ScalarField>> CircuitParams<C, 
     }
 }
 
-impl<C: CurveGroup, G: AffineRepr<BaseField = C::ScalarField>> PiopParams<C, G> {
+impl<G: AffineRepr<BaseField: FftField>> PiopParams<G> {
     pub fn setup(domain: Domain<G::BaseField>, h: G, seed: G) -> Self {
         assert!(domain.domain_size() > 256);
         let actual_capacity = domain.capacity - 1;
@@ -107,7 +105,6 @@ impl<C: CurveGroup, G: AffineRepr<BaseField = C::ScalarField>> PiopParams<C, G> 
             blinding_bits,
             seed,
             h,
-            phantom: PhantomData,
         }
     }
 

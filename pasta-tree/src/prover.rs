@@ -75,8 +75,9 @@ CycleSideParams<C, G>
         );
 
         for (level, blinded_node) in witness.into_iter().zip(blinded_path.into_iter()) {
-            let piop = self.piop_params.prover_circuit(level.clone());
-            debug_assert_eq!(piop.result(), blinded_node);
+            let piop: PiopProver<G> = <PiopParams<G> as CircuitParams<C, G>>::prover_circuit(&self.piop_params, level.clone());
+            let result = <PiopProver<G> as ProverPiop<C::ScalarField, WrappedAffine<C>>>::result(&piop);
+            debug_assert_eq!(result, blinded_node);
             let (pcs_openings, piop_proof, _transcript) = plonk_prover.reduce_to_pcs_opening(piop);
             piop_proofs.push(piop_proof);
             let PcsOpeningAt2Points {

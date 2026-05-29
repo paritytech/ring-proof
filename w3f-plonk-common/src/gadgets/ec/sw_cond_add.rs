@@ -5,7 +5,7 @@ use ark_poly::univariate::DensePolynomial;
 use ark_poly::{Evaluations, GeneralEvaluationDomain};
 use ark_std::{vec, vec::Vec};
 
-use crate::gadgets::ec::{AffineColumn, CondAdd, CondAddValues};
+use crate::gadgets::ec::{CondAdd, CondAddValues};
 use crate::gadgets::{ProverGadget, VerifierGadget};
 use crate::{const_evals, Column};
 
