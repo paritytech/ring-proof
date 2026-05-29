@@ -22,7 +22,7 @@ where
     pub fn verify(
         &self,
         auth_path: BlindedAuthenticationPath<Projective<C0>, Projective<C1>>,
-        proof: CurveTreeProof<F0, F1, Projective<C0>, Projective<C1>>,
+        proof: CurveTreeProof<Projective<C0>, Projective<C1>>,
         root: Affine<C0>,
     ) -> bool {
         let BlindedAuthenticationPath { c0_path, c1_path } = auth_path;

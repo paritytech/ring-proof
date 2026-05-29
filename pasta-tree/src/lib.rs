@@ -49,10 +49,8 @@ pub struct CycleSideProof<C: CurveGroup> {
 
 #[derive(Clone)]
 pub struct CurveTreeProof<
-    F0: PrimeField,
-    F1: PrimeField,
-    C0: CurveGroup<ScalarField = F0>,
-    C1: CurveGroup<ScalarField = F1>,
+    C0: CurveGroup,
+    C1: CurveGroup,
 > {
     c0_proof: CycleSideProof<C0>,
     c1_proof: CycleSideProof<C1>,

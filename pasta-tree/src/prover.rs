@@ -33,7 +33,7 @@ where
         rng: &mut R,
     ) -> (
         BlindedAuthenticationPath<Projective<C0>, Projective<C1>>,
-        CurveTreeProof<F0, F1, Projective<C0>, Projective<C1>>,
+        CurveTreeProof<Projective<C0>, Projective<C1>>,
     ) {
         let auth_path_with_bf = auth_path.with_blinding(rng);
         let blinded_auth_path = auth_path_with_bf.apply_bfs(&self);
