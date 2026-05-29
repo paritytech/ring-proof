@@ -3,7 +3,7 @@ use crate::auth_path::node::LevelWitnessWithBlinding;
 use crate::auth_path::path::AuthenticationPath;
 use crate::circuit_tall::prover::PiopProver;
 use crate::circuit_tall::verifier::PiopVerifier;
-use crate::{CircuitParams, CycleParams2, CycleSideParams2};
+use crate::{CircuitParams, CycleParams, CycleSideParams};
 use crate::{Coeffs, CurveTreeProof, CycleSideProof};
 use ark_ec::{AffineRepr, CurveGroup};
 // use ark_ec::short_weierstrass::{Affine as SwAffine, Projective, SWCurveConfig};
@@ -19,7 +19,7 @@ use w3f_plonk_common::piop::{ProverPiop, VerifierPiop};
 use w3f_plonk_common::prover::{PcsOpeningAt2Points, PlonkProver};
 use w3f_ring_proof::ArkTranscript;
 
-impl<C0, C1, P0, P1> CycleParams2<C0, C1, P0, P1>
+impl<C0, C1, P0, P1> CycleParams<C0, C1, P0, P1>
 where
     C0: CurveGroup<BaseField: PrimeField>,
     C1: CurveGroup<BaseField = C0::ScalarField, ScalarField = C0::BaseField>,
@@ -49,7 +49,7 @@ impl<
     C: CurveGroup,
     G: AffineRepr<BaseField = C::ScalarField>,
     P: CircuitParams<C, G, ProverCircuit = PiopProver<G>>,
-> CycleSideParams2<C, G, P>
+> CycleSideParams<C, G, P>
 {
     pub fn prove_side<R: Rng>(
         &self,

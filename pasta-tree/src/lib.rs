@@ -47,7 +47,7 @@ pub trait CircuitParams<C: CurveGroup, G: AffineRepr<BaseField = C::ScalarField>
     fn fixed_columns(&self) -> Vec<FieldColumn<C::ScalarField>>;
 }
 
-pub struct CycleSideParams2<
+pub struct CycleSideParams<
     C: CurveGroup,
     G: AffineRepr<BaseField = C::ScalarField>,
     P: CircuitParams<C, G>,
@@ -57,14 +57,14 @@ pub struct CycleSideParams2<
     phantomm: PhantomData<G>,
 }
 
-pub struct CycleParams2<
+pub struct CycleParams<
     C0: CurveGroup,
     C1: CurveGroup<BaseField = C0::ScalarField, ScalarField = C0::BaseField>,
     P0: CircuitParams<C0, C1::Affine>,
     P1: CircuitParams<C1, C0::Affine>,
 > {
-    c0_params: CycleSideParams2<C0, C1::Affine, P0>,
-    c1_params: CycleSideParams2<C1, C0::Affine, P1>,
+    c0_params: CycleSideParams<C0, C1::Affine, P0>,
+    c1_params: CycleSideParams<C1, C0::Affine, P1>,
 }
 
 pub type LevelProof<C> = PiopProof<
@@ -87,7 +87,7 @@ pub struct CurveTreeProof<C0: CurveGroup, C1: CurveGroup> {
     c1_proof: CycleSideProof<C1>,
 }
 
-impl<C0, C1> CycleParams2<C0, C1, PiopParams<C1::Affine>, PiopParams<C0::Affine>>
+impl<C0, C1> CycleParams<C0, C1, PiopParams<C1::Affine>, PiopParams<C0::Affine>>
 where
     C0: CurveGroup<BaseField: PrimeField>,
     C1: CurveGroup<BaseField = C0::ScalarField, ScalarField = C0::BaseField>,
@@ -101,12 +101,12 @@ where
         let c1_domain = Domain::<C1::ScalarField>::new(domain_size, true);
         let c1_piop_params = PiopParams::setup(c1_domain, c0_pcs_params.h, C0::Affine::rand(rng));
         Self {
-            c0_params: CycleSideParams2 {
+            c0_params: CycleSideParams {
                 pcs_params: c0_pcs_params,
                 piop_params: c0_piop_params,
                 phantomm: PhantomData,
             },
-            c1_params: CycleSideParams2 {
+            c1_params: CycleSideParams {
                 pcs_params: c1_pcs_params,
                 piop_params: c1_piop_params,
                 phantomm: PhantomData,
@@ -116,7 +116,7 @@ where
 }
 
 impl<C: CurveGroup, G: AffineRepr<BaseField = C::ScalarField>, P: CircuitParams<C, G>>
-    CycleSideParams2<C, G, P>
+    CycleSideParams<C, G, P>
 {
     pub fn commit_tree_nodes(
         &self,
@@ -218,7 +218,7 @@ mod tests {
     }
 
     pub fn random_nodes<C: CurveGroup, G: AffineRepr<BaseField = C::ScalarField>, R: Rng>(
-        params: &CycleSideParams2<C, G, PiopParams<G>>,
+        params: &CycleSideParams<C, G, PiopParams<G>>,
         path_node: G,
         rng: &mut R,
     ) -> (C::Affine, LevelWitness<G>) {
@@ -232,7 +232,7 @@ mod tests {
         C1: CurveGroup<BaseField = C0::ScalarField, ScalarField = C0::BaseField>,
         R: Rng,
     >(
-        params: &CycleParams2<C0, C1, PiopParams<C1::Affine>, PiopParams<C0::Affine>>,
+        params: &CycleParams<C0, C1, PiopParams<C1::Affine>, PiopParams<C0::Affine>>,
         length: usize,
         rng: &mut R,
     ) -> (
@@ -278,7 +278,7 @@ mod tests {
         let rng = &mut test_rng();
 
         let domain_size = 1 << log_n;
-        let params = CycleParams2::<Projective<C0>, Projective<C1>, _, _>::setup(domain_size, rng);
+        let params = CycleParams::<Projective<C0>, Projective<C1>, _, _>::setup(domain_size, rng);
         let (_leaf, path, wrapped_root) = random_path(&params, height, rng);
         let root = match wrapped_root {
             CycleSide::C0(root) => root, //TODO: panics on odd height

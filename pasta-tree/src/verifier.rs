@@ -1,7 +1,7 @@
 use crate::auth_path::blinded::BlindedAuthenticationPath;
 use crate::circuit_tall::PiopProof;
 use crate::circuit_tall::verifier::PiopVerifier;
-use crate::{CircuitParams, CycleParams2, CycleSideParams2};
+use crate::{CircuitParams, CycleParams, CycleSideParams};
 use crate::{CurveTreeProof, CycleSideProof};
 use ark_ec::{AffineRepr, CurveGroup};
 // use ark_ec::short_weierstrass::{Affine, Projective, SWCurveConfig};
@@ -13,7 +13,7 @@ use w3f_plonk_common::piop::VerifierPiop;
 use w3f_plonk_common::verifier::{PcsOpeningAt2Points, PlonkVerifier};
 use w3f_ring_proof::ArkTranscript;
 
-impl<C0, C1, P0, P1> CycleParams2<C0, C1, P0, P1>
+impl<C0, C1, P0, P1> CycleParams<C0, C1, P0, P1>
 where
     C0: CurveGroup<BaseField: PrimeField>,
     C1: CurveGroup<BaseField = C0::ScalarField, ScalarField = C0::BaseField>,
@@ -43,7 +43,7 @@ impl<
     C: CurveGroup,
     G: AffineRepr<BaseField = C::ScalarField>,
     P: CircuitParams<C, G, Proof = PiopProof<C>>,
-> CycleSideParams2<C, G, P>
+> CycleSideParams<C, G, P>
 {
     pub fn verify_side(
         &self,

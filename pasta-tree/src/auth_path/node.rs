@@ -1,4 +1,4 @@
-use crate::{CircuitParams, CycleSideParams2};
+use crate::{CircuitParams, CycleSideParams};
 use ark_ec::{AffineRepr, CurveGroup};
 use ark_ff::{PrimeField, Zero};
 use ark_std::UniformRand;
@@ -53,7 +53,7 @@ impl<G: AffineRepr> LevelWitness<G> {
         self.with_blinding(G::ScalarField::rand(rng), parent_bf)
     }
 
-    pub fn compute_parent<C, P>(&self, params: &CycleSideParams2<C, G, P>) -> Result<C::Affine, ()>
+    pub fn compute_parent<C, P>(&self, params: &CycleSideParams<C, G, P>) -> Result<C::Affine, ()>
     where
         G::BaseField: PrimeField,
         C: CurveGroup<ScalarField = G::BaseField>,
@@ -64,7 +64,7 @@ impl<G: AffineRepr> LevelWitness<G> {
 
     fn compute_parent_with_bf<C, P>(
         &self,
-        params: &CycleSideParams2<C, G, P>,
+        params: &CycleSideParams<C, G, P>,
         bf: C::ScalarField,
     ) -> Result<C::Affine, ()>
     where
@@ -102,7 +102,7 @@ impl<G: AffineRepr> LevelWitnessWithBlinding<G> {
 
     pub(crate) fn compute_parent<C, P>(
         &self,
-        params: &CycleSideParams2<C, G, P>,
+        params: &CycleSideParams<C, G, P>,
     ) -> Result<C::Affine, ()>
     where
         G::BaseField: PrimeField,

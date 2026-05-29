@@ -1,6 +1,6 @@
 use crate::auth_path::blinded::AuthenticationPathWithBlinding;
 use crate::auth_path::node::LevelWitness;
-use crate::{CircuitParams, CycleParams2, CycleSide};
+use crate::{CircuitParams, CycleParams, CycleSide};
 use ark_ec::CurveGroup;
 use ark_ff::UniformRand;
 use ark_ff::{PrimeField, Zero};
@@ -70,7 +70,7 @@ where
 
     pub fn compute_root<P0, P1>(
         &self,
-        params: &CycleParams2<C0, C1, P0, P1>,
+        params: &CycleParams<C0, C1, P0, P1>,
     ) -> Result<CycleSide<C0::Affine, C1::Affine>, ()>
     where
         P0: CircuitParams<C0, C1::Affine>,
@@ -111,7 +111,7 @@ mod tests {
         let rng = &mut test_rng();
 
         let domain_size = 2usize.pow(9);
-        let params = CycleParams2::<ark_pallas::Projective, ark_vesta::Projective, _, _>::setup(
+        let params = CycleParams::<ark_pallas::Projective, ark_vesta::Projective, _, _>::setup(
             domain_size,
             rng,
         );
