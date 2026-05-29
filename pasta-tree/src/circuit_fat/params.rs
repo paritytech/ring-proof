@@ -3,7 +3,7 @@ use crate::auth_path::node::LevelWitnessWithBlinding;
 use crate::circuit_fat::PiopProof;
 use crate::circuit_fat::prover::PiopProver;
 use crate::circuit_fat::verifier::PiopVerifier;
-use ark_ec::short_weierstrass::{Affine as SwAffine, SWCurveConfig};
+// use ark_ec::short_weierstrass::{Affine as SwAffine, SWCurveConfig};
 use ark_ec::{AffineRepr, CurveGroup};
 use ark_ff::One;
 use ark_ff::{AdditiveGroup, BigInteger, PrimeField, Zero};
@@ -25,28 +25,18 @@ pub struct PiopParams<G: AffineRepr<BaseField: PrimeField>> {
     pub h: G,
 }
 
-impl<C: CurveGroup, G: SWCurveConfig<BaseField = C::ScalarField>> CircuitParams<C>
-    for PiopParams<SwAffine<G>>
+impl<C: CurveGroup, G: AffineRepr<BaseField = C::ScalarField>> CircuitParams<C, G>
+for PiopParams<G>
 {
-    type Witness = LevelWitnessWithBlinding<SwAffine<G>>;
-
-    /// (re-randomized child, re-randomized parent)
-    type Instance = (SwAffine<G>, C::Affine);
     type Proof = PiopProof<C>;
-    type ProverCircuit = PiopProver<SwAffine<G>>;
-    type VerifierCircuit = PiopVerifier<C, SwAffine<G>>;
+    type ProverCircuit = PiopProver<G>;
+    type VerifierCircuit = PiopVerifier<C, G>;
 
-    fn prover_circuit(&self, level: Self::Witness) -> Self::ProverCircuit {
+    fn prover_circuit(&self, level: LevelWitnessWithBlinding<G>) -> Self::ProverCircuit {
         PiopProver::build(&self, level)
     }
 
-    fn verifier_circuit(
-        &self,
-        instance: Self::Instance,
-        fixed_cols: &[WrappedAffine<C>],
-        proof: Self::Proof,
-        zeta: C::ScalarField,
-    ) -> Self::VerifierCircuit {
+    fn verifier_circuit(&self, instance: (G, C::Affine), fixed_cols: &[WrappedAffine<C>], proof: Self::Proof, zeta: C::ScalarField) -> Self::VerifierCircuit {
         let h_powers_comm: &[_; 2] = fixed_cols.try_into().expect("Expected 2 fixed columns");
         let domain_at_zeta = self.domain.evaluate(zeta);
         let (child, x_parent) = instance;
@@ -58,6 +48,15 @@ impl<C: CurveGroup, G: SWCurveConfig<BaseField = C::ScalarField>> CircuitParams<
             proof.column_commitments.clone(),
             proof.columns_at_zeta.clone(),
         )
+    }
+
+    fn tree_nodes_column(&self, children_x_coords: &[C::ScalarField]) -> FieldColumn<C::ScalarField> {
+        self.x_coords_column(children_x_coords)
+    }
+
+    fn fixed_columns(&self) -> Vec<FieldColumn<C::ScalarField>> {
+        let h_powers_col = self.h_powers_column();
+        vec![h_powers_col.xs, h_powers_col.ys]
     }
 }
 
@@ -75,17 +74,17 @@ impl<G: AffineRepr<BaseField: PrimeField>> PiopParams<G> {
         self.domain.capacity - 1
     }
 
-    pub fn x_coords_column(&self, x_coords: Vec<G::BaseField>) -> FieldColumn<G::BaseField> {
+    pub fn x_coords_column(&self, x_coords: &[G::BaseField]) -> FieldColumn<G::BaseField> {
         let c = self.max_nodes();
         assert!(x_coords.len() <= c);
-        let mut x_coords = x_coords;
+        let mut x_coords = x_coords.to_vec();
         x_coords.resize(self.domain.domain_size(), G::BaseField::zero());
         x_coords[c] = G::BaseField::one();
         self.domain.domains.column_from_evals(x_coords, c)
     }
 
     pub fn h_powers_column(&self) -> AffineColumn<G::BaseField, G> {
-        let mut h_powers = self.power_of_2_multiples_of_h();
+        let mut h_powers = self.powers_of_h();
         h_powers.truncate(self.max_nodes());
         AffineColumn::public_column(h_powers, &self.domain)
     }
@@ -104,7 +103,7 @@ impl<G: AffineRepr<BaseField: PrimeField>> PiopParams<G> {
         BitColumn::init(bf_bits, &self.domain)
     }
 
-    fn power_of_2_multiples_of_h(&self) -> Vec<G> {
+    fn powers_of_h(&self) -> Vec<G> {
         let mut h = self.h.into_group();
         let mut multiples = Vec::with_capacity(self.scalar_bitlen);
         multiples.push(h);

@@ -3,16 +3,14 @@ use crate::circuit_fat::params::PiopParams;
 use crate::circuit_fat::{ProofComms, ProofEvals};
 use ark_ec::AffineRepr;
 use ark_ec::CurveGroup;
-use ark_ec::short_weierstrass::{Affine as SwAffine, SWCurveConfig};
+// use ark_ec::short_weierstrass::{Affine as SwAffine, SWCurveConfig};
 use ark_ff::One;
 use ark_ff::{FftField, PrimeField, Zero};
-use ark_poly::Evaluations;
 use ark_poly::univariate::DensePolynomial;
+use ark_poly::Evaluations;
 use ark_std::{vec, vec::Vec};
 use w3f_pcs::pcs::commitment::WrappedAffine;
-use w3f_plonk_common::FieldColumn;
 use w3f_plonk_common::domain::Domain;
-use w3f_plonk_common::gadgets::ProverGadget;
 use w3f_plonk_common::gadgets::booleanity::{BitColumn, Booleanity};
 use w3f_plonk_common::gadgets::column_sum::ColumnSumPolys;
 use w3f_plonk_common::gadgets::ec::AffineColumn;
@@ -20,7 +18,9 @@ use w3f_plonk_common::gadgets::ec::CondAdd;
 use w3f_plonk_common::gadgets::equal_cells::CellsEqPolys;
 use w3f_plonk_common::gadgets::fixed_cells::FixedCells;
 use w3f_plonk_common::gadgets::inner_prod_inv::InnerProdInv;
+use w3f_plonk_common::gadgets::ProverGadget;
 use w3f_plonk_common::piop::ProverPiop;
+use w3f_plonk_common::FieldColumn;
 
 pub struct PiopProver<G: AffineRepr<BaseField: FftField>> {
     domain: Domain<G::BaseField>,
@@ -44,7 +44,7 @@ pub struct PiopProver<G: AffineRepr<BaseField: FftField>> {
 impl<G: AffineRepr<BaseField: PrimeField>> PiopProver<G> {
     pub fn build(params: &PiopParams<G>, level: LevelWitnessWithBlinding<G>) -> Self {
         let domain = params.domain.clone();
-        let x_coords = params.x_coords_column(level.level_witness.x_coords());
+        let x_coords = params.x_coords_column(&level.level_witness.x_coords());
         let h_powers = params.h_powers_column();
         let node_idx = params.node_selector(level.level_witness.path_node_idx);
         let bf_bits = params.bf_bits_column(level.bf);
@@ -157,13 +157,13 @@ impl<G: AffineRepr<BaseField: PrimeField>> PiopProver<G> {
     }
 }
 
-impl<C: CurveGroup, G: SWCurveConfig<BaseField = C::ScalarField>>
-    ProverPiop<C::ScalarField, WrappedAffine<C>> for PiopProver<SwAffine<G>>
+impl<C: CurveGroup, G: AffineRepr<BaseField = C::ScalarField>>
+    ProverPiop<C::ScalarField, WrappedAffine<C>> for PiopProver<G>
 {
     const N_CONSTRAINTS: usize = 12;
     type Commitments = ProofComms<C>;
     type Evaluations = ProofEvals<C::ScalarField>;
-    type Instance = SwAffine<G>;
+    type Instance = G;
 
     fn committed_columns<Fun: Fn(&DensePolynomial<C::ScalarField>) -> WrappedAffine<C>>(
         &self,
@@ -257,7 +257,7 @@ mod tests {
     use crate::tests::random_witness;
     use ark_bls12_381::G1Projective;
     use ark_ed_on_bls12_381_bandersnatch::{Fq, Fr, SWAffine};
-    use ark_std::{UniformRand, test_rng};
+    use ark_std::{test_rng, UniformRand};
     use w3f_pcs::pcs::commitment::WrappedAffine;
 
     #[test]

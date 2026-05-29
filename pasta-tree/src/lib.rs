@@ -17,7 +17,7 @@ use w3f_plonk_common::piop::{ProverPiop, VerifierPiop};
 use w3f_plonk_common::{FieldColumn, PiopProof};
 
 pub mod auth_path;
-// pub mod circuit_fat;
+pub mod circuit_fat;
 pub mod circuit_tall;
 // pub mod level;
 pub mod prover;
@@ -140,19 +140,6 @@ impl<C: CurveGroup, G: AffineRepr<BaseField = C::ScalarField>, P: CircuitParams<
             })
             .collect()
     }
-
-    // pub fn commit_h_powers(&self) -> [IPACommitment<C>; 2] {
-    //     let h_powers = self.piop_params.h_powers_column();
-    //     let h_powers = [
-    //         self.pcs_params
-    //             .commit_hiding(h_powers.xs.as_poly(), C::ScalarField::zero())
-    //             .unwrap(),
-    //         self.pcs_params
-    //             .commit_hiding(h_powers.ys.as_poly(), C::ScalarField::zero())
-    //             .unwrap(),
-    //     ];
-    //     h_powers
-    // }
 }
 
 #[derive(Debug, PartialEq)]

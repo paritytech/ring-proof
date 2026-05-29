@@ -1,5 +1,5 @@
 use crate::circuit_fat::{ProofComms, ProofEvals};
-use ark_ec::short_weierstrass::{Affine as SwAffine, SWCurveConfig};
+// use ark_ec::short_weierstrass::{Affine as SwAffine, SWCurveConfig};
 use ark_ec::{AffineRepr, CurveGroup};
 use ark_ff::One;
 use ark_ff::Zero;
@@ -7,13 +7,13 @@ use ark_std::marker::PhantomData;
 use ark_std::{vec, vec::Vec};
 use w3f_pcs::pcs::commitment::WrappedAffine;
 use w3f_plonk_common::domain::EvaluatedDomain;
-use w3f_plonk_common::gadgets::VerifierGadget;
 use w3f_plonk_common::gadgets::booleanity::BooleanityValues;
 use w3f_plonk_common::gadgets::column_sum::ColumnSumEvals;
-use w3f_plonk_common::gadgets::ec::{AffineColumn, CondAddValues};
+use w3f_plonk_common::gadgets::ec::CondAddValues;
 use w3f_plonk_common::gadgets::equal_cells::EqualCells;
 use w3f_plonk_common::gadgets::fixed_cells::FixedCellsValues;
 use w3f_plonk_common::gadgets::inner_prod_inv::InnerProdInvValues;
+use w3f_plonk_common::gadgets::VerifierGadget;
 use w3f_plonk_common::piop::VerifierPiop;
 
 pub struct PiopVerifier<C: CurveGroup, G: AffineRepr<BaseField = C::ScalarField>> {
@@ -95,8 +95,8 @@ impl<C: CurveGroup, G: AffineRepr<BaseField = C::ScalarField>> PiopVerifier<C, G
     }
 }
 
-impl<C: CurveGroup, G: SWCurveConfig<BaseField = C::ScalarField>>
-    VerifierPiop<C::ScalarField, WrappedAffine<C>> for PiopVerifier<C, SwAffine<G>>
+impl<C: CurveGroup, G: AffineRepr<BaseField = C::ScalarField>>
+    VerifierPiop<C::ScalarField, WrappedAffine<C>> for PiopVerifier<C, G>
 {
     const N_CONSTRAINTS: usize = 12;
     const N_COLUMNS: usize = 9;
