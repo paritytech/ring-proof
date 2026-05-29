@@ -53,13 +53,10 @@ impl<G: AffineRepr> LevelWitness<G> {
         self.with_blinding(G::ScalarField::rand(rng), parent_bf)
     }
 
-    pub fn compute_parent<C, P>(
-        &self,
-        params: &CycleSideParams2<C, G, P>,
-    ) -> Result<C::Affine, ()>
+    pub fn compute_parent<C, P>(&self, params: &CycleSideParams2<C, G, P>) -> Result<C::Affine, ()>
     where
         G::BaseField: PrimeField,
-        C: CurveGroup<ScalarField=G::BaseField>,
+        C: CurveGroup<ScalarField = G::BaseField>,
         P: CircuitParams<C, G>,
     {
         self.compute_parent_with_bf(params, C::ScalarField::zero())
@@ -72,7 +69,7 @@ impl<G: AffineRepr> LevelWitness<G> {
     ) -> Result<C::Affine, ()>
     where
         G::BaseField: PrimeField,
-        C: CurveGroup<ScalarField=G::BaseField>,
+        C: CurveGroup<ScalarField = G::BaseField>,
         P: CircuitParams<C, G>,
     {
         params.commit_tree_nodes(&self.x_coords(), bf).map(|c| c.0)
@@ -109,7 +106,7 @@ impl<G: AffineRepr> LevelWitnessWithBlinding<G> {
     ) -> Result<C::Affine, ()>
     where
         G::BaseField: PrimeField,
-        C: CurveGroup<ScalarField=G::BaseField>,
+        C: CurveGroup<ScalarField = G::BaseField>,
         P: CircuitParams<C, G>,
     {
         self.level_witness

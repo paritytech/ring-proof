@@ -5,8 +5,8 @@ use crate::circuit_tall::prover::PiopProver;
 use crate::circuit_tall::verifier::PiopVerifier;
 // use ark_ec::short_weierstrass::{Affine as SwAffine, SWCurveConfig};
 use ark_ec::{AffineRepr, CurveGroup};
-use ark_ff::{FftField, One};
 use ark_ff::{AdditiveGroup, BigInteger, PrimeField, Zero};
+use ark_ff::{FftField, One};
 use ark_std::{vec, vec::Vec};
 use w3f_pcs::pcs::commitment::WrappedAffine;
 use w3f_plonk_common::FieldColumn;
@@ -31,7 +31,6 @@ pub struct PiopParams<G: AffineRepr<BaseField: FftField>> {
 impl<C: CurveGroup, G: AffineRepr<BaseField = C::ScalarField>> CircuitParams<C, G>
     for PiopParams<G>
 {
-
     type Proof = PiopProof<C>;
     type ProverCircuit = PiopProver<G>;
     type VerifierCircuit = PiopVerifier<C, G>;
@@ -62,10 +61,7 @@ impl<C: CurveGroup, G: AffineRepr<BaseField = C::ScalarField>> CircuitParams<C, 
         )
     }
 
-    fn tree_nodes_column(
-        &self,
-        children_x_coords: &[G::BaseField],
-    ) -> FieldColumn<G::BaseField> {
+    fn tree_nodes_column(&self, children_x_coords: &[G::BaseField]) -> FieldColumn<G::BaseField> {
         assert!(children_x_coords.len() <= self.max_nodes);
         let mut x_coords = children_x_coords.to_vec();
         // padding

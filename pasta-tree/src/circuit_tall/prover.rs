@@ -50,10 +50,7 @@ pub struct PiopProver<G: AffineRepr<BaseField: FftField>> {
 }
 
 impl<G: AffineRepr<BaseField: FftField>> PiopProver<G> {
-    pub fn build(
-        params: &PiopParams<G>,
-        level: LevelWitnessWithBlinding<G>,
-    ) -> Self {
+    pub fn build(params: &PiopParams<G>, level: LevelWitnessWithBlinding<G>) -> Self {
         let domain = params.domain.clone();
         let points = params.points_column(level.level_witness.siblings);
         let bits = params.bits_column(level.level_witness.path_node_idx, level.bf);
@@ -101,8 +98,8 @@ impl<G: AffineRepr<BaseField: FftField>> PiopProver<G> {
     }
 }
 
-impl<C: CurveGroup, G: AffineRepr<BaseField=C::ScalarField>>
-ProverPiop<C::ScalarField, WrappedAffine<C>> for PiopProver<G>
+impl<C: CurveGroup, G: AffineRepr<BaseField = C::ScalarField>>
+    ProverPiop<C::ScalarField, WrappedAffine<C>> for PiopProver<G>
 {
     const N_CONSTRAINTS: usize = 7;
     type Commitments = ProofComms<C>;

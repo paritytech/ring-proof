@@ -18,7 +18,7 @@ pub struct BlindedAuthenticationPath<C0: CurveGroup, C1: CurveGroup> {
 impl<C0, C1> AuthenticationPathWithBlinding<C0, C1>
 where
     C0: CurveGroup<BaseField: PrimeField>,
-    C1: CurveGroup<BaseField=C0::ScalarField, ScalarField=C0::BaseField>,
+    C1: CurveGroup<BaseField = C0::ScalarField, ScalarField = C0::BaseField>,
 {
     pub(crate) fn apply_bfs(
         &self,
@@ -28,27 +28,20 @@ where
         let c0_path = self
             .c0_path
             .iter()
-            .map(|c0_level| {
-                c0_level
-                    .blinded_path_node(c0_pcs_params)
-                    .unwrap()
-            })
+            .map(|c0_level| c0_level.blinded_path_node(c0_pcs_params).unwrap())
             .collect();
         let c1_path = self
             .c1_path
             .iter()
-            .map(|c1_level| {
-                c1_level
-                    .blinded_path_node(c1_pcs_params)
-                    .unwrap()
-            })
+            .map(|c1_level| c1_level.blinded_path_node(c1_pcs_params).unwrap())
             .collect();
         BlindedAuthenticationPath { c0_path, c1_path }
     }
     pub fn compute_root<P0, P1>(
         &self,
         params: &CycleParams2<C0, C1, P0, P1>,
-    ) -> Result<CycleSide<C0::Affine, C1::Affine>, ()> where
+    ) -> Result<CycleSide<C0::Affine, C1::Affine>, ()>
+    where
         P0: CircuitParams<C0, C1::Affine>,
         P1: CircuitParams<C1, C0::Affine>,
     {

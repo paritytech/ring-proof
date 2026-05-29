@@ -1,16 +1,16 @@
-use std::marker::PhantomData;
 use crate::auth_path::node::LevelWitnessWithBlinding;
 use crate::circuit_tall::params::PiopParams;
 use crate::circuit_tall::{ProofComms, ProofEvals};
 use ark_ec::{AffineRepr, CurveGroup, PrimeGroup};
 use ark_ff::PrimeField;
-use ark_std::rand::Rng;
 use ark_ff::Zero;
 use ark_std::UniformRand;
+use ark_std::rand::Rng;
+use std::marker::PhantomData;
 use w3f_pcs::aggregation::multiple::ShplonkTranscript;
+use w3f_pcs::pcs::PCS;
 use w3f_pcs::pcs::commitment::WrappedAffine;
 use w3f_pcs::pcs::ipa::hiding::HidingIpa;
-use w3f_pcs::pcs::PCS;
 use w3f_pcs::shplonk::AggregateProof;
 use w3f_plonk_common::domain::Domain;
 use w3f_plonk_common::piop::{ProverPiop, VerifierPiop};
@@ -24,7 +24,7 @@ pub mod prover;
 pub mod verifier;
 
 /// The circuit is over `C::ScalarField`.
-pub trait CircuitParams<C: CurveGroup, G: AffineRepr<BaseField=C::ScalarField>> {
+pub trait CircuitParams<C: CurveGroup, G: AffineRepr<BaseField = C::ScalarField>> {
     type Proof;
     type ProverCircuit: ProverPiop<C::ScalarField, WrappedAffine<C>>;
     type VerifierCircuit: VerifierPiop<C::ScalarField, WrappedAffine<C>>;
@@ -39,12 +39,19 @@ pub trait CircuitParams<C: CurveGroup, G: AffineRepr<BaseField=C::ScalarField>> 
         zeta: C::ScalarField,
     ) -> Self::VerifierCircuit;
 
-    fn tree_nodes_column(&self, children_x_coords: &[C::ScalarField]) -> FieldColumn<C::ScalarField>;
+    fn tree_nodes_column(
+        &self,
+        children_x_coords: &[C::ScalarField],
+    ) -> FieldColumn<C::ScalarField>;
 
     fn fixed_columns(&self) -> Vec<FieldColumn<C::ScalarField>>;
 }
 
-pub struct CycleSideParams2<C: CurveGroup, G: AffineRepr<BaseField=C::ScalarField>, P: CircuitParams<C, G>> {
+pub struct CycleSideParams2<
+    C: CurveGroup,
+    G: AffineRepr<BaseField = C::ScalarField>,
+    P: CircuitParams<C, G>,
+> {
     pcs_params: HidingIpa<C>,
     piop_params: P,
     phantomm: PhantomData<G>,
@@ -52,7 +59,7 @@ pub struct CycleSideParams2<C: CurveGroup, G: AffineRepr<BaseField=C::ScalarFiel
 
 pub struct CycleParams2<
     C0: CurveGroup,
-    C1: CurveGroup<BaseField=C0::ScalarField, ScalarField=C0::BaseField>,
+    C1: CurveGroup<BaseField = C0::ScalarField, ScalarField = C0::BaseField>,
     P0: CircuitParams<C0, C1::Affine>,
     P1: CircuitParams<C1, C0::Affine>,
 > {
@@ -75,10 +82,7 @@ pub struct CycleSideProof<C: CurveGroup> {
 }
 
 #[derive(Clone)]
-pub struct CurveTreeProof<
-    C0: CurveGroup,
-    C1: CurveGroup,
-> {
+pub struct CurveTreeProof<C0: CurveGroup, C1: CurveGroup> {
     c0_proof: CycleSideProof<C0>,
     c1_proof: CycleSideProof<C1>,
 }
@@ -86,7 +90,7 @@ pub struct CurveTreeProof<
 impl<C0, C1> CycleParams2<C0, C1, PiopParams<C1::Affine>, PiopParams<C0::Affine>>
 where
     C0: CurveGroup<BaseField: PrimeField>,
-    C1: CurveGroup<BaseField=C0::ScalarField, ScalarField=C0::BaseField>,
+    C1: CurveGroup<BaseField = C0::ScalarField, ScalarField = C0::BaseField>,
 {
     pub fn setup<R: Rng>(domain_size: usize, rng: &mut R) -> Self {
         let setup_degree = 3 * domain_size;
@@ -111,24 +115,29 @@ where
     }
 }
 
-
-impl<C: CurveGroup, G: AffineRepr<BaseField=C::ScalarField>, P: CircuitParams<C, G>> CycleSideParams2<C, G, P>
-where
+impl<C: CurveGroup, G: AffineRepr<BaseField = C::ScalarField>, P: CircuitParams<C, G>>
+    CycleSideParams2<C, G, P>
 {
-    pub fn commit_tree_nodes<>(
+    pub fn commit_tree_nodes(
         &self,
         nodes_x_coords: &[C::ScalarField],
         bf: C::ScalarField,
     ) -> Result<WrappedAffine<C>, ()> {
-        let nodes_column = <P as CircuitParams<C, G>>::tree_nodes_column(&self.piop_params, nodes_x_coords);
+        let nodes_column =
+            <P as CircuitParams<C, G>>::tree_nodes_column(&self.piop_params, nodes_x_coords);
         let parent_node = self.pcs_params.commit_hiding(nodes_column.as_poly(), bf);
         parent_node
     }
 
     pub fn commit_fixed_columns(&self) -> Vec<WrappedAffine<C>> {
         let fixed_columns = <P as CircuitParams<C, G>>::fixed_columns(&self.piop_params);
-        fixed_columns.iter()
-            .map(|c| self.pcs_params.commit_hiding(c.as_poly(), C::ScalarField::zero()).unwrap())
+        fixed_columns
+            .iter()
+            .map(|c| {
+                self.pcs_params
+                    .commit_hiding(c.as_poly(), C::ScalarField::zero())
+                    .unwrap()
+            })
             .collect()
     }
 
@@ -145,7 +154,6 @@ where
     //     h_powers
     // }
 }
-
 
 #[derive(Debug, PartialEq)]
 pub enum CycleSide<C0, C1> {
@@ -170,22 +178,22 @@ impl<F: PrimeField, CS: PCS<F>> ShplonkTranscript<F, CS> for Coeffs<F> {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use ark_ec::AdditiveGroup;
     use ark_ec::scalar_mul::glv::GLVConfig;
     use ark_ec::scalar_mul::wnaf::WnafContext;
     use ark_ec::short_weierstrass::{Affine, Projective, SWCurveConfig};
-    use ark_ec::AdditiveGroup;
     use ark_ec::{AffineRepr, CurveGroup};
-    use ark_ff::{FftField, PrimeField};
     use ark_ff::{BigInteger, Field, Zero};
+    use ark_ff::{FftField, PrimeField};
     use ark_pallas::PallasConfig;
     use ark_poly::DenseUVPolynomial;
     use ark_std::rand::Rng;
-    use ark_std::{cfg_iter_mut, end_timer, start_timer, test_rng, UniformRand};
+    use ark_std::{UniformRand, cfg_iter_mut, end_timer, start_timer, test_rng};
     use ark_vesta::VestaConfig;
-    use w3f_pcs::pcs::ipa::IPA;
-    use w3f_pcs::pcs::PcsParams;
-    use w3f_pcs::pcs::PCS;
     use w3f_pcs::Poly;
+    use w3f_pcs::pcs::PCS;
+    use w3f_pcs::pcs::PcsParams;
+    use w3f_pcs::pcs::ipa::IPA;
     use w3f_plonk_common::test_helpers::random_vec;
 
     use crate::auth_path::node::LevelWitness;
@@ -209,7 +217,7 @@ mod tests {
         }
     }
 
-    pub fn random_nodes<C: CurveGroup, G: AffineRepr<BaseField=C::ScalarField>, R: Rng>(
+    pub fn random_nodes<C: CurveGroup, G: AffineRepr<BaseField = C::ScalarField>, R: Rng>(
         params: &CycleSideParams2<C, G, PiopParams<G>>,
         path_node: G,
         rng: &mut R,
@@ -221,7 +229,7 @@ mod tests {
 
     pub fn random_path<
         C0: CurveGroup<BaseField: FftField>,
-        C1: CurveGroup<BaseField=C0::ScalarField, ScalarField=C0::BaseField>,
+        C1: CurveGroup<BaseField = C0::ScalarField, ScalarField = C0::BaseField>,
         R: Rng,
     >(
         params: &CycleParams2<C0, C1, PiopParams<C1::Affine>, PiopParams<C0::Affine>>,
@@ -264,8 +272,8 @@ mod tests {
     where
         F0: PrimeField,
         F1: PrimeField,
-        C0: SWCurveConfig<BaseField=F1, ScalarField=F0>,
-        C1: SWCurveConfig<BaseField=F0, ScalarField=F1>,
+        C0: SWCurveConfig<BaseField = F1, ScalarField = F0>,
+        C1: SWCurveConfig<BaseField = F0, ScalarField = F1>,
     {
         let rng = &mut test_rng();
 
