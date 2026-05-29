@@ -31,8 +31,7 @@ pub struct PiopParams<G: AffineRepr<BaseField: FftField>> {
 impl<C: CurveGroup, G: AffineRepr<BaseField = C::ScalarField>> CircuitParams<C, G>
     for PiopParams<G>
 {
-    /// (re-randomized child, re-randomized parent)
-    type Instance = (G, C::Affine);
+
     type Proof = PiopProof<C>;
     type ProverCircuit = PiopProver<G>;
     type VerifierCircuit = PiopVerifier<C, G>;
@@ -43,7 +42,7 @@ impl<C: CurveGroup, G: AffineRepr<BaseField = C::ScalarField>> CircuitParams<C, 
 
     fn verifier_circuit(
         &self,
-        instance: Self::Instance,
+        instance: (G, C::Affine),
         fixed_cols: &[WrappedAffine<C>],
         proof: Self::Proof,
         zeta: C::ScalarField,

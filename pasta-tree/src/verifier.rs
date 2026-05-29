@@ -1,23 +1,25 @@
-use crate::CircuitParams;
 use crate::auth_path::blinded::BlindedAuthenticationPath;
 use crate::circuit_tall::verifier::PiopVerifier;
-use crate::{CurveTreeProof, CycleParams, CycleSideParams, CycleSideProof};
+use crate::circuit_tall::PiopProof;
+use crate::{CircuitParams, CycleParams2, CycleSideParams2};
+use crate::{CurveTreeProof, CycleSideProof};
 use ark_ec::{AffineRepr, CurveGroup};
 // use ark_ec::short_weierstrass::{Affine, Projective, SWCurveConfig};
 use ark_ff::PrimeField;
-use w3f_pcs::pcs::PcsParams;
 use w3f_pcs::pcs::ipa::hiding::HidingIpa;
+use w3f_pcs::pcs::PcsParams;
 use w3f_pcs::shplonk::Shplonk;
 use w3f_plonk_common::piop::VerifierPiop;
 use w3f_plonk_common::verifier::{PcsOpeningAt2Points, PlonkVerifier};
 use w3f_ring_proof::ArkTranscript;
 
-impl<F0, F1, C0, C1> CycleParams<C0, C1>
+
+impl<C0, C1, P0, P1> CycleParams2<C0, C1, P0, P1>
 where
-    F0: PrimeField,
-    F1: PrimeField,
-    C0: CurveGroup<BaseField = F1, ScalarField = F0>,
-    C1: CurveGroup<BaseField = F0, ScalarField = F1>,
+    C0: CurveGroup<BaseField: PrimeField>,
+    C1: CurveGroup<BaseField=C0::ScalarField, ScalarField=C0::BaseField>,
+    P0: CircuitParams<C0, C1::Affine, Proof=PiopProof<C0>>,
+    P1: CircuitParams<C1, C0::Affine, Proof=PiopProof<C1>>,
 {
     pub fn verify(
         &self,
@@ -38,8 +40,8 @@ where
     }
 }
 
-impl<C: CurveGroup, G: AffineRepr<BaseField = C::ScalarField, ScalarField = C::BaseField>>
-    CycleSideParams<C, G>
+impl<C: CurveGroup, G: AffineRepr<BaseField=C::ScalarField>, P: CircuitParams<C, G, Proof=PiopProof<C>>>
+CycleSideParams2<C, G, P>
 {
     pub fn verify_side(
         &self,

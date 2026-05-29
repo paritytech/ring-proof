@@ -1,3 +1,4 @@
+use std::marker::PhantomData;
 use crate::auth_path::node::LevelWitnessWithBlinding;
 use crate::circuit_tall::params::PiopParams;
 use crate::circuit_tall::{ProofComms, ProofEvals};
@@ -24,7 +25,6 @@ pub mod verifier;
 
 /// The circuit is over `C::ScalarField`.
 pub trait CircuitParams<C: CurveGroup, G: AffineRepr<BaseField=C::ScalarField>> {
-    type Instance;
     type Proof;
     type ProverCircuit: ProverPiop<C::ScalarField, WrappedAffine<C>>;
     type VerifierCircuit: VerifierPiop<C::ScalarField, WrappedAffine<C>>;
@@ -33,7 +33,7 @@ pub trait CircuitParams<C: CurveGroup, G: AffineRepr<BaseField=C::ScalarField>> 
 
     fn verifier_circuit(
         &self,
-        instance: Self::Instance,
+        instance: (G, C::Affine),
         fixed_cols: &[WrappedAffine<C>],
         proof: Self::Proof,
         zeta: C::ScalarField,
@@ -44,18 +44,20 @@ pub trait CircuitParams<C: CurveGroup, G: AffineRepr<BaseField=C::ScalarField>> 
     fn fixed_columns(&self) -> Vec<FieldColumn<C::ScalarField>>;
 }
 
-
-pub struct CycleSideParams<C: CurveGroup, G: AffineRepr<BaseField=C::ScalarField>> {
+pub struct CycleSideParams2<C: CurveGroup, G: AffineRepr<BaseField=C::ScalarField>, P: CircuitParams<C, G>> {
     pcs_params: HidingIpa<C>,
-    piop_params: PiopParams<G>,
+    piop_params: P,
+    phantomm: PhantomData<G>,
 }
 
-pub struct CycleParams<
+pub struct CycleParams2<
     C0: CurveGroup,
     C1: CurveGroup<BaseField=C0::ScalarField, ScalarField=C0::BaseField>,
+    P0: CircuitParams<C0, C1::Affine>,
+    P1: CircuitParams<C1, C0::Affine>,
 > {
-    c0_params: CycleSideParams<C0, C1::Affine>,
-    c1_params: CycleSideParams<C1, C0::Affine>,
+    c0_params: CycleSideParams2<C0, C1::Affine, P0>,
+    c1_params: CycleSideParams2<C1, C0::Affine, P1>,
 }
 
 pub type LevelProof<C> = PiopProof<
@@ -81,7 +83,7 @@ pub struct CurveTreeProof<
     c1_proof: CycleSideProof<C1>,
 }
 
-impl<C0, C1> CycleParams<C0, C1>
+impl<C0, C1> CycleParams2<C0, C1, PiopParams<C1::Affine>, PiopParams<C0::Affine>>
 where
     C0: CurveGroup<BaseField: PrimeField>,
     C1: CurveGroup<BaseField=C0::ScalarField, ScalarField=C0::BaseField>,
@@ -95,32 +97,36 @@ where
         let c1_domain = Domain::<C1::ScalarField>::new(domain_size, true);
         let c1_piop_params = PiopParams::setup(c1_domain, c0_pcs_params.h, C0::Affine::rand(rng));
         Self {
-            c0_params: CycleSideParams {
+            c0_params: CycleSideParams2 {
                 pcs_params: c0_pcs_params,
                 piop_params: c0_piop_params,
+                phantomm: PhantomData,
             },
-            c1_params: CycleSideParams {
+            c1_params: CycleSideParams2 {
                 pcs_params: c1_pcs_params,
                 piop_params: c1_piop_params,
+                phantomm: PhantomData,
             },
         }
     }
 }
 
-impl<C: CurveGroup, G: AffineRepr<BaseField = C::ScalarField>> CycleSideParams<C, G> {
 
-    pub fn commit_tree_nodes(
+impl<C: CurveGroup, G: AffineRepr<BaseField=C::ScalarField>, P: CircuitParams<C, G>> CycleSideParams2<C, G, P>
+where
+{
+    pub fn commit_tree_nodes<>(
         &self,
         nodes_x_coords: &[C::ScalarField],
         bf: C::ScalarField,
     ) -> Result<WrappedAffine<C>, ()> {
-        let nodes_column = <PiopParams<G> as CircuitParams<C, G>>::tree_nodes_column(&self.piop_params, nodes_x_coords);
+        let nodes_column = <P as CircuitParams<C, G>>::tree_nodes_column(&self.piop_params, nodes_x_coords);
         let parent_node = self.pcs_params.commit_hiding(nodes_column.as_poly(), bf);
         parent_node
     }
 
     pub fn commit_fixed_columns(&self) -> Vec<WrappedAffine<C>> {
-        let fixed_columns = <PiopParams<G> as CircuitParams<C, G>>::fixed_columns(&self.piop_params);
+        let fixed_columns = <P as CircuitParams<C, G>>::fixed_columns(&self.piop_params);
         fixed_columns.iter()
             .map(|c| self.pcs_params.commit_hiding(c.as_poly(), C::ScalarField::zero()).unwrap())
             .collect()
@@ -139,6 +145,7 @@ impl<C: CurveGroup, G: AffineRepr<BaseField = C::ScalarField>> CycleSideParams<C
     //     h_powers
     // }
 }
+
 
 #[derive(Debug, PartialEq)]
 pub enum CycleSide<C0, C1> {
@@ -168,7 +175,7 @@ mod tests {
     use ark_ec::short_weierstrass::{Affine, Projective, SWCurveConfig};
     use ark_ec::AdditiveGroup;
     use ark_ec::{AffineRepr, CurveGroup};
-    use ark_ff::PrimeField;
+    use ark_ff::{FftField, PrimeField};
     use ark_ff::{BigInteger, Field, Zero};
     use ark_pallas::PallasConfig;
     use ark_poly::DenseUVPolynomial;
@@ -203,7 +210,7 @@ mod tests {
     }
 
     pub fn random_nodes<C: CurveGroup, G: AffineRepr<BaseField=C::ScalarField>, R: Rng>(
-        params: &CycleSideParams<C, G>,
+        params: &CycleSideParams2<C, G, PiopParams<G>>,
         path_node: G,
         rng: &mut R,
     ) -> (C::Affine, LevelWitness<G>) {
@@ -213,11 +220,11 @@ mod tests {
     }
 
     pub fn random_path<
-        C0: CurveGroup,
+        C0: CurveGroup<BaseField: FftField>,
         C1: CurveGroup<BaseField=C0::ScalarField, ScalarField=C0::BaseField>,
         R: Rng,
     >(
-        params: &CycleParams<C0, C1>,
+        params: &CycleParams2<C0, C1, PiopParams<C1::Affine>, PiopParams<C0::Affine>>,
         length: usize,
         rng: &mut R,
     ) -> (
@@ -263,7 +270,7 @@ mod tests {
         let rng = &mut test_rng();
 
         let domain_size = 1 << log_n;
-        let params = CycleParams::<Projective<C0>, Projective<C1>>::setup(domain_size, rng);
+        let params = CycleParams2::<Projective<C0>, Projective<C1>, _, _>::setup(domain_size, rng);
         let (_leaf, path, wrapped_root) = random_path(&params, height, rng);
         let root = match wrapped_root {
             CycleSide::C0(root) => root, //TODO: panics on odd height

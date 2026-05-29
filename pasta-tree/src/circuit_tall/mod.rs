@@ -9,7 +9,7 @@ pub mod params;
 pub mod prover;
 pub mod verifier;
 
-type PiopProof<C> = w3f_plonk_common::PiopProof<
+pub type PiopProof<C> = w3f_plonk_common::PiopProof<
     <C as PrimeGroup>::ScalarField,
     WrappedAffine<C>,
     ProofComms<C>,
