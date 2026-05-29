@@ -14,7 +14,7 @@ use w3f_plonk_common::domain::Domain;
 use w3f_plonk_common::piop::{ProverPiop, VerifierPiop};
 
 pub mod auth_path;
-pub mod circuit_fat;
+// pub mod circuit_fat;
 pub mod circuit_tall;
 // pub mod level;
 pub mod prover;

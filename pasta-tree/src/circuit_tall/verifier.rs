@@ -1,7 +1,7 @@
 use crate::circuit_tall::{ProofComms, ProofEvals};
 use ark_ec::AffineRepr;
 use ark_ec::CurveGroup;
-use ark_ec::short_weierstrass::{Affine as SwAffine, SWCurveConfig};
+// use ark_ec::short_weierstrass::{Affine as SwAffine, SWCurveConfig};
 use ark_ff::{One, Zero};
 use ark_std::marker::PhantomData;
 use ark_std::{vec, vec::Vec};
@@ -99,8 +99,8 @@ impl<C: CurveGroup, G: AffineRepr<BaseField = C::ScalarField>> PiopVerifier<C, G
     }
 }
 
-impl<C: CurveGroup, G: SWCurveConfig<BaseField = C::ScalarField>>
-    VerifierPiop<C::ScalarField, WrappedAffine<C>> for PiopVerifier<C, SwAffine<G>>
+impl<C: CurveGroup, G: AffineRepr<BaseField = C::ScalarField>>
+    VerifierPiop<C::ScalarField, WrappedAffine<C>> for PiopVerifier<C, G>
 {
     const N_CONSTRAINTS: usize = 7;
     const N_COLUMNS: usize = 7;

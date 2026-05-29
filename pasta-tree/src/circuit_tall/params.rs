@@ -3,7 +3,7 @@ use crate::auth_path::node::LevelWitnessWithBlinding;
 use crate::circuit_tall::PiopProof;
 use crate::circuit_tall::prover::PiopProver;
 use crate::circuit_tall::verifier::PiopVerifier;
-use ark_ec::short_weierstrass::{Affine as SwAffine, SWCurveConfig};
+// use ark_ec::short_weierstrass::{Affine as SwAffine, SWCurveConfig};
 use ark_ec::{AffineRepr, CurveGroup};
 use ark_ff::One;
 use ark_ff::{AdditiveGroup, BigInteger, PrimeField, Zero};
@@ -28,16 +28,16 @@ pub struct PiopParams<G: AffineRepr<BaseField: PrimeField>> {
     pub h: G,
 }
 
-impl<C: CurveGroup, G: SWCurveConfig<BaseField = C::ScalarField>> CircuitParams<C>
-    for PiopParams<SwAffine<G>>
+impl<C: CurveGroup, G: AffineRepr<BaseField = C::ScalarField>> CircuitParams<C>
+    for PiopParams<G>
 {
-    type Witness = LevelWitnessWithBlinding<SwAffine<G>>;
+    type Witness = LevelWitnessWithBlinding<G>;
 
     /// (re-randomized child, re-randomized parent)
-    type Instance = (SwAffine<G>, C::Affine);
+    type Instance = (G, C::Affine);
     type Proof = PiopProof<C>;
-    type ProverCircuit = PiopProver<SwAffine<G>>;
-    type VerifierCircuit = PiopVerifier<C, SwAffine<G>>;
+    type ProverCircuit = PiopProver<G>;
+    type VerifierCircuit = PiopVerifier<C, G>;
 
     fn prover_circuit(&self, level: Self::Witness) -> Self::ProverCircuit {
         PiopProver::build(&self, level)

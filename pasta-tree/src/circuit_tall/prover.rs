@@ -1,7 +1,7 @@
 use crate::auth_path::node::LevelWitnessWithBlinding;
 use crate::circuit_tall::params::PiopParams;
 use crate::circuit_tall::{ProofComms, ProofEvals};
-use ark_ec::short_weierstrass::{Affine as SwAffine, SWCurveConfig};
+// use ark_ec::short_weierstrass::{Affine as SwAffine, SWCurveConfig};
 use ark_ec::{AffineRepr, CurveGroup};
 use ark_ff::{FftField, One, PrimeField, Zero};
 use ark_poly::Evaluations;
@@ -49,10 +49,10 @@ pub struct PiopProver<G: AffineRepr<BaseField: FftField>> {
     result: G,
 }
 
-impl<G: SWCurveConfig<BaseField: PrimeField>> PiopProver<SwAffine<G>> {
+impl<G: AffineRepr<BaseField: PrimeField>> PiopProver<G> {
     pub fn build(
-        params: &PiopParams<SwAffine<G>>,
-        level: LevelWitnessWithBlinding<SwAffine<G>>,
+        params: &PiopParams<G>,
+        level: LevelWitnessWithBlinding<G>,
     ) -> Self {
         let domain = params.domain.clone();
         let points = params.points_column(level.level_witness.siblings);
@@ -101,13 +101,13 @@ impl<G: SWCurveConfig<BaseField: PrimeField>> PiopProver<SwAffine<G>> {
     }
 }
 
-impl<C: CurveGroup, G: SWCurveConfig<BaseField = C::ScalarField>>
-    ProverPiop<C::ScalarField, WrappedAffine<C>> for PiopProver<SwAffine<G>>
+impl<C: CurveGroup, G: AffineRepr<BaseField = C::ScalarField>>
+    ProverPiop<C::ScalarField, WrappedAffine<C>> for PiopProver<G>
 {
     const N_CONSTRAINTS: usize = 7;
     type Commitments = ProofComms<C>;
     type Evaluations = ProofEvals<C::ScalarField>;
-    type Instance = SwAffine<G>;
+    type Instance = G;
 
     fn committed_columns<Fun: Fn(&DensePolynomial<C::ScalarField>) -> WrappedAffine<C>>(
         &self,
