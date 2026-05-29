@@ -1,4 +1,5 @@
-use ark_ec::short_weierstrass::{Affine, SWCurveConfig};
+use ark_ec::AffineRepr;
+// use ark_ec::short_weierstrass::{Affine, SWCurveConfig};
 use ark_ff::{FftField, Field};
 use ark_poly::univariate::DensePolynomial;
 use ark_poly::{Evaluations, GeneralEvaluationDomain};
@@ -8,27 +9,29 @@ use crate::gadgets::ec::{AffineColumn, CondAdd, CondAddValues};
 use crate::gadgets::{ProverGadget, VerifierGadget};
 use crate::{const_evals, Column};
 
-impl<F: FftField, Curve: SWCurveConfig<BaseField = F>> AffineColumn<F, Affine<Curve>> {
-    // y^2 = x^3 + ax + b
-    pub fn on_curve_constraint(&self) -> Evaluations<F> {
-        let domain = self.xs.domain_4x();
-        let sw_coeff_a = &const_evals(Curve::COEFF_A, domain);
-        let sw_coeff_b = &const_evals(Curve::COEFF_B, domain);
-        let x = &self.xs.evals_4x;
-        let y = &self.ys.evals_4x;
+// impl<F: FftField, Curve: SWCurveConfig<BaseField = F>> AffineColumn<F, Affine<Curve>> {
+//     // y^2 = x^3 + ax + b
+//     pub fn on_curve_constraint(&self) -> Evaluations<F> {
+//         let domain = self.xs.domain_4x();
+//         let sw_coeff_a = &const_evals(Curve::COEFF_A, domain);
+//         let sw_coeff_b = &const_evals(Curve::COEFF_B, domain);
+//         let x = &self.xs.evals_4x;
+//         let y = &self.ys.evals_4x;
+//
+//         &(&(y * y) - &(&(x * x) * x)) - &(&(sw_coeff_a * x) + &sw_coeff_b)
+//     }
+//
+//     pub fn on_curve_eval((x, y): (F, F)) -> F {
+//         y * y - x * x * x - Curve::COEFF_A * x - Curve::COEFF_B
+//     }
+// }
 
-        &(&(y * y) - &(&(x * x) * x)) - &(&(sw_coeff_a * x) + &sw_coeff_b)
-    }
-
-    pub fn on_curve_eval((x, y): (F, F)) -> F {
-        y * y - x * x * x - Curve::COEFF_A * x - Curve::COEFF_B
-    }
-}
-
-impl<F, Curve> ProverGadget<F> for CondAdd<F, Affine<Curve>>
+// impl<F, Curve> ProverGadget<F> for CondAdd<F, Affine<Curve>>
+impl<F, Curve> ProverGadget<F> for CondAdd<F, Curve>
 where
     F: FftField,
-    Curve: SWCurveConfig<BaseField = F>,
+    // Curve: SWCurveConfig<BaseField = F>,
+    Curve: AffineRepr<BaseField = F>,
 {
     fn witness_columns(&self) -> Vec<DensePolynomial<F>> {
         vec![self.acc.xs.poly.clone(), self.acc.ys.poly.clone()]
@@ -107,7 +110,8 @@ where
     }
 }
 
-impl<F: Field, C: SWCurveConfig<BaseField = F>> CondAddValues<F, Affine<C>> {
+// impl<F: Field, C: SWCurveConfig<BaseField = F>> CondAddValues<F, Affine<C>> {
+impl<F: Field, C: AffineRepr<BaseField = F>> CondAddValues<F, C> {
     pub fn acc_coeffs_1(&self) -> (F, F) {
         let b = self.bitmask;
         let (x1, _y1) = self.acc;
@@ -137,7 +141,8 @@ impl<F: Field, C: SWCurveConfig<BaseField = F>> CondAddValues<F, Affine<C>> {
     }
 }
 
-impl<F: Field, C: SWCurveConfig<BaseField = F>> VerifierGadget<F> for CondAddValues<F, Affine<C>> {
+// impl<F: Field, C: SWCurveConfig<BaseField = F>> VerifierGadget<F> for CondAddValues<F, Affine<C>> {
+impl<F: Field, C: AffineRepr<BaseField = F>> VerifierGadget<F> for CondAddValues<F, C> {
     fn evaluate_constraints_main(&self) -> Vec<F> {
         let b = self.bitmask;
         let (x1, y1) = self.acc;

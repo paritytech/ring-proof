@@ -98,7 +98,7 @@ impl<C: CurveGroup, G: AffineRepr<BaseField = C::ScalarField>> PiopVerifier<C, G
 impl<C: CurveGroup, G: SWCurveConfig<BaseField = C::ScalarField>>
     VerifierPiop<C::ScalarField, WrappedAffine<C>> for PiopVerifier<C, SwAffine<G>>
 {
-    const N_CONSTRAINTS: usize = 13;
+    const N_CONSTRAINTS: usize = 12;
     const N_COLUMNS: usize = 9;
 
     fn precommitted_columns(&self) -> Vec<WrappedAffine<C>> {
@@ -134,9 +134,9 @@ impl<C: CurveGroup, G: SWCurveConfig<BaseField = C::ScalarField>>
                 C::ScalarField::zero(),
             )],
             self.seed_eq_node.evaluate_constraints_main(),
-            vec![AffineColumn::<C::ScalarField, SwAffine<G>>::on_curve_eval(
-                self.blinded_node.acc,
-            )],
+            // vec![AffineColumn::<C::ScalarField, SwAffine<G>>::on_curve_eval(
+            //     self.blinded_node.acc,
+            // )],
             vec![FixedCellsValues::evaluate_for_cell(
                 self.selected_node.a,
                 self.domain_evals.l_last,

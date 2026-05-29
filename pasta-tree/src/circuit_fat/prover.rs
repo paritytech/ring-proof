@@ -160,7 +160,7 @@ impl<G: AffineRepr<BaseField: PrimeField>> PiopProver<G> {
 impl<C: CurveGroup, G: SWCurveConfig<BaseField = C::ScalarField>>
     ProverPiop<C::ScalarField, WrappedAffine<C>> for PiopProver<SwAffine<G>>
 {
-    const N_CONSTRAINTS: usize = 13;
+    const N_CONSTRAINTS: usize = 12;
     type Commitments = ProofComms<C>;
     type Evaluations = ProofEvals<C::ScalarField>;
     type Instance = SwAffine<G>;
@@ -210,7 +210,7 @@ impl<C: CurveGroup, G: SWCurveConfig<BaseField = C::ScalarField>>
                 C::ScalarField::zero(),
             )],
             self.seed_eq_node.constraints(),
-            vec![self.blinded_node.acc.on_curve_constraint()],
+            // vec![self.blinded_node.acc.on_curve_constraint()],
             // this prevents opening to -parent=(x,-y)
             // parent = commit([x1, ..., xl, 1, 0, 0, 0]; 0) = x1.G1 + ... + xl.Gl + 1.G_{l+1}
             // then -parent = commit([-x1, ..., -xl, -1, 0, 0, 0]; 0)
@@ -236,7 +236,7 @@ impl<C: CurveGroup, G: SWCurveConfig<BaseField = C::ScalarField>>
             vec![DensePolynomial::zero()],
             vec![DensePolynomial::zero()],
             self.seed_eq_node.constraints_linearized(zeta),
-            vec![DensePolynomial::zero()],
+            // vec![DensePolynomial::zero()],
             vec![DensePolynomial::zero()],
         ]
         .concat()

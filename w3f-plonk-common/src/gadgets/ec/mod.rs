@@ -9,8 +9,8 @@ use ark_std::marker::PhantomData;
 use ark_std::vec::Vec;
 
 pub mod sw_cond_add;
-pub mod te_cond_add;
-pub mod te_doubling;
+// pub mod te_cond_add;
+// pub mod te_doubling;
 
 // A vec of affine points from the prime-order subgroup of the curve whose base field enables FFTs,
 // and its convenience representation as columns of coordinates over the curve's base field.
