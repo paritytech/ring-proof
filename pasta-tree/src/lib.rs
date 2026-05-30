@@ -321,14 +321,14 @@ mod tests {
     // cargo test test_bench_curve_tree --release --features="print-trace parallel" -- --show-output
     #[test]
     fn test_bench_curve_tree() {
-        // let log_n = 8;
-        // println!("n = {}, height = 4", 1 << log_n);
-        // _test_proof::<
-        //     ark_pallas::Projective,
-        //     ark_vesta::Projective,
-        //     CircuitParamsFat<ark_vesta::Affine>,
-        //     CircuitParamsFat<ark_pallas::Affine>,
-        // >(log_n, 4);
+        let log_n = 8;
+        println!("n = {}, height = 4", 1 << log_n);
+        _test_proof::<
+            ark_pallas::Projective,
+            ark_vesta::Projective,
+            CircuitParamsFat<ark_vesta::Affine>,
+            CircuitParamsFat<ark_pallas::Affine>,
+        >(log_n, 4);
 
         let log_n = 9;
         println!("n = {}, height = 4", 1 << log_n);

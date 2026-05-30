@@ -63,8 +63,8 @@ impl<C: CurveGroup, G: AffineRepr<BaseField = C::ScalarField>, P: CircuitParams<
         let mut coords = Vec::with_capacity(side_proof.piop_proofs.len() * n_polys);
         let mut vals = Vec::with_capacity(side_proof.piop_proofs.len() * n_polys);
 
-        //TODO:
-        let selector = self.commit_fixed_columns()[0].clone();
+        //TODO: precompute
+        let fixed_cols = self.commit_fixed_columns();
 
         for ((child, parent), level_proof) in children
             .into_iter()
@@ -80,7 +80,7 @@ impl<C: CurveGroup, G: AffineRepr<BaseField = C::ScalarField>, P: CircuitParams<
             );
             let piop = self.piop_params.verifier_circuit(
                 (child, parent),
-                &[selector.clone()],
+                &fixed_cols,
                 level_proof.column_commitments.clone(),
                 level_proof.columns_at_zeta.clone(),
                 challenges.zeta,
