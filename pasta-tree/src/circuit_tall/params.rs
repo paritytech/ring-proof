@@ -1,6 +1,5 @@
 use crate::CircuitParams;
 use crate::auth_path::node::LevelWitnessWithBlinding;
-use crate::circuit_tall::PiopProof;
 use crate::circuit_tall::prover::PiopProver;
 use crate::circuit_tall::verifier::PiopVerifier;
 // use ark_ec::short_weierstrass::{Affine as SwAffine, SWCurveConfig};
@@ -14,24 +13,28 @@ use w3f_plonk_common::domain::Domain;
 use w3f_plonk_common::gadgets::booleanity::BitColumn;
 use w3f_plonk_common::gadgets::ec::AffineColumn;
 
-/// Plonk Interactive Oracle Proofs (PIOP) parameters.
-/// `max_nodes + blinding_bits = domain.capacity - 1`
+// `max_nodes + blinding_bits = domain.capacity - 1`
+// where `1` acounts for the `seed` point.
+/// Circuit parameters
 #[derive(Clone)]
 pub struct PiopParams<G: AffineRepr<BaseField: FftField>> {
-    /// Domain over which the piop is represented.
+    /// Domain over which the circuit is represented.
     pub domain: Domain<G::BaseField>,
+    /// Maximal number of children per tree node.
     pub max_nodes: usize,
     /// Number of bits used to represent a blinding factor.
     pub blinding_bits: usize,
+    /// Point that initializes the EC addition gadget accumulator.
     pub seed: G,
-    /// Blinding base point.
+    /// Pedersen blinding base point.
     pub h: G,
 }
 
 impl<C: CurveGroup, G: AffineRepr<BaseField = C::ScalarField>> CircuitParams<C, G>
     for PiopParams<G>
 {
-    type Proof = PiopProof<C>;
+    type Commitments = crate::circuit_tall::ProofComms<C>;
+    type Evaluations = crate::circuit_tall::ProofEvals<C::ScalarField>;
     type ProverCircuit = PiopProver<G>;
     type VerifierCircuit = PiopVerifier<C, G>;
 
@@ -43,7 +46,8 @@ impl<C: CurveGroup, G: AffineRepr<BaseField = C::ScalarField>> CircuitParams<C, 
         &self,
         instance: (G, C::Affine),
         fixed_cols: &[WrappedAffine<C>],
-        proof: Self::Proof,
+        cols: Self::Commitments,
+        evals: Self::Evaluations,
         zeta: C::ScalarField,
     ) -> Self::VerifierCircuit {
         assert_eq!(fixed_cols.len(), 1, "Expected 1 fixed columns");
@@ -54,8 +58,8 @@ impl<C: CurveGroup, G: AffineRepr<BaseField = C::ScalarField>> CircuitParams<C, 
             domain_at_zeta,
             WrappedAffine(x_parent),
             selector,
-            proof.column_commitments.clone(),
-            proof.columns_at_zeta.clone(),
+            cols,
+            evals,
             self.seed,
             child,
         )

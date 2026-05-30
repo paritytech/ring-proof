@@ -1,6 +1,5 @@
 use crate::CircuitParams;
 use crate::auth_path::node::LevelWitnessWithBlinding;
-use crate::circuit_fat::PiopProof;
 use crate::circuit_fat::prover::PiopProver;
 use crate::circuit_fat::verifier::PiopVerifier;
 // use ark_ec::short_weierstrass::{Affine as SwAffine, SWCurveConfig};
@@ -26,9 +25,10 @@ pub struct PiopParams<G: AffineRepr<BaseField: PrimeField>> {
 }
 
 impl<C: CurveGroup, G: AffineRepr<BaseField = C::ScalarField>> CircuitParams<C, G>
-for PiopParams<G>
+    for PiopParams<G>
 {
-    type Proof = PiopProof<C>;
+    type Commitments = crate::circuit_fat::ProofComms<C>;
+    type Evaluations = crate::circuit_fat::ProofEvals<C::ScalarField>;
     type ProverCircuit = PiopProver<G>;
     type VerifierCircuit = PiopVerifier<C, G>;
 
@@ -36,7 +36,14 @@ for PiopParams<G>
         PiopProver::build(&self, level)
     }
 
-    fn verifier_circuit(&self, instance: (G, C::Affine), fixed_cols: &[WrappedAffine<C>], proof: Self::Proof, zeta: C::ScalarField) -> Self::VerifierCircuit {
+    fn verifier_circuit(
+        &self,
+        instance: (G, C::Affine),
+        fixed_cols: &[WrappedAffine<C>],
+        cols: Self::Commitments,
+        evals: Self::Evaluations,
+        zeta: C::ScalarField,
+    ) -> Self::VerifierCircuit {
         let h_powers_comm: &[_; 2] = fixed_cols.try_into().expect("Expected 2 fixed columns");
         let domain_at_zeta = self.domain.evaluate(zeta);
         let (child, x_parent) = instance;
@@ -45,12 +52,15 @@ for PiopParams<G>
             WrappedAffine(x_parent),
             domain_at_zeta,
             h_powers_comm.clone(),
-            proof.column_commitments.clone(),
-            proof.columns_at_zeta.clone(),
+            cols,
+            evals,
         )
     }
 
-    fn tree_nodes_column(&self, children_x_coords: &[C::ScalarField]) -> FieldColumn<C::ScalarField> {
+    fn tree_nodes_column(
+        &self,
+        children_x_coords: &[C::ScalarField],
+    ) -> FieldColumn<C::ScalarField> {
         self.x_coords_column(children_x_coords)
     }
 

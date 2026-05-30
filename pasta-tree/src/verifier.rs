@@ -1,6 +1,4 @@
 use crate::auth_path::blinded::BlindedAuthenticationPath;
-use crate::circuit_tall::PiopProof;
-use crate::circuit_tall::verifier::PiopVerifier;
 use crate::{CircuitParams, CycleParams, CycleSideParams};
 use crate::{CurveTreeProof, CycleSideProof};
 use ark_ec::{AffineRepr, CurveGroup};
@@ -17,13 +15,13 @@ impl<C0, C1, P0, P1> CycleParams<C0, C1, P0, P1>
 where
     C0: CurveGroup<BaseField: PrimeField>,
     C1: CurveGroup<BaseField = C0::ScalarField, ScalarField = C0::BaseField>,
-    P0: CircuitParams<C0, C1::Affine, Proof = PiopProof<C0>>,
-    P1: CircuitParams<C1, C0::Affine, Proof = PiopProof<C1>>,
+    P0: CircuitParams<C0, C1::Affine>,
+    P1: CircuitParams<C1, C0::Affine>,
 {
     pub fn verify(
         &self,
         auth_path: BlindedAuthenticationPath<C0, C1>,
-        proof: CurveTreeProof<C0, C1>,
+        proof: CurveTreeProof<C0, C1, P0, P1>,
         root: C0::Affine,
     ) -> bool {
         let BlindedAuthenticationPath { c0_path, c1_path } = auth_path;
@@ -39,11 +37,8 @@ where
     }
 }
 
-impl<
-    C: CurveGroup,
-    G: AffineRepr<BaseField = C::ScalarField>,
-    P: CircuitParams<C, G, Proof = PiopProof<C>>,
-> CycleSideParams<C, G, P>
+impl<C: CurveGroup, G: AffineRepr<BaseField = C::ScalarField>, P: CircuitParams<C, G>>
+    CycleSideParams<C, G, P>
 {
     pub fn verify_side(
         &self,
@@ -51,7 +46,7 @@ impl<
         children: Vec<G>,
         // parents, re-randomized at the previous step
         parents: Vec<C::Affine>,
-        side_proof: CycleSideProof<C>,
+        side_proof: CycleSideProof<C, G, P>,
     ) -> bool {
         // let mut s = std::any::type_name::<C>();
         // s = &s[65..s.len()];
@@ -63,11 +58,12 @@ impl<
             ArkTranscript::new(b"pasta-tree-level-proof"),
         );
 
-        let n_polys = PiopVerifier::<C, G>::N_COLUMNS + 2; // plus the quotient and the linearization polys
+        let n_polys = P::VerifierCircuit::N_COLUMNS + 2; // plus the quotient and the linearization polys
         let mut polys = Vec::with_capacity(side_proof.piop_proofs.len() * n_polys);
         let mut coords = Vec::with_capacity(side_proof.piop_proofs.len() * n_polys);
         let mut vals = Vec::with_capacity(side_proof.piop_proofs.len() * n_polys);
 
+        //TODO:
         let selector = self.commit_fixed_columns()[0].clone();
 
         for ((child, parent), level_proof) in children
@@ -79,13 +75,14 @@ impl<
                 &child,
                 &level_proof,
                 // '1' accounts for the quotient polynomial that is aggregated together with the columns
-                PiopVerifier::<C, G>::N_COLUMNS + 1,
-                PiopVerifier::<C, G>::N_CONSTRAINTS,
+                P::VerifierCircuit::N_COLUMNS + 1,
+                P::VerifierCircuit::N_CONSTRAINTS,
             );
             let piop = self.piop_params.verifier_circuit(
                 (child, parent),
                 &[selector.clone()],
-                level_proof.clone(),
+                level_proof.column_commitments.clone(),
+                level_proof.columns_at_zeta.clone(),
                 challenges.zeta,
             );
             let PcsOpeningAt2Points {

@@ -1,20 +1,15 @@
 use crate::auth_path::node::LevelWitnessWithBlinding;
-use crate::circuit_tall::params::PiopParams;
-use crate::circuit_tall::{ProofComms, ProofEvals};
 use ark_ec::{AffineRepr, CurveGroup, PrimeGroup};
 use ark_ff::PrimeField;
 use ark_ff::Zero;
-use ark_std::UniformRand;
-use ark_std::rand::Rng;
 use std::marker::PhantomData;
 use w3f_pcs::aggregation::multiple::ShplonkTranscript;
 use w3f_pcs::pcs::PCS;
 use w3f_pcs::pcs::commitment::WrappedAffine;
 use w3f_pcs::pcs::ipa::hiding::HidingIpa;
 use w3f_pcs::shplonk::AggregateProof;
-use w3f_plonk_common::domain::Domain;
 use w3f_plonk_common::piop::{ProverPiop, VerifierPiop};
-use w3f_plonk_common::{FieldColumn, PiopProof};
+use w3f_plonk_common::{ColumnsCommited, ColumnsEvaluated, FieldColumn};
 
 pub mod auth_path;
 pub mod circuit_fat;
@@ -25,8 +20,15 @@ pub mod verifier;
 
 /// The circuit is over `C::ScalarField`.
 pub trait CircuitParams<C: CurveGroup, G: AffineRepr<BaseField = C::ScalarField>> {
-    type Proof;
-    type ProverCircuit: ProverPiop<C::ScalarField, WrappedAffine<C>>;
+    type Commitments: ColumnsCommited<C::ScalarField, WrappedAffine<C>>;
+    type Evaluations: ColumnsEvaluated<C::ScalarField>;
+    type ProverCircuit: ProverPiop<
+            C::ScalarField,
+            WrappedAffine<C>,
+            Instance = G,
+            Commitments = Self::Commitments,
+            Evaluations = Self::Evaluations,
+        >;
     type VerifierCircuit: VerifierPiop<C::ScalarField, WrappedAffine<C>>;
 
     fn prover_circuit(&self, level: LevelWitnessWithBlinding<G>) -> Self::ProverCircuit;
@@ -35,7 +37,8 @@ pub trait CircuitParams<C: CurveGroup, G: AffineRepr<BaseField = C::ScalarField>
         &self,
         instance: (G, C::Affine),
         fixed_cols: &[WrappedAffine<C>],
-        proof: Self::Proof,
+        cols: Self::Commitments,
+        evals: Self::Evaluations,
         zeta: C::ScalarField,
     ) -> Self::VerifierCircuit;
 
@@ -67,53 +70,62 @@ pub struct CycleParams<
     c1_params: CycleSideParams<C1, C0::Affine, P1>,
 }
 
-pub type LevelProof<C> = PiopProof<
+type LevelProof<C, G, P> = w3f_plonk_common::PiopProof<
     <C as PrimeGroup>::ScalarField,
     WrappedAffine<C>,
-    ProofComms<C>,
-    ProofEvals<<C as PrimeGroup>::ScalarField>,
+    <P as CircuitParams<C, G>>::Commitments,
+    <P as CircuitParams<C, G>>::Evaluations,
 >;
 
 #[derive(Clone)]
-pub struct CycleSideProof<C: CurveGroup> {
-    piop_proofs: Vec<LevelProof<C>>,
+pub struct CycleSideProof<
+    C: CurveGroup,
+    G: AffineRepr<BaseField = C::ScalarField>,
+    P: CircuitParams<C, G>,
+> {
+    piop_proofs: Vec<LevelProof<C, G, P>>,
     pcs_proof: AggregateProof<C::ScalarField, HidingIpa<C>>,
     todo: Coeffs<C::ScalarField>,
 }
 
 #[derive(Clone)]
-pub struct CurveTreeProof<C0: CurveGroup, C1: CurveGroup> {
-    c0_proof: CycleSideProof<C0>,
-    c1_proof: CycleSideProof<C1>,
+pub struct CurveTreeProof<
+    C0: CurveGroup,
+    C1: CurveGroup<BaseField = C0::ScalarField, ScalarField = C0::BaseField>,
+    P0: CircuitParams<C0, C1::Affine>,
+    P1: CircuitParams<C1, C0::Affine>,
+> {
+    c0_proof: CycleSideProof<C0, C1::Affine, P0>,
+    c1_proof: CycleSideProof<C1, C0::Affine, P1>,
 }
 
-impl<C0, C1> CycleParams<C0, C1, PiopParams<C1::Affine>, PiopParams<C0::Affine>>
-where
-    C0: CurveGroup<BaseField: PrimeField>,
-    C1: CurveGroup<BaseField = C0::ScalarField, ScalarField = C0::BaseField>,
-{
-    pub fn setup<R: Rng>(domain_size: usize, rng: &mut R) -> Self {
-        let setup_degree = 3 * domain_size;
-        let c0_pcs_params = HidingIpa::<C0>::setup(setup_degree, rng);
-        let c1_pcs_params = HidingIpa::<C1>::setup(setup_degree, rng);
-        let c0_domain = Domain::<C0::ScalarField>::new(domain_size, true);
-        let c0_piop_params = PiopParams::setup(c0_domain, c1_pcs_params.h, C1::Affine::rand(rng));
-        let c1_domain = Domain::<C1::ScalarField>::new(domain_size, true);
-        let c1_piop_params = PiopParams::setup(c1_domain, c0_pcs_params.h, C0::Affine::rand(rng));
-        Self {
-            c0_params: CycleSideParams {
-                pcs_params: c0_pcs_params,
-                piop_params: c0_piop_params,
-                phantomm: PhantomData,
-            },
-            c1_params: CycleSideParams {
-                pcs_params: c1_pcs_params,
-                piop_params: c1_piop_params,
-                phantomm: PhantomData,
-            },
-        }
-    }
-}
+// impl<C0, C1> CycleParams<C0, C1, P0, P1>
+// where
+//     C0: CurveGroup<BaseField: PrimeField>,
+//     C1: CurveGroup<BaseField = C0::ScalarField, ScalarField = C0::BaseField>,
+// {
+//     pub fn setup<R: Rng>(domain_size: usize, rng: &mut R) -> Self {
+//         let setup_degree = 3 * domain_size;
+//         let c0_pcs_params = HidingIpa::<C0>::setup(setup_degree, rng);
+//         let c1_pcs_params = HidingIpa::<C1>::setup(setup_degree, rng);
+//         let c0_domain = Domain::<C0::ScalarField>::new(domain_size, true);
+//         let c0_piop_params = PiopParams::setup(c0_domain, c1_pcs_params.h, C1::Affine::rand(rng));
+//         let c1_domain = Domain::<C1::ScalarField>::new(domain_size, true);
+//         let c1_piop_params = PiopParams::setup(c1_domain, c0_pcs_params.h, C0::Affine::rand(rng));
+//         Self {
+//             c0_params: CycleSideParams {
+//                 pcs_params: c0_pcs_params,
+//                 piop_params: c0_piop_params,
+//                 phantomm: PhantomData,
+//             },
+//             c1_params: CycleSideParams {
+//                 pcs_params: c1_pcs_params,
+//                 piop_params: c1_piop_params,
+//                 phantomm: PhantomData,
+//             },
+//         }
+//     }
+// }
 
 impl<C: CurveGroup, G: AffineRepr<BaseField = C::ScalarField>, P: CircuitParams<C, G>>
     CycleSideParams<C, G, P>
