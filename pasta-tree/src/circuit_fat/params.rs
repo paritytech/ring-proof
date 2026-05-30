@@ -68,6 +68,15 @@ impl<C: CurveGroup, G: AffineRepr<BaseField = C::ScalarField>> CircuitParams<C, 
         let h_powers_col = self.h_powers_column();
         vec![h_powers_col.xs, h_powers_col.ys]
     }
+
+    fn max_children(&self) -> usize {
+        self.max_nodes()
+    }
+
+    #[cfg(test)]
+    fn setup(domain: Domain<G::BaseField>, h: G, _seed: G) -> Self {
+        Self::setup(domain, h)
+    }
 }
 
 impl<G: AffineRepr<BaseField: PrimeField>> PiopParams<G> {

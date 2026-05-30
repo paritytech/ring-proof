@@ -65,6 +65,10 @@ impl<C: CurveGroup, G: AffineRepr<BaseField = C::ScalarField>> CircuitParams<C, 
         )
     }
 
+    fn fixed_columns(&self) -> Vec<FieldColumn<G::BaseField>> {
+        vec![self.select_part()]
+    }
+
     fn tree_nodes_column(&self, children_x_coords: &[G::BaseField]) -> FieldColumn<G::BaseField> {
         assert!(children_x_coords.len() <= self.max_nodes);
         let mut x_coords = children_x_coords.to_vec();
@@ -85,8 +89,13 @@ impl<C: CurveGroup, G: AffineRepr<BaseField = C::ScalarField>> CircuitParams<C, 
         self.domain.domains.column_from_evals(x_coords, payload_len)
     }
 
-    fn fixed_columns(&self) -> Vec<FieldColumn<G::BaseField>> {
-        vec![self.select_part()]
+    fn max_children(&self) -> usize {
+        self.max_nodes
+    }
+
+    #[cfg(test)]
+    fn setup(domain: Domain<G::BaseField>, h: G, seed: G) -> Self {
+        Self::setup(domain, h, seed)
     }
 }
 

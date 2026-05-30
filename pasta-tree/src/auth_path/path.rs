@@ -103,6 +103,7 @@ where
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::circuit_tall::params::PiopParams;
     use crate::tests::random_path;
     use ark_std::test_rng;
 
@@ -111,10 +112,12 @@ mod tests {
         let rng = &mut test_rng();
 
         let domain_size = 2usize.pow(9);
-        let params = CycleParams::<ark_pallas::Projective, ark_vesta::Projective, _, _>::setup(
-            domain_size,
-            rng,
-        );
+        let params = CycleParams::<
+            ark_pallas::Projective,
+            ark_vesta::Projective,
+            PiopParams<ark_vesta::Affine>,
+            PiopParams<ark_pallas::Affine>,
+        >::setup(domain_size, rng);
 
         let (leaf, path, root) = random_path(&params, 2, rng);
 

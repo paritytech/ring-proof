@@ -8,6 +8,8 @@ use w3f_pcs::pcs::PCS;
 use w3f_pcs::pcs::commitment::WrappedAffine;
 use w3f_pcs::pcs::ipa::hiding::HidingIpa;
 use w3f_pcs::shplonk::AggregateProof;
+#[cfg(test)]
+use w3f_plonk_common::domain::Domain;
 use w3f_plonk_common::piop::{ProverPiop, VerifierPiop};
 use w3f_plonk_common::{ColumnsCommited, ColumnsEvaluated, FieldColumn};
 
@@ -18,7 +20,8 @@ pub mod circuit_tall;
 pub mod prover;
 pub mod verifier;
 
-/// The circuit is over `C::ScalarField`.
+// TODO: goes vto plonk-common in some form
+/// A circuit over `C::ScalarField`.
 pub trait CircuitParams<C: CurveGroup, G: AffineRepr<BaseField = C::ScalarField>> {
     type Commitments: ColumnsCommited<C::ScalarField, WrappedAffine<C>>;
     type Evaluations: ColumnsEvaluated<C::ScalarField>;
@@ -42,12 +45,18 @@ pub trait CircuitParams<C: CurveGroup, G: AffineRepr<BaseField = C::ScalarField>
         zeta: C::ScalarField,
     ) -> Self::VerifierCircuit;
 
+    fn fixed_columns(&self) -> Vec<FieldColumn<C::ScalarField>>;
+
     fn tree_nodes_column(
         &self,
         children_x_coords: &[C::ScalarField],
     ) -> FieldColumn<C::ScalarField>;
 
-    fn fixed_columns(&self) -> Vec<FieldColumn<C::ScalarField>>;
+    fn max_children(&self) -> usize;
+
+    #[cfg(test)] // an "application" runs usually a single circuit
+    /// `h` is the pedersen blinding base (from the opposite side) to prove `C' = Ci + rH`
+    fn setup(domain: Domain<C::ScalarField>, h: G, seed: G) -> Self;
 }
 
 pub struct CycleSideParams<
@@ -98,34 +107,6 @@ pub struct CurveTreeProof<
     c0_proof: CycleSideProof<C0, C1::Affine, P0>,
     c1_proof: CycleSideProof<C1, C0::Affine, P1>,
 }
-
-// impl<C0, C1> CycleParams<C0, C1, P0, P1>
-// where
-//     C0: CurveGroup<BaseField: PrimeField>,
-//     C1: CurveGroup<BaseField = C0::ScalarField, ScalarField = C0::BaseField>,
-// {
-//     pub fn setup<R: Rng>(domain_size: usize, rng: &mut R) -> Self {
-//         let setup_degree = 3 * domain_size;
-//         let c0_pcs_params = HidingIpa::<C0>::setup(setup_degree, rng);
-//         let c1_pcs_params = HidingIpa::<C1>::setup(setup_degree, rng);
-//         let c0_domain = Domain::<C0::ScalarField>::new(domain_size, true);
-//         let c0_piop_params = PiopParams::setup(c0_domain, c1_pcs_params.h, C1::Affine::rand(rng));
-//         let c1_domain = Domain::<C1::ScalarField>::new(domain_size, true);
-//         let c1_piop_params = PiopParams::setup(c1_domain, c0_pcs_params.h, C0::Affine::rand(rng));
-//         Self {
-//             c0_params: CycleSideParams {
-//                 pcs_params: c0_pcs_params,
-//                 piop_params: c0_piop_params,
-//                 phantomm: PhantomData,
-//             },
-//             c1_params: CycleSideParams {
-//                 pcs_params: c1_pcs_params,
-//                 piop_params: c1_piop_params,
-//                 phantomm: PhantomData,
-//             },
-//         }
-//     }
-// }
 
 impl<C: CurveGroup, G: AffineRepr<BaseField = C::ScalarField>, P: CircuitParams<C, G>>
     CycleSideParams<C, G, P>
@@ -180,7 +161,7 @@ mod tests {
     use ark_ec::AdditiveGroup;
     use ark_ec::scalar_mul::glv::GLVConfig;
     use ark_ec::scalar_mul::wnaf::WnafContext;
-    use ark_ec::short_weierstrass::{Affine, Projective, SWCurveConfig};
+    use ark_ec::short_weierstrass::{Affine, SWCurveConfig};
     use ark_ec::{AffineRepr, CurveGroup};
     use ark_ff::{BigInteger, Field, Zero};
     use ark_ff::{FftField, PrimeField};
@@ -188,7 +169,6 @@ mod tests {
     use ark_poly::DenseUVPolynomial;
     use ark_std::rand::Rng;
     use ark_std::{UniformRand, cfg_iter_mut, end_timer, start_timer, test_rng};
-    use ark_vesta::VestaConfig;
     use w3f_pcs::Poly;
     use w3f_pcs::pcs::PCS;
     use w3f_pcs::pcs::PcsParams;
@@ -197,10 +177,41 @@ mod tests {
 
     use crate::auth_path::node::LevelWitness;
     use crate::auth_path::path::AuthenticationPath;
+    use crate::circuit_tall::params::PiopParams;
     #[cfg(feature = "parallel")]
     use rayon::prelude::*;
 
     type PallasIPA = IPA<ark_pallas::Projective>;
+
+    impl<C0, C1, P0, P1> CycleParams<C0, C1, P0, P1>
+    where
+        C0: CurveGroup<BaseField: PrimeField>,
+        C1: CurveGroup<BaseField = C0::ScalarField, ScalarField = C0::BaseField>,
+        P0: CircuitParams<C0, C1::Affine>,
+        P1: CircuitParams<C1, C0::Affine>,
+    {
+        pub fn setup<R: Rng>(domain_size: usize, rng: &mut R) -> Self {
+            let setup_degree = 3 * domain_size;
+            let c0_pcs_params = HidingIpa::<C0>::setup(setup_degree, rng);
+            let c1_pcs_params = HidingIpa::<C1>::setup(setup_degree, rng);
+            let c0_domain = Domain::<C0::ScalarField>::new(domain_size, true);
+            let c0_piop_params = P0::setup(c0_domain, c1_pcs_params.h, C1::Affine::rand(rng));
+            let c1_domain = Domain::<C1::ScalarField>::new(domain_size, true);
+            let c1_piop_params = P1::setup(c1_domain, c0_pcs_params.h, C0::Affine::rand(rng));
+            Self {
+                c0_params: CycleSideParams {
+                    pcs_params: c0_pcs_params,
+                    piop_params: c0_piop_params,
+                    phantomm: PhantomData,
+                },
+                c1_params: CycleSideParams {
+                    pcs_params: c1_pcs_params,
+                    piop_params: c1_piop_params,
+                    phantomm: PhantomData,
+                },
+            }
+        }
+    }
 
     pub fn random_witness<G: AffineRepr<BaseField: PrimeField>, R: Rng>(
         capacity: usize,
@@ -216,12 +227,17 @@ mod tests {
         }
     }
 
-    pub fn random_nodes<C: CurveGroup, G: AffineRepr<BaseField = C::ScalarField>, R: Rng>(
-        params: &CycleSideParams<C, G, PiopParams<G>>,
+    pub fn random_nodes<
+        C: CurveGroup,
+        G: AffineRepr<BaseField = C::ScalarField>,
+        P: CircuitParams<C, G>,
+        R: Rng,
+    >(
+        params: &CycleSideParams<C, G, P>,
         path_node: G,
         rng: &mut R,
     ) -> (C::Affine, LevelWitness<G>) {
-        let level_witness = random_witness(params.piop_params.max_nodes, path_node, rng);
+        let level_witness = random_witness(params.piop_params.max_children(), path_node, rng);
         let parent = level_witness.compute_parent(params).unwrap();
         (parent, level_witness)
     }
@@ -229,9 +245,11 @@ mod tests {
     pub fn random_path<
         C0: CurveGroup<BaseField: FftField>,
         C1: CurveGroup<BaseField = C0::ScalarField, ScalarField = C0::BaseField>,
+        P0: CircuitParams<C0, C1::Affine>,
+        P1: CircuitParams<C1, C0::Affine>,
         R: Rng,
     >(
-        params: &CycleParams<C0, C1, PiopParams<C1::Affine>, PiopParams<C0::Affine>>,
+        params: &CycleParams<C0, C1, P0, P1>,
         length: usize,
         rng: &mut R,
     ) -> (
@@ -267,24 +285,24 @@ mod tests {
         (leaf, path, root)
     }
 
-    fn _test_proof<F0, F1, C0, C1>(log_n: usize, height: usize)
+    fn _test_proof<C0, C1, P0, P1>(log_n: usize, height: usize)
     where
-        F0: PrimeField,
-        F1: PrimeField,
-        C0: SWCurveConfig<BaseField = F1, ScalarField = F0>,
-        C1: SWCurveConfig<BaseField = F0, ScalarField = F1>,
+        C0: CurveGroup<BaseField: PrimeField>,
+        C1: CurveGroup<BaseField = C0::ScalarField, ScalarField = C0::BaseField>,
+        P0: CircuitParams<C0, C1::Affine>,
+        P1: CircuitParams<C1, C0::Affine>,
     {
         let rng = &mut test_rng();
 
         let domain_size = 1 << log_n;
-        let params = CycleParams::<Projective<C0>, Projective<C1>, _, _>::setup(domain_size, rng);
+        let params = CycleParams::<C0, C1, P0, P1>::setup(domain_size, rng);
         let (_leaf, path, wrapped_root) = random_path(&params, height, rng);
         let root = match wrapped_root {
             CycleSide::C0(root) => root, //TODO: panics on odd height
             _ => panic!(),
         };
 
-        let max_nodes = params.c0_params.piop_params.max_nodes;
+        let max_nodes = params.c0_params.piop_params.max_children();
         let t_prove = start_timer!(|| format!(
             "Proving CurveTree membership, height={height}, domain={domain_size}, arity={max_nodes}, capacity={}",
             max_nodes.pow(height as u32)
@@ -302,7 +320,12 @@ mod tests {
     // cargo test test_curve_tree_proof --release --features="print-trace parallel" -- --show-output
     #[test]
     fn test_curve_tree_proof() {
-        _test_proof::<_, _, PallasConfig, VestaConfig>(9, 4);
+        _test_proof::<
+            ark_pallas::Projective,
+            ark_vesta::Projective,
+            PiopParams<ark_vesta::Affine>,
+            PiopParams<ark_pallas::Affine>,
+        >(9, 4);
     }
 
     fn _bench_msm<C: CurveGroup>(log_n: u32) {
