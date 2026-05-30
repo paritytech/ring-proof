@@ -57,16 +57,16 @@ impl<C: CurveGroup, G: AffineRepr<BaseField = C::ScalarField>> CircuitParams<C, 
         )
     }
 
+    fn fixed_columns(&self) -> Vec<FieldColumn<C::ScalarField>> {
+        let h_powers_col = self.h_powers_column();
+        vec![h_powers_col.xs, h_powers_col.ys]
+    }
+
     fn tree_nodes_column(
         &self,
         children_x_coords: &[C::ScalarField],
     ) -> FieldColumn<C::ScalarField> {
         self.x_coords_column(children_x_coords)
-    }
-
-    fn fixed_columns(&self) -> Vec<FieldColumn<C::ScalarField>> {
-        let h_powers_col = self.h_powers_column();
-        vec![h_powers_col.xs, h_powers_col.ys]
     }
 
     fn max_children(&self) -> usize {

@@ -158,6 +158,10 @@ impl<F: PrimeField, CS: PCS<F>> ShplonkTranscript<F, CS> for Coeffs<F> {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::auth_path::node::LevelWitness;
+    use crate::auth_path::path::AuthenticationPath;
+    use crate::circuit_fat::params::PiopParams as CircuitParamsFat;
+    use crate::circuit_tall::params::PiopParams as CircuitParamsTall;
     use ark_ec::AdditiveGroup;
     use ark_ec::scalar_mul::glv::GLVConfig;
     use ark_ec::scalar_mul::wnaf::WnafContext;
@@ -175,9 +179,6 @@ mod tests {
     use w3f_pcs::pcs::ipa::IPA;
     use w3f_plonk_common::test_helpers::random_vec;
 
-    use crate::auth_path::node::LevelWitness;
-    use crate::auth_path::path::AuthenticationPath;
-    use crate::circuit_tall::params::PiopParams;
     #[cfg(feature = "parallel")]
     use rayon::prelude::*;
 
@@ -316,16 +317,27 @@ mod tests {
         assert!(valid);
     }
 
-    // cargo test test_curve_tree_proof --release --features="print-trace" -- --show-output
-    // cargo test test_curve_tree_proof --release --features="print-trace parallel" -- --show-output
+    // cargo test test_bench_curve_tree --release --features="print-trace" -- --show-output
+    // cargo test test_bench_curve_tree --release --features="print-trace parallel" -- --show-output
     #[test]
-    fn test_curve_tree_proof() {
+    fn test_bench_curve_tree() {
+        // let log_n = 8;
+        // println!("n = {}, height = 4", 1 << log_n);
+        // _test_proof::<
+        //     ark_pallas::Projective,
+        //     ark_vesta::Projective,
+        //     CircuitParamsFat<ark_vesta::Affine>,
+        //     CircuitParamsFat<ark_pallas::Affine>,
+        // >(log_n, 4);
+
+        let log_n = 9;
+        println!("n = {}, height = 4", 1 << log_n);
         _test_proof::<
             ark_pallas::Projective,
             ark_vesta::Projective,
-            PiopParams<ark_vesta::Affine>,
-            PiopParams<ark_pallas::Affine>,
-        >(9, 4);
+            CircuitParamsTall<ark_vesta::Affine>,
+            CircuitParamsTall<ark_pallas::Affine>,
+        >(log_n, 4);
     }
 
     fn _bench_msm<C: CurveGroup>(log_n: u32) {
