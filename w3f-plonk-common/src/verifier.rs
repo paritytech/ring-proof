@@ -6,7 +6,7 @@ use w3f_pcs::pcs::{Commitment, PcsParams, PCS};
 
 use crate::piop::VerifierPiop;
 use crate::transcript::PlonkTranscript;
-use crate::{ColumnsCommited, ColumnsEvaluated, PiopProof, Proof};
+use crate::{q_chunking, ColumnsCommited, ColumnsEvaluated, PiopProof, Proof};
 
 pub struct PlonkVerifier<F: PrimeField, CS: PCS<F>, T: PlonkTranscript<F, CS>> {
     // Polynomial commitment scheme verifier's key.
@@ -53,7 +53,11 @@ impl<F: PrimeField, CS: PCS<F>, T: PlonkTranscript<F, CS>> PlonkVerifier<F, CS, 
     {
         let mut open_at_zeta = piop.precommitted_columns();
         open_at_zeta.extend(proof.column_commitments.to_vec());
-        open_at_zeta.extend(proof.quotient_chunks);
+        // q(X) = q0(X) + q1(X)X^n + q2(X)X^{2n} (+ ... + qk(X)X^{kn})
+        // Let q_z(X) = q0(X) + q1(X).z^n + q2(X).z^{2n}
+        // then q_z(z) = q(z)
+        let quotient_commitment = q_chunking::compose_quotient(&proof.quotient_chunks, piop.domain_evaluated().z_n);
+        open_at_zeta.push(quotient_commitment);
 
         let mut vals_at_zeta = proof.columns_at_zeta.to_vec();
         let q_zeta = piop.evaluate_q_at_zeta(&challenges.alphas, proof.lin_at_zeta_omega);

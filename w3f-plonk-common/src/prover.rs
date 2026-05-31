@@ -11,7 +11,7 @@ use w3f_pcs::pcs::PCS;
 
 use crate::piop::ProverPiop;
 use crate::transcript::PlonkTranscript;
-use crate::{PiopProof, Proof};
+use crate::{q_chunking, PiopProof, Proof};
 
 pub struct PlonkProver<F: PrimeField, CS: PCS<F>, T: PlonkTranscript<F, CS>> {
     // Polynomial commitment scheme committer's key.
@@ -92,6 +92,8 @@ impl<F: PrimeField, CS: PCS<F>, T: PlonkTranscript<F, CS>> PlonkProver<F, CS, T>
 
         // ROUND 3
         let zeta = transcript.get_evaluation_point();
+        let z_n = zeta.pow([piop.domain().domain_size() as u64]);
+        let q_folded = q_chunking::fold_quotient_chunks(&quotient_chunks, z_n);
         let columns_to_open = piop.columns();
         let columns_at_zeta = piop.columns_evaluated(&zeta);
         let constraint_polys_linearized = piop.constraints_lin(&zeta);
@@ -106,7 +108,7 @@ impl<F: PrimeField, CS: PCS<F>, T: PlonkTranscript<F, CS>> PlonkProver<F, CS, T>
             columns_at_zeta,
             lin_at_zeta_omega,
         };
-        let polys_at_zeta = [columns_to_open, quotient_chunks].concat();
+        let polys_at_zeta = [columns_to_open, vec![q_folded]].concat();
         let pcs_openings = PcsOpeningAt2Points {
             polys_at_zeta,
             polys_at_zeta_omega: vec![lin],
