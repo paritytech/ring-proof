@@ -107,6 +107,10 @@ impl<C: CurveGroup, G: AffineRepr<BaseField = C::ScalarField>>
     type Evaluations = ProofEvals<C::ScalarField>;
     type Instance = G;
 
+    fn quotient(&self, alphas: &[C::ScalarField]) -> Option<Vec<DensePolynomial<C::ScalarField>>> {
+        <Self as ProverPiop<C::ScalarField, WrappedAffine<C>>>::_quotient_chunks(self, alphas)
+    }
+
     fn committed_columns<Fun: Fn(&DensePolynomial<C::ScalarField>) -> WrappedAffine<C>>(
         &self,
         commit: Fun,
