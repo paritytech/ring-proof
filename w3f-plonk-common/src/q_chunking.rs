@@ -11,13 +11,17 @@ pub fn chunk_quotient<F: Field>(q: DensePolynomial<F>, n: usize) -> Vec<DensePol
         .collect()
 }
 
+pub fn chunk_coeffs<F: Field>(z_to_n: F) -> impl Iterator<Item = F> {
+    utils::powers(z_to_n)
+}
+
 pub fn fold_quotient_chunks<F: Field>(
     chunks: &[DensePolynomial<F>],
     z_to_n: F,
 ) -> DensePolynomial<F> {
     chunks
         .iter()
-        .zip(utils::powers(z_to_n))
+        .zip(chunk_coeffs(z_to_n))
         .map(|(chunk, coeff)| chunk * coeff)
         .reduce(|acc, new| acc + new)
         .unwrap()
@@ -26,7 +30,7 @@ pub fn fold_quotient_chunks<F: Field>(
 pub fn compose_quotient<F: PrimeField, C: Commitment<F>>(chunks: &[C], z_to_n: F) -> C {
     chunks
         .iter()
-        .zip(utils::powers(z_to_n))
+        .zip(chunk_coeffs(z_to_n))
         .map(|(chunk, coeff)| chunk.mul(coeff))
         .sum()
 }

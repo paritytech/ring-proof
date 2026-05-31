@@ -1,6 +1,6 @@
 use crate::piop::VerifierPiop;
 use crate::verifier::Challenges;
-use crate::{ColumnsCommited, ColumnsEvaluated, Proof};
+use crate::{q_chunking, ColumnsCommited, ColumnsEvaluated, Proof};
 use ark_ec::pairing::Pairing;
 use ark_ec::{CurveGroup, VariableBaseMSM};
 use ark_ff::{PrimeField, Zero};
@@ -93,8 +93,8 @@ impl<E: Pairing> KzgAccumulator<E> {
         let zeta_omega = zeta * piop.domain_evaluated().omega();
         let lin_comm = piop.lin_poly_commitment(&challenges.alphas);
 
-        // Openning at `z`
-        // TODO: try to get rid of the commitment wrapper in flonk
+        // Openning at `z`. Columns and the quotient are aggregated using `nu`s.
+        let mut r_nus = challenges.nus.iter().map(|nu| r * nu);
         self.acc_points.extend(
             piop.precommitted_columns()
                 .iter()
@@ -109,9 +109,19 @@ impl<E: Pairing> KzgAccumulator<E> {
                 .map(|c| c.0)
                 .collect::<Vec<_>>(),
         );
-        self.acc_points.push(proof.quotient_commitment.clone().0);
         self.acc_scalars
-            .extend(challenges.nus.iter().map(|nu| *nu * r).collect::<Vec<_>>()); // numbers should match here
+            .extend(r_nus.by_ref().take(Piop::N_COLUMNS));
+
+        // quotient (chunks) at `z`
+        let r_nu_last = r_nus.next().unwrap();
+        let z_n = piop.domain_evaluated().z_n;
+        self.acc_points
+            .extend(proof.quotient_chunks.iter().map(|c| c.0));
+        self.acc_scalars.extend(
+            q_chunking::chunk_coeffs(z_n)
+                .map(|c| r_nu_last * c)
+                .take(proof.quotient_chunks.len()),
+        );
 
         self.acc_points.push(proof.agg_at_zeta_proof);
         self.acc_scalars.push(zeta * r);
