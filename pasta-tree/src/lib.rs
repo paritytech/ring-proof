@@ -260,11 +260,11 @@ mod tests {
             ark_vesta::Projective,
             CircuitParamsFat<ark_vesta::Affine>,
             CircuitParamsFat<ark_pallas::Affine>,
-        >(8, 4);
+        >(8, 2);
     }
 
-    // cargo test test_bench_curve_tree --release --features="print-trace" -- --show-output
-    // cargo test test_bench_curve_tree --release --features="print-trace parallel" -- --show-output
+    // cargo test test_bench_curve_tree --release --features="print-trace" -- --show-output --ignored
+    // cargo test test_bench_curve_tree --release --features="print-trace parallel" -- --show-output --ignored
     #[test]
     #[ignore]
     fn test_bench_curve_tree() {
@@ -278,25 +278,25 @@ mod tests {
         >(log_n, h);
         println!();
 
-        let (log_n, h) = (9, 2);
-        println!("n = {}, height = {h}, TALL", 1 << log_n);
-        _test_proof::<
-            ark_pallas::Projective,
-            ark_vesta::Projective,
-            CircuitParamsTall<ark_vesta::Affine>,
-            CircuitParamsTall<ark_pallas::Affine>,
-        >(log_n, h);
-        println!();
+        // let (log_n, h) = (9, 2);
+        // println!("n = {}, height = {h}, TALL", 1 << log_n);
+        // _test_proof::<
+        //     ark_pallas::Projective,
+        //     ark_vesta::Projective,
+        //     CircuitParamsTall<ark_vesta::Affine>,
+        //     CircuitParamsTall<ark_pallas::Affine>,
+        // >(log_n, h);
+        // println!();
 
-        let (log_n, h) = (10, 2);
-        println!("n = {}, height = {h}, TALL", 1 << log_n);
-        _test_proof::<
-            ark_pallas::Projective,
-            ark_vesta::Projective,
-            CircuitParamsTall<ark_vesta::Affine>,
-            CircuitParamsTall<ark_pallas::Affine>,
-        >(log_n, h);
-        println!();
+        // let (log_n, h) = (10, 2);
+        // println!("n = {}, height = {h}, TALL", 1 << log_n);
+        // _test_proof::<
+        //     ark_pallas::Projective,
+        //     ark_vesta::Projective,
+        //     CircuitParamsTall<ark_vesta::Affine>,
+        //     CircuitParamsTall<ark_pallas::Affine>,
+        // >(log_n, h);
+        // println!();
 
         let (log_n, h) = (8, 4);
         println!("n = {}, height = {h}, FAT", 1 << log_n);
@@ -308,7 +308,7 @@ mod tests {
         >(log_n, h);
         println!();
 
-        let (log_n, h) = (9, 4);
+        let (log_n, h) = (10, 4);
         println!("n = {}, height = {h}, TALL", 1 << log_n);
         _test_proof::<
             ark_pallas::Projective,

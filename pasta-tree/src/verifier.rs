@@ -48,20 +48,25 @@ impl<C: CurveGroup, G: AffineRepr<BaseField = C::ScalarField>, P: CircuitParams<
         parents: Vec<C::Affine>,
         side_proof: CycleSideProof<C, G, P>,
     ) -> bool {
-        // let mut s = std::any::type_name::<C>();
-        // s = &s[65..s.len()];
-        // println!("\n\nverifier {s}\nchildren={children:?}\nparents={parents:?}\n");
+        // let curve_name = &std::any::type_name::<C>()[53..];
+        // println!("\n\nverifier {curve_name}\nchildren={children:?}\nparents={parents:?}\n");
+
+        // number of tree levels on this side
+        let n_levels = side_proof.piop_proofs.len();
+        // per tree level
+        let n_to_open = P::VerifierCircuit::N_COLUMNS + 2; // plus the (folded) quotient (chunks) and the linearization polynomial
+        // per side
+        let n_openings = n_levels * n_to_open;
+
+        let mut polys_to_open = Vec::with_capacity(n_openings);
+        let mut at_coords = Vec::with_capacity(n_openings);
+        let mut to_values = Vec::with_capacity(n_openings);
 
         let plonk_verifier: PlonkVerifier<C::ScalarField, HidingIpa<C>, _> = PlonkVerifier::init(
             self.pcs_params.vk(),
-            &(),
+            &(), // TODO
             ArkTranscript::new(b"pasta-tree-level-proof"),
         );
-
-        let n_polys = P::VerifierCircuit::N_COLUMNS + 2; // plus the quotient and the linearization polys
-        let mut polys = Vec::with_capacity(side_proof.piop_proofs.len() * n_polys);
-        let mut coords = Vec::with_capacity(side_proof.piop_proofs.len() * n_polys);
-        let mut vals = Vec::with_capacity(side_proof.piop_proofs.len() * n_polys);
 
         //TODO: precompute
         let fixed_cols = self.commit_fixed_columns();
@@ -99,21 +104,21 @@ impl<C: CurveGroup, G: AffineRepr<BaseField = C::ScalarField>, P: CircuitParams<
             //     vals_at_zeta[vals_at_zeta.len() - 1]
             // );
 
-            coords.extend(vec![vec![zeta]; open_at_zeta.len()]);
-            polys.extend(open_at_zeta);
-            coords.extend(vec![vec![zeta_omega]; open_at_zeta_omega.len()]);
-            polys.extend(open_at_zeta_omega);
-            vals.extend(vals_at_zeta.into_iter().map(|v| vec![v]));
-            vals.extend(vals_at_zeta_omega.into_iter().map(|v| vec![v]));
+            at_coords.extend(vec![vec![zeta]; open_at_zeta.len()]);
+            polys_to_open.extend(open_at_zeta);
+            at_coords.extend(vec![vec![zeta_omega]; open_at_zeta_omega.len()]);
+            polys_to_open.extend(open_at_zeta_omega);
+            to_values.extend(vals_at_zeta.into_iter().map(|v| vec![v]));
+            to_values.extend(vals_at_zeta_omega.into_iter().map(|v| vec![v]));
         }
 
         let mut todo = side_proof.todo;
         let valid = Shplonk::<C::ScalarField, HidingIpa<C>>::verify_many(
             &self.pcs_params.vk(),
-            &polys,
+            &polys_to_open,
             side_proof.pcs_proof,
-            &coords,
-            &vals,
+            &at_coords,
+            &to_values,
             &mut todo,
         );
         valid
