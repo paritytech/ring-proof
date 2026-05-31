@@ -243,6 +243,26 @@ mod tests {
         }
     }
 
+    #[test]
+    fn test_circuit_tall() {
+        _test_proof::<
+            ark_pallas::Projective,
+            ark_vesta::Projective,
+            CircuitParamsTall<ark_vesta::Affine>,
+            CircuitParamsTall<ark_pallas::Affine>,
+        >(9, 2);
+    }
+
+    #[test]
+    fn test_circuit_fat() {
+        _test_proof::<
+            ark_pallas::Projective,
+            ark_vesta::Projective,
+            CircuitParamsFat<ark_vesta::Affine>,
+            CircuitParamsFat<ark_pallas::Affine>,
+        >(8, 4);
+    }
+
     // cargo test test_bench_curve_tree --release --features="print-trace" -- --show-output
     // cargo test test_bench_curve_tree --release --features="print-trace parallel" -- --show-output
     #[test]
