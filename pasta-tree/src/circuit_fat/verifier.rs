@@ -98,8 +98,8 @@ impl<C: CurveGroup, G: AffineRepr<BaseField = C::ScalarField>> PiopVerifier<C, G
 impl<C: CurveGroup, G: AffineRepr<BaseField = C::ScalarField>>
     VerifierPiop<C::ScalarField, WrappedAffine<C>> for PiopVerifier<C, G>
 {
-    const N_CONSTRAINTS: usize = 12;
     const N_COLUMNS: usize = 9;
+    const N_CONSTRAINTS: usize = 12;
 
     fn precommitted_columns(&self) -> Vec<WrappedAffine<C>> {
         vec![

@@ -23,6 +23,7 @@ ark-serialize.workspace = true
 rayon = { workspace = true, optional = true }
 
 [dev-dependencies]
+num-format = "0.4"
 ark-bls12-381.workspace = true
 ark-ed-on-bls12-381-bandersnatch.workspace = true
 criterion.workspace = true

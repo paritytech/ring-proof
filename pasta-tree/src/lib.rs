@@ -173,6 +173,7 @@ mod tests {
     use ark_poly::DenseUVPolynomial;
     use ark_std::rand::Rng;
     use ark_std::{UniformRand, cfg_iter_mut, end_timer, start_timer, test_rng};
+    use num_format::{Locale, ToFormattedString};
     use w3f_pcs::Poly;
     use w3f_pcs::pcs::PCS;
     use w3f_pcs::pcs::PcsParams;
@@ -212,6 +213,96 @@ mod tests {
                 },
             }
         }
+    }
+
+    // cargo test test_bench_curve_tree --release --features="print-trace" -- --show-output
+    // cargo test test_bench_curve_tree --release --features="print-trace parallel" -- --show-output
+    #[test]
+    fn test_bench_curve_tree() {
+        let (log_n, h) = (8, 2);
+        println!("n = {}, height = {h}, FAT", 1 << log_n);
+        _test_proof::<
+            ark_pallas::Projective,
+            ark_vesta::Projective,
+            CircuitParamsFat<ark_vesta::Affine>,
+            CircuitParamsFat<ark_pallas::Affine>,
+        >(log_n, h);
+        println!();
+
+        let (log_n, h) = (9, 2);
+        println!("n = {}, height = {h}, TALL", 1 << log_n);
+        _test_proof::<
+            ark_pallas::Projective,
+            ark_vesta::Projective,
+            CircuitParamsTall<ark_vesta::Affine>,
+            CircuitParamsTall<ark_pallas::Affine>,
+        >(log_n, h);
+        println!();
+
+        let (log_n, h) = (10, 2);
+        println!("n = {}, height = {h}, TALL", 1 << log_n);
+        _test_proof::<
+            ark_pallas::Projective,
+            ark_vesta::Projective,
+            CircuitParamsTall<ark_vesta::Affine>,
+            CircuitParamsTall<ark_pallas::Affine>,
+        >(log_n, h);
+        println!();
+
+        let (log_n, h) = (8, 4);
+        println!("n = {}, height = {h}, FAT", 1 << log_n);
+        _test_proof::<
+            ark_pallas::Projective,
+            ark_vesta::Projective,
+            CircuitParamsFat<ark_vesta::Affine>,
+            CircuitParamsFat<ark_pallas::Affine>,
+        >(log_n, h);
+        println!();
+
+        let (log_n, h) = (9, 4);
+        println!("n = {}, height = {h}, TALL", 1 << log_n);
+        _test_proof::<
+            ark_pallas::Projective,
+            ark_vesta::Projective,
+            CircuitParamsTall<ark_vesta::Affine>,
+            CircuitParamsTall<ark_pallas::Affine>,
+        >(log_n, h);
+        println!();
+    }
+
+    fn _test_proof<C0, C1, P0, P1>(log_n: usize, height: usize)
+    where
+        C0: CurveGroup<BaseField: PrimeField>,
+        C1: CurveGroup<BaseField = C0::ScalarField, ScalarField = C0::BaseField>,
+        P0: CircuitParams<C0, C1::Affine>,
+        P1: CircuitParams<C1, C0::Affine>,
+    {
+        let rng = &mut test_rng();
+        let domain_size = 1 << log_n;
+        let params = CycleParams::<C0, C1, P0, P1>::setup(domain_size, rng);
+        let (_leaf, path, wrapped_root) = random_path(&params, height, rng);
+        let root = match wrapped_root {
+            CycleSide::C0(root) => root, //TODO: panics on odd height
+            _ => panic!(),
+        };
+        let max_nodes = params.c0_params.piop_params.max_children();
+        println!(
+            "capacity=**{}**, arity={max_nodes}",
+            max_nodes
+                .pow(height as u32)
+                .to_formatted_string(&Locale::en)
+        );
+        let t_prove = start_timer!(|| format!(
+            "Proving CurveTree membership, height={height}, domain={domain_size}, arity={max_nodes}, capacity={}",
+            max_nodes.pow(height as u32)
+        ));
+        let (auth_path, proof) = params.prove(path, rng);
+        end_timer!(t_prove);
+
+        let t_verify = start_timer!(|| "Verifying CurveTree membership");
+        let valid = params.verify(auth_path, proof, root);
+        end_timer!(t_verify);
+        assert!(valid);
     }
 
     pub fn random_witness<G: AffineRepr<BaseField: PrimeField>, R: Rng>(
@@ -284,60 +375,6 @@ mod tests {
 
         let path = AuthenticationPath { c0_path, c1_path };
         (leaf, path, root)
-    }
-
-    fn _test_proof<C0, C1, P0, P1>(log_n: usize, height: usize)
-    where
-        C0: CurveGroup<BaseField: PrimeField>,
-        C1: CurveGroup<BaseField = C0::ScalarField, ScalarField = C0::BaseField>,
-        P0: CircuitParams<C0, C1::Affine>,
-        P1: CircuitParams<C1, C0::Affine>,
-    {
-        let rng = &mut test_rng();
-
-        let domain_size = 1 << log_n;
-        let params = CycleParams::<C0, C1, P0, P1>::setup(domain_size, rng);
-        let (_leaf, path, wrapped_root) = random_path(&params, height, rng);
-        let root = match wrapped_root {
-            CycleSide::C0(root) => root, //TODO: panics on odd height
-            _ => panic!(),
-        };
-
-        let max_nodes = params.c0_params.piop_params.max_children();
-        let t_prove = start_timer!(|| format!(
-            "Proving CurveTree membership, height={height}, domain={domain_size}, arity={max_nodes}, capacity={}",
-            max_nodes.pow(height as u32)
-        ));
-        let (auth_path, proof) = params.prove(path, rng);
-        end_timer!(t_prove);
-
-        let t_verify = start_timer!(|| "Verifying CurveTree membership");
-        let valid = params.verify(auth_path, proof, root);
-        end_timer!(t_verify);
-        assert!(valid);
-    }
-
-    // cargo test test_bench_curve_tree --release --features="print-trace" -- --show-output
-    // cargo test test_bench_curve_tree --release --features="print-trace parallel" -- --show-output
-    #[test]
-    fn test_bench_curve_tree() {
-        let log_n = 8;
-        println!("n = {}, height = 4", 1 << log_n);
-        _test_proof::<
-            ark_pallas::Projective,
-            ark_vesta::Projective,
-            CircuitParamsFat<ark_vesta::Affine>,
-            CircuitParamsFat<ark_pallas::Affine>,
-        >(log_n, 4);
-
-        let log_n = 9;
-        println!("n = {}, height = 4", 1 << log_n);
-        _test_proof::<
-            ark_pallas::Projective,
-            ark_vesta::Projective,
-            CircuitParamsTall<ark_vesta::Affine>,
-            CircuitParamsTall<ark_pallas::Affine>,
-        >(log_n, 4);
     }
 
     fn _bench_msm<C: CurveGroup>(log_n: u32) {

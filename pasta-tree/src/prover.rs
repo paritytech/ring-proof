@@ -6,8 +6,9 @@ use crate::{Coeffs, CurveTreeProof, CycleSideProof};
 use ark_ec::{AffineRepr, CurveGroup};
 // use ark_ec::short_weierstrass::{Affine as SwAffine, Projective, SWCurveConfig};
 use ark_ff::{PrimeField, Zero};
-use ark_std::UniformRand;
+use ark_poly::Polynomial;
 use ark_std::rand::Rng;
+use ark_std::{UniformRand, end_timer, start_timer};
 use std::collections::BTreeSet;
 use w3f_pcs::pcs::PcsParams;
 use w3f_pcs::pcs::commitment::WrappedAffine;
@@ -104,6 +105,12 @@ impl<C: CurveGroup, G: AffineRepr<BaseField = C::ScalarField>, P: CircuitParams<
             bfs.resize(polys.len(), C::ScalarField::zero());
         }
 
+        let max_degree = polys.iter().map(|p| p.degree()).max().unwrap();
+        let t_open = start_timer!(|| format!(
+            "Opening {} polynomials with maximal degree-{}",
+            polys.len(),
+            max_degree
+        ));
         let todo = Coeffs(C::ScalarField::rand(rng), C::ScalarField::rand(rng));
         let pcs_proof = Shplonk::<C::ScalarField, HidingIpa<C>>::open_many_hiding(
             &self.pcs_params,
@@ -113,6 +120,7 @@ impl<C: CurveGroup, G: AffineRepr<BaseField = C::ScalarField>, P: CircuitParams<
             &mut todo.clone(),
             rng,
         );
+        end_timer!(t_open);
 
         let proof = CycleSideProof {
             piop_proofs,

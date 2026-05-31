@@ -160,6 +160,7 @@ impl<G: AffineRepr<BaseField: PrimeField>> PiopProver<G> {
 impl<C: CurveGroup, G: AffineRepr<BaseField = C::ScalarField>>
     ProverPiop<C::ScalarField, WrappedAffine<C>> for PiopProver<G>
 {
+    const N_COLUMNS: usize = 9;
     const N_CONSTRAINTS: usize = 12;
     type Commitments = ProofComms<C>;
     type Evaluations = ProofEvals<C::ScalarField>;
