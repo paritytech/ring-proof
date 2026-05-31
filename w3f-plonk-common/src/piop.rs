@@ -32,6 +32,10 @@ pub trait ProverPiop<F: PrimeField, C: Commitment<F>> {
     // Constraint polynomials in evaluation form.
     fn constraints(&self) -> Vec<Evaluations<F>>;
 
+    fn quotient_chunks(&self, alphas: &[F]) -> Option<Vec<DensePolynomial<F>>> {
+        self.compute_quotient(alphas).map(|q|vec![q])
+    }
+
     fn compute_quotient(&self, alphas: &[F]) -> Option<DensePolynomial<F>> {
         let constraints = self.constraints();
         // Aggregate constraint polynomials in evaluation form...

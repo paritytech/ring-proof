@@ -69,15 +69,21 @@ impl<F: PrimeField, CS: PCS<F>, T: PlonkTranscript<F, CS>> PlonkProver<F, CS, T>
         end_timer!(t_commit_cols);
 
         // ROUND 2
-        let alphas = transcript.get_constraints_aggregation_coeffs(P::N_CONSTRAINTS);
-        let quotient_poly = piop.compute_quotient(&alphas).unwrap();
-        let t_commit_q = start_timer!(|| format!(
-            "Committing to the degree-{} quotient",
-            quotient_poly.degree()
-        ));
         // The prover commits to the quotient polynomial...
-        let quotient_commitment = CS::commit(&self.pcs_ck, &quotient_poly).unwrap();
-        transcript.add_quotient_commitment(&quotient_commitment);
+        let alphas = transcript.get_constraints_aggregation_coeffs(P::N_CONSTRAINTS);
+        let quotient_chunks = piop.quotient_chunks(&alphas).unwrap();
+        let t_commit_q = start_timer!(|| format!(
+            "Committing to {} degree-{} quotient chunks", quotient_chunks.len(),
+            quotient_chunks[0].degree()
+        ));
+        let quotient_chunks_committed: Vec<_> = quotient_chunks.iter()
+            .map(|qi| CS::commit(&self.pcs_ck, qi).unwrap())
+            .collect();
+        for qi_committed in quotient_chunks_committed.iter() {
+            transcript.add_quotient_commitment(&qi_committed);
+        }
+        // let quotient_commitment = CS::commit(&self.pcs_ck, &quotient_poly).unwrap();
+        // transcript.add_quotient_commitment(&quotient_commitment);
         end_timer!(t_commit_q);
 
         // and receives the evaluation point in response
@@ -94,11 +100,11 @@ impl<F: PrimeField, CS: PCS<F>, T: PlonkTranscript<F, CS>> PlonkProver<F, CS, T>
         transcript.add_evaluations(&columns_at_zeta, &lin_at_zeta_omega);
         let piop_proof = PiopProof {
             column_commitments,
-            quotient_commitment,
+            quotient_chunks: quotient_chunks_committed,
             columns_at_zeta,
             lin_at_zeta_omega,
         };
-        let polys_at_zeta = [columns_to_open, vec![quotient_poly]].concat();
+        let polys_at_zeta = [columns_to_open, quotient_chunks].concat();
         let pcs_openings = PcsOpeningAt2Points {
             polys_at_zeta,
             polys_at_zeta_omega: vec![lin],
@@ -122,7 +128,7 @@ impl<F: PrimeField, CS: PCS<F>, T: PlonkTranscript<F, CS>> PlonkProver<F, CS, T>
         let lin = &polys_at_zeta_omega[0];
         let PiopProof {
             column_commitments,
-            quotient_commitment,
+            quotient_chunks: quotient_commitment,
             columns_at_zeta,
             lin_at_zeta_omega,
         } = piop_proof;
@@ -137,7 +143,7 @@ impl<F: PrimeField, CS: PCS<F>, T: PlonkTranscript<F, CS>> PlonkProver<F, CS, T>
         end_timer!(_t_open_zeta_omega);
         Proof {
             column_commitments,
-            quotient_commitment,
+            quotient_chunks: quotient_commitment,
             columns_at_zeta,
             lin_at_zeta_omega,
             agg_at_zeta_proof,
