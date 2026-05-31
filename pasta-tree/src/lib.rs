@@ -2,6 +2,8 @@ use crate::auth_path::node::LevelWitnessWithBlinding;
 use ark_ec::{AffineRepr, CurveGroup, PrimeGroup};
 use ark_ff::PrimeField;
 use ark_ff::Zero;
+use ark_serialize::CanonicalSerialize;
+use ark_std::rand::RngCore;
 use std::marker::PhantomData;
 use w3f_pcs::aggregation::multiple::ShplonkTranscript;
 use w3f_pcs::pcs::PCS;
@@ -142,6 +144,32 @@ pub enum CycleSide<C0, C1> {
 }
 
 #[derive(Clone)]
+pub struct ArkTranscript(ark_transcript::Transcript);
+
+impl<F: PrimeField, CS: PCS<F>> w3f_plonk_common::transcript::PlonkTranscript<F, CS>
+    for ArkTranscript
+{
+    fn _128_bit_point(&mut self, label: &'static [u8]) -> F {
+        self.0.challenge(label).read_reduce()
+    }
+
+    fn _add_serializable(&mut self, label: &'static [u8], message: &impl CanonicalSerialize) {
+        self.0.label(label);
+        self.0.append(message);
+    }
+
+    fn to_rng(mut self) -> impl RngCore {
+        self.0.challenge(b"transcript_rng")
+    }
+}
+
+impl ArkTranscript {
+    pub fn new(label: &'static [u8]) -> Self {
+        Self(ark_transcript::Transcript::new_labeled(label))
+    }
+}
+
+#[derive(Clone)]
 pub struct Coeffs<F: PrimeField>(F, F);
 impl<F: PrimeField, CS: PCS<F>> ShplonkTranscript<F, CS> for Coeffs<F> {
     fn get_gamma(&mut self) -> F {
@@ -218,6 +246,7 @@ mod tests {
     // cargo test test_bench_curve_tree --release --features="print-trace" -- --show-output
     // cargo test test_bench_curve_tree --release --features="print-trace parallel" -- --show-output
     #[test]
+    #[ignore]
     fn test_bench_curve_tree() {
         let (log_n, h) = (8, 2);
         println!("n = {}, height = {h}, FAT", 1 << log_n);
@@ -229,25 +258,25 @@ mod tests {
         >(log_n, h);
         println!();
 
-        // let (log_n, h) = (9, 2);
-        // println!("n = {}, height = {h}, TALL", 1 << log_n);
-        // _test_proof::<
-        //     ark_pallas::Projective,
-        //     ark_vesta::Projective,
-        //     CircuitParamsTall<ark_vesta::Affine>,
-        //     CircuitParamsTall<ark_pallas::Affine>,
-        // >(log_n, h);
-        // println!();
-        //
-        // let (log_n, h) = (10, 2);
-        // println!("n = {}, height = {h}, TALL", 1 << log_n);
-        // _test_proof::<
-        //     ark_pallas::Projective,
-        //     ark_vesta::Projective,
-        //     CircuitParamsTall<ark_vesta::Affine>,
-        //     CircuitParamsTall<ark_pallas::Affine>,
-        // >(log_n, h);
-        // println!();
+        let (log_n, h) = (9, 2);
+        println!("n = {}, height = {h}, TALL", 1 << log_n);
+        _test_proof::<
+            ark_pallas::Projective,
+            ark_vesta::Projective,
+            CircuitParamsTall<ark_vesta::Affine>,
+            CircuitParamsTall<ark_pallas::Affine>,
+        >(log_n, h);
+        println!();
+
+        let (log_n, h) = (10, 2);
+        println!("n = {}, height = {h}, TALL", 1 << log_n);
+        _test_proof::<
+            ark_pallas::Projective,
+            ark_vesta::Projective,
+            CircuitParamsTall<ark_vesta::Affine>,
+            CircuitParamsTall<ark_pallas::Affine>,
+        >(log_n, h);
+        println!();
 
         let (log_n, h) = (8, 4);
         println!("n = {}, height = {h}, FAT", 1 << log_n);
@@ -259,15 +288,15 @@ mod tests {
         >(log_n, h);
         println!();
 
-        // let (log_n, h) = (9, 4);
-        // println!("n = {}, height = {h}, TALL", 1 << log_n);
-        // _test_proof::<
-        //     ark_pallas::Projective,
-        //     ark_vesta::Projective,
-        //     CircuitParamsTall<ark_vesta::Affine>,
-        //     CircuitParamsTall<ark_pallas::Affine>,
-        // >(log_n, h);
-        // println!();
+        let (log_n, h) = (9, 4);
+        println!("n = {}, height = {h}, TALL", 1 << log_n);
+        _test_proof::<
+            ark_pallas::Projective,
+            ark_vesta::Projective,
+            CircuitParamsTall<ark_vesta::Affine>,
+            CircuitParamsTall<ark_pallas::Affine>,
+        >(log_n, h);
+        println!();
     }
 
     fn _test_proof<C0, C1, P0, P1>(log_n: usize, height: usize)

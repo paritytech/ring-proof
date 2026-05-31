@@ -5,6 +5,7 @@ use crate::{CircuitParams, CycleParams, CycleSideParams};
 use crate::{Coeffs, CurveTreeProof, CycleSideProof};
 use ark_ec::{AffineRepr, CurveGroup};
 // use ark_ec::short_weierstrass::{Affine as SwAffine, Projective, SWCurveConfig};
+use crate::ArkTranscript;
 use ark_ff::{PrimeField, Zero};
 use ark_poly::Polynomial;
 use ark_std::rand::Rng;
@@ -16,7 +17,6 @@ use w3f_pcs::pcs::ipa::hiding::HidingIpa;
 use w3f_pcs::shplonk::Shplonk;
 use w3f_plonk_common::piop::{ProverPiop, VerifierPiop};
 use w3f_plonk_common::prover::{PcsOpeningAt2Points, PlonkProver};
-use w3f_ring_proof::ArkTranscript;
 
 impl<C0, C1, P0, P1> CycleParams<C0, C1, P0, P1>
 where

@@ -3,13 +3,13 @@ use crate::{CircuitParams, CycleParams, CycleSideParams};
 use crate::{CurveTreeProof, CycleSideProof};
 use ark_ec::{AffineRepr, CurveGroup};
 // use ark_ec::short_weierstrass::{Affine, Projective, SWCurveConfig};
+use crate::ArkTranscript;
 use ark_ff::PrimeField;
 use w3f_pcs::pcs::PcsParams;
 use w3f_pcs::pcs::ipa::hiding::HidingIpa;
 use w3f_pcs::shplonk::Shplonk;
 use w3f_plonk_common::piop::VerifierPiop;
 use w3f_plonk_common::verifier::{PcsOpeningAt2Points, PlonkVerifier};
-use w3f_ring_proof::ArkTranscript;
 
 impl<C0, C1, P0, P1> CycleParams<C0, C1, P0, P1>
 where
