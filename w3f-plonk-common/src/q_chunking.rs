@@ -11,7 +11,10 @@ pub fn chunk_quotient<F: Field>(q: DensePolynomial<F>, n: usize) -> Vec<DensePol
         .collect()
 }
 
-pub fn fold_quotient_chunks<F: Field>(chunks: &[DensePolynomial<F>], z_to_n: F) -> DensePolynomial<F> {
+pub fn fold_quotient_chunks<F: Field>(
+    chunks: &[DensePolynomial<F>],
+    z_to_n: F,
+) -> DensePolynomial<F> {
     chunks
         .iter()
         .zip(utils::powers(z_to_n))

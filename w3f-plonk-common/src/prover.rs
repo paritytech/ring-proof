@@ -71,7 +71,7 @@ impl<F: PrimeField, CS: PCS<F>, T: PlonkTranscript<F, CS>> PlonkProver<F, CS, T>
         // ROUND 2
         // The prover commits to the quotient polynomial...
         let alphas = transcript.get_constraints_aggregation_coeffs(P::N_CONSTRAINTS);
-        let quotient_chunks = piop.quotient_chunks(&alphas).unwrap();
+        let quotient_chunks = piop.quotient(&alphas).unwrap();
         let t_commit_q = start_timer!(|| format!(
             "Committing to {} degree-{} quotient chunks",
             quotient_chunks.len(),

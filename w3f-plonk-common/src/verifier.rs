@@ -56,7 +56,8 @@ impl<F: PrimeField, CS: PCS<F>, T: PlonkTranscript<F, CS>> PlonkVerifier<F, CS, 
         // q(X) = q0(X) + q1(X)X^n + q2(X)X^{2n} (+ ... + qk(X)X^{kn})
         // Let q_z(X) = q0(X) + q1(X).z^n + q2(X).z^{2n}
         // then q_z(z) = q(z)
-        let quotient_commitment = q_chunking::compose_quotient(&proof.quotient_chunks, piop.domain_evaluated().z_n);
+        let quotient_commitment =
+            q_chunking::compose_quotient(&proof.quotient_chunks, piop.domain_evaluated().z_n);
         open_at_zeta.push(quotient_commitment);
 
         let mut vals_at_zeta = proof.columns_at_zeta.to_vec();
