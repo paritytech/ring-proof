@@ -56,9 +56,8 @@ impl<C: CurveGroup, G: AffineRepr<BaseField = C::ScalarField>, P: CircuitParams<
         witness: Vec<LevelWitnessWithBlinding<G>>,
         rng: &mut R,
     ) -> CycleSideProof<C, G, P> {
-        // let mut s = std::any::type_name::<C>();
-        // s = &s[70..s.len()];
-        // println!("\n\nprover {s}\nchildren={blinded_path:?}\n");
+        let curve_name = &std::any::type_name::<C>()[70..];
+        // println!("\n\nprover {curve_name}\nchildren={blinded_path:?}\n");
 
         debug_assert_eq!(blinded_path.len(), witness.len());
         let n_polys = P::VerifierCircuit::N_COLUMNS + 2; // plus the quotient and the linearization polys
@@ -73,7 +72,9 @@ impl<C: CurveGroup, G: AffineRepr<BaseField = C::ScalarField>, P: CircuitParams<
             ArkTranscript::new(b"pasta-tree-level-proof"),
         );
 
+        let t_commit_side = start_timer!(|| format!("Committing to {} polynomials at {curve_name}", witness.len() * (n_polys- 1)));
         for (level, blinded_node) in witness.into_iter().zip(blinded_path.into_iter()) {
+            let t_commit_level = start_timer!(|| format!("Committing to {} polynomials", n_polys));
             let piop: P::ProverCircuit =
                 <P as CircuitParams<C, G>>::prover_circuit(&self.piop_params, level.clone());
             let result =
@@ -103,7 +104,9 @@ impl<C: CurveGroup, G: AffineRepr<BaseField = C::ScalarField>, P: CircuitParams<
             polys.extend(polys_at_zeta_omega);
             bfs.push(level.parent_bf);
             bfs.resize(polys.len(), C::ScalarField::zero());
+            end_timer!(t_commit_level);
         }
+        end_timer!(t_commit_side);
 
         let max_degree = polys.iter().map(|p| p.degree()).max().unwrap();
         let t_open = start_timer!(|| format!(
