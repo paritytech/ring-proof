@@ -72,7 +72,10 @@ impl<C: CurveGroup, G: AffineRepr<BaseField = C::ScalarField>, P: CircuitParams<
             ArkTranscript::new(b"pasta-tree-level-proof"),
         );
 
-        let t_commit_side = start_timer!(|| format!("Committing to {} polynomials at {curve_name}", witness.len() * (n_polys- 1)));
+        let t_commit_side = start_timer!(|| format!(
+            "Committing to {} polynomials at {curve_name}",
+            witness.len() * (n_polys - 1)
+        ));
         for (level, blinded_node) in witness.into_iter().zip(blinded_path.into_iter()) {
             let t_commit_level = start_timer!(|| format!("Committing to {} polynomials", n_polys));
             let piop: P::ProverCircuit =

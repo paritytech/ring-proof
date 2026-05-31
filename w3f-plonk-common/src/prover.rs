@@ -59,7 +59,11 @@ impl<F: PrimeField, CS: PCS<F>, T: PlonkTranscript<F, CS>> PlonkProver<F, CS, T>
 
         // ROUND 1
         // The prover commits to the columns.
-        let t_commit_cols = start_timer!(|| format!("Committing to {} degree-{} columns", P::N_COLUMNS, piop.domain().domain_size() - 1));
+        let t_commit_cols = start_timer!(|| format!(
+            "Committing to {} degree-{} columns",
+            P::N_COLUMNS,
+            piop.domain().domain_size() - 1
+        ));
         let column_commitments = piop.committed_columns(|p| CS::commit(&self.pcs_ck, p).unwrap());
         transcript.add_committed_cols(&column_commitments);
         end_timer!(t_commit_cols);
@@ -67,7 +71,10 @@ impl<F: PrimeField, CS: PCS<F>, T: PlonkTranscript<F, CS>> PlonkProver<F, CS, T>
         // ROUND 2
         let alphas = transcript.get_constraints_aggregation_coeffs(P::N_CONSTRAINTS);
         let quotient_poly = piop.compute_quotient(&alphas).unwrap();
-        let t_commit_q = start_timer!(|| format!("Committing to the degree-{} quotient", quotient_poly.degree()));
+        let t_commit_q = start_timer!(|| format!(
+            "Committing to the degree-{} quotient",
+            quotient_poly.degree()
+        ));
         // The prover commits to the quotient polynomial...
         let quotient_commitment = CS::commit(&self.pcs_ck, &quotient_poly).unwrap();
         transcript.add_quotient_commitment(&quotient_commitment);
