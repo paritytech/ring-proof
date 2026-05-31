@@ -108,7 +108,11 @@ impl<C: CurveGroup, G: AffineRepr<BaseField = C::ScalarField>>
     type Instance = G;
 
     fn quotient(&self, alphas: &[C::ScalarField]) -> Option<Vec<DensePolynomial<C::ScalarField>>> {
-        <Self as ProverPiop<C::ScalarField, WrappedAffine<C>>>::_quotient_chunks(self, alphas)
+        let chunks =
+            <Self as ProverPiop<C::ScalarField, WrappedAffine<C>>>::_quotient_chunks(self, alphas);
+        debug_assert_eq!(chunks.as_ref().unwrap().len(), 4);
+        debug_assert_eq!(chunks.as_ref().unwrap()[3].degree(), 0);
+        chunks
     }
 
     fn committed_columns<Fun: Fn(&DensePolynomial<C::ScalarField>) -> WrappedAffine<C>>(
