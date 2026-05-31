@@ -1,5 +1,3 @@
-use ark_ec::short_weierstrass::{Affine as SwAffine, SWCurveConfig};
-use ark_ec::twisted_edwards::{Affine as TeAffine, TECurveConfig};
 use ark_ec::AffineRepr;
 use ark_ff::PrimeField;
 use ark_poly::univariate::DensePolynomial;
@@ -140,6 +138,9 @@ impl<F: PrimeField, G: AffineRepr<BaseField = F>> PiopProver<F, G> {
     }
 }
 
+#[cfg(feature = "twisted_edwards")]
+use ark_ec::twisted_edwards::{Affine as TeAffine, TECurveConfig};
+#[cfg(feature = "twisted_edwards")]
 impl<F, C, Curve> ProverPiop<F, C> for PiopProver<F, TeAffine<Curve>>
 where
     F: PrimeField,
@@ -202,6 +203,9 @@ where
     }
 }
 
+#[cfg(not(feature = "twisted_edwards"))]
+use ark_ec::short_weierstrass::{Affine as SwAffine, SWCurveConfig};
+#[cfg(not(feature = "twisted_edwards"))]
 impl<F, C, Curve> ProverPiop<F, C> for PiopProver<F, SwAffine<Curve>>
 where
     F: PrimeField,

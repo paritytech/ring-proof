@@ -1,5 +1,3 @@
-use ark_ec::short_weierstrass::{Affine as SwAffine, SWCurveConfig};
-use ark_ec::twisted_edwards::{Affine as TeAffine, TECurveConfig};
 use ark_ec::AffineRepr;
 use ark_ff::PrimeField;
 use ark_std::marker::PhantomData;
@@ -102,6 +100,9 @@ impl<F: PrimeField, C: Commitment<F>, P: AffineRepr<BaseField = F>> PiopVerifier
     }
 }
 
+#[cfg(feature = "twisted_edwards")]
+use ark_ec::twisted_edwards::{Affine as TeAffine, TECurveConfig};
+#[cfg(feature = "twisted_edwards")]
 impl<F: PrimeField, C: Commitment<F>, Jubjub: TECurveConfig<BaseField = F>> VerifierPiop<F, C>
     for PiopVerifier<F, C, TeAffine<Jubjub>>
 {
@@ -150,6 +151,9 @@ impl<F: PrimeField, C: Commitment<F>, Jubjub: TECurveConfig<BaseField = F>> Veri
     }
 }
 
+#[cfg(not(feature = "twisted_edwards"))]
+use ark_ec::short_weierstrass::{Affine as SwAffine, SWCurveConfig};
+#[cfg(not(feature = "twisted_edwards"))]
 impl<F: PrimeField, C: Commitment<F>, Jubjub: SWCurveConfig<BaseField = F>> VerifierPiop<F, C>
     for PiopVerifier<F, C, SwAffine<Jubjub>>
 {
