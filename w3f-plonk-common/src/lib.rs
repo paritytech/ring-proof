@@ -14,10 +14,10 @@ pub mod gadgets;
 pub mod kzg_acc;
 pub mod piop;
 pub mod prover;
+mod q_chunking;
 pub mod test_helpers;
 pub mod transcript;
 pub mod verifier;
-mod q_chunking;
 
 pub trait Column<F: FftField, V> {
     fn domain(&self) -> GeneralEvaluationDomain<F>;

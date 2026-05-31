@@ -73,10 +73,12 @@ impl<F: PrimeField, CS: PCS<F>, T: PlonkTranscript<F, CS>> PlonkProver<F, CS, T>
         let alphas = transcript.get_constraints_aggregation_coeffs(P::N_CONSTRAINTS);
         let quotient_chunks = piop.quotient_chunks(&alphas).unwrap();
         let t_commit_q = start_timer!(|| format!(
-            "Committing to {} degree-{} quotient chunks", quotient_chunks.len(),
+            "Committing to {} degree-{} quotient chunks",
+            quotient_chunks.len(),
             quotient_chunks[0].degree()
         ));
-        let quotient_chunks_committed: Vec<_> = quotient_chunks.iter()
+        let quotient_chunks_committed: Vec<_> = quotient_chunks
+            .iter()
             .map(|qi| CS::commit(&self.pcs_ck, qi).unwrap())
             .collect();
         for qi_committed in quotient_chunks_committed.iter() {
