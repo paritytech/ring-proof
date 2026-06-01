@@ -5,6 +5,7 @@ use ark_poly::univariate::DensePolynomial;
 use ark_poly::Evaluations;
 use ark_poly::Polynomial;
 use ark_serialize::{CanonicalDeserialize, CanonicalSerialize};
+use ark_std::vec;
 use ark_std::vec::Vec;
 use w3f_pcs::pcs::Commitment;
 
@@ -35,11 +36,12 @@ pub trait ProverPiop<F: PrimeField, C: Commitment<F>> {
     fn _quotient_chunks(&self, alphas: &[F]) -> Option<Vec<DensePolynomial<F>>> {
         let q = Self::_compute_quotient(self, alphas);
         q.map(|q| {
-            let q_deg = q.degree();
+            let _q_deg = q.degree();
             let q_chunks = q_chunking::chunk_quotient(q, self.domain().domain_size());
+            #[cfg(feature = "std")]
             println!(
                 "Chunking deg {} polynomial into {} chunks",
-                q_deg,
+                _q_deg,
                 q_chunks.len()
             );
             q_chunks

@@ -1,6 +1,7 @@
 use ark_ff::{Field, PrimeField};
 use ark_poly::univariate::DensePolynomial;
 use ark_poly::DenseUVPolynomial;
+use ark_std::vec::Vec;
 use w3f_pcs::pcs::Commitment;
 use w3f_pcs::utils;
 
