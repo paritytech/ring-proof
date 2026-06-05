@@ -170,7 +170,7 @@ mod tests {
 
         let log_n = 10;
         let n = 2usize.pow(log_n);
-        let domain = Domain::new(n, hiding);
+        let domain = Domain::test_domain(n, hiding);
         let seed = EdwardsAffine::generator();
 
         let bitmask = random_bitvec(domain.capacity - 1, 0.5, rng);

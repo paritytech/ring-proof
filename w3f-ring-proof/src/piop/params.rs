@@ -1,11 +1,13 @@
 use ark_ec::{AdditiveGroup, AffineRepr, CurveGroup};
 use ark_ff::{BigInteger, One, PrimeField, Zero};
+use ark_std::rand::Rng;
 use ark_std::{vec, vec::Vec};
-
 use w3f_plonk_common::domain::Domain;
 use w3f_plonk_common::gadgets::ec::AffineColumn;
 
 use crate::piop::FixedColumns;
+
+pub const ZK_ROWS: usize = 3;
 
 /// Plonk Interactive Oracle Proofs (PIOP) parameters.
 #[derive(Clone)]
@@ -45,6 +47,14 @@ impl<G: AffineRepr<BaseField: PrimeField>> PiopParams<G> {
             seed,
             padding,
         }
+    }
+
+    pub fn rand<R: Rng>(domain_size: usize, rng: &mut R) -> Self {
+        let domain = Domain::with_zk_rows(domain_size, ZK_ROWS);
+        let h = G::rand(rng);
+        let seed = G::rand(rng);
+        let padding = G::rand(rng);
+        Self::setup(domain, h, seed, padding)
     }
 
     pub fn fixed_columns(&self, keys: &[G]) -> FixedColumns<G::BaseField, G> {
@@ -114,7 +124,7 @@ mod tests {
         let h = EdwardsAffine::rand(rng);
         let seed = EdwardsAffine::rand(rng);
         let padding = EdwardsAffine::rand(rng);
-        let domain = Domain::new(1024, false);
+        let domain = Domain::no_zk(1024);
 
         let params = PiopParams::<EdwardsAffine>::setup(domain, h, seed, padding);
         let t = Fr::rand(rng);

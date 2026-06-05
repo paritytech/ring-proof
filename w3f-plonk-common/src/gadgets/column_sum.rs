@@ -110,7 +110,7 @@ mod tests {
 
         let log_n = 10;
         let n = 2usize.pow(log_n);
-        let domain = Domain::new(n, hiding);
+        let domain = Domain::test_domain(n, hiding);
 
         let col = random_vec(domain.capacity - 1, rng);
         let sum = col.iter().sum();

@@ -7,8 +7,6 @@ use ark_poly::{
 use ark_std::{vec, vec::Vec};
 use getrandom_or_panic::getrandom_or_panic;
 
-pub const ZK_ROWS: usize = 3;
-
 // Domains for performing calculations with constraint polynomials of degree up to 4.
 #[derive(Clone)]
 pub struct Domains<F: FftField> {
@@ -69,14 +67,14 @@ pub struct Domain<F: FftField> {
 }
 
 impl<F: FftField> Domain<F> {
-    pub fn new(n: usize, hiding: bool) -> Self {
-        if hiding {
-            Self::with_zk_rows(n, ZK_ROWS)
-        } else {
-            Self::with_zk_rows(n, 0)
-        }
+    /// Returns a "non-blinding" domain of full `capacity = N`.
+    pub fn no_zk(n: usize) -> Self {
+        Self::with_zk_rows(n, 0)
     }
 
+    /// Returns a domain that blinds (column) polynomials.
+    /// The highest `zk_rows` evaluations (aka Lagrange coefficients) are set random.
+    /// After interpolation that is equivallent to adding `r(X).Z'(X)`, for a random `deg(r) = zk_rows - 1`.
     pub fn with_zk_rows(n: usize, zk_rows: usize) -> Self {
         let domains = Domains::new(n);
         let domain_size = domains.x1.size();
@@ -88,7 +86,7 @@ impl<F: FftField> Domain<F> {
         let l_last = l_i(last_row_index, domain_size);
         let l_last = domains.column_from_evals(l_last, 0);
 
-        let (zk_rows_prod, last_row) = compute_row_polys(domains.x1, zk_rows).unwrap();
+        let (zk_rows_prod, last_row) = compute_row_polys(domains.x1, zk_rows);
         let not_last_row = domains.column_from_poly(last_row);
 
         Self {
@@ -99,6 +97,18 @@ impl<F: FftField> Domain<F> {
             l_first,
             l_last,
             zk_rows_prod,
+        }
+    }
+
+    #[cfg(test)]
+    pub const ZK_ROWS_TEST: usize = 3;
+
+    #[cfg(test)]
+    pub fn test_domain(n: usize, hiding: bool) -> Self {
+        if hiding {
+            Self::with_zk_rows(n, Self::ZK_ROWS_TEST)
+        } else {
+            Self::with_zk_rows(n, 0)
         }
     }
 
@@ -176,7 +186,7 @@ fn elements_rev<F: FftField, D: EvaluationDomain<F>>(domain: D) -> impl Iterator
 }
 
 /// `Z(c) = X - c`
-fn z<F: Field>(c: F) -> DensePolynomial<F> {
+fn z_poly<F: Field>(c: F) -> DensePolynomial<F> {
     DensePolynomial::from_coefficients_vec(vec![-c, F::one()])
 }
 
@@ -184,19 +194,19 @@ fn one<F: Field>() -> DensePolynomial<F> {
     DensePolynomial::from_coefficients_vec(vec![F::one()])
 }
 
-/// For a domain of size `N`, returns `(Z(X), (X - w^{N - zk_rows - 1}))`,
-/// where `Z(X) = (X - w^{N-1}) * (X - w^{N-2}) * ... * (X - w^{N - zk_rows})`.
+/// For a domain of size `N` returns the vanishing polynomial `Z` of its suffix, `deg(Z) = zk_rows`,
+/// `Z(X) = (X - w^{N-1}) * (X - w^{N-2}) * ... * (X - w^{N-zk_rows})`,
+/// and the following not included term `X - w^{N-zk_rows-1}`.
 fn compute_row_polys<F: FftField, D: EvaluationDomain<F>>(
     domain: D,
     zk_rows: usize,
-) -> Option<(DensePolynomial<F>, DensePolynomial<F>)> {
-    if domain.size() < zk_rows + 1 {
-        return None;
-    }
-    let mut wis = elements_rev(domain).map(|wi| z(wi));
-    let zk_rows_prod = wis.by_ref().take(zk_rows).fold(one(), |acc, x| acc * x);
-    let last_row = wis.by_ref().next().unwrap();
-    Some((zk_rows_prod, last_row))
+) -> (DensePolynomial<F>, DensePolynomial<F>) {
+    assert!(domain.size() >= 1 + zk_rows, "0 domain");
+    let ws_rev_iter = elements_rev(domain); // `w^{N-1},...,0 = w^N`
+    let mut z_polys = ws_rev_iter.map(|wi| z_poly(wi));
+    let zk_rows_prod = z_polys.by_ref().take(zk_rows).fold(one(), |acc, x| acc * x);
+    let last_row = z_polys.next().unwrap();
+    (zk_rows_prod, last_row)
 }
 
 pub struct EvaluatedDomain<F: FftField> {
@@ -268,7 +278,7 @@ mod tests {
 
         // let domain = GeneralEvaluationDomain::new(1024);
         let n = 1024;
-        let domain = Domain::new(n, hiding);
+        let domain = Domain::test_domain(n, hiding);
         let z = Fq::rand(rng);
         let domain_eval = domain.evaluate(z);
         assert_eq!(domain.l_first.poly.evaluate(&z), domain_eval.l_first);
@@ -280,31 +290,32 @@ mod tests {
     }
 
     #[test]
+    #[should_panic(expected = "0 domain")]
     fn test_domain_zk_rows() {
         let log_n = 4;
         let n = 1 << log_n;
         let domain = Radix2EvaluationDomain::<Fq>::new(n).unwrap();
         let w = domain.group_gen();
-        let (zk_rows_prod, last_row) = compute_row_polys(domain, 0).unwrap();
+        let (zk_rows_prod, last_row) = compute_row_polys(domain, 0);
         assert_eq!(zk_rows_prod, one());
-        assert_eq!(last_row, z(domain.group_gen_inv()));
+        assert_eq!(last_row, z_poly(domain.group_gen_inv()));
 
         let zk_rows = 3;
-        let (zk_rows_prod, last_row) = compute_row_polys(domain, zk_rows).unwrap();
+        let (zk_rows_prod, last_row) = compute_row_polys(domain, zk_rows);
         assert_eq!(zk_rows_prod.degree(), zk_rows);
         let last_row_index = n - (zk_rows + 1);
-        assert_eq!(last_row, z(w.pow([last_row_index as u64])));
+        assert_eq!(last_row, z_poly(w.pow([last_row_index as u64])));
 
         let zk_rows = n - 1;
-        let (zk_rows_prod, last_row) = compute_row_polys(domain, zk_rows).unwrap();
-        assert_eq!(last_row, z(Fq::one()));
+        let (zk_rows_prod, last_row) = compute_row_polys(domain, zk_rows);
+        assert_eq!(last_row, z_poly(Fq::one()));
         assert_eq!(
             zk_rows_prod * last_row,
             domain.vanishing_polynomial().into()
         );
 
         let zk_rows = n;
-        assert!(compute_row_polys(domain, zk_rows).is_none());
+        compute_row_polys(domain, zk_rows);
     }
 
     #[test]
