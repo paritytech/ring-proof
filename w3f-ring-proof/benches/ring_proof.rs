@@ -2,7 +2,7 @@ use criterion::{criterion_group, criterion_main, BatchSize, BenchmarkId, Criteri
 
 use ark_bls12_381::Bls12_381;
 use ark_ec::CurveGroup;
-use ark_ed_on_bls12_381_bandersnatch::{BandersnatchConfig, EdwardsAffine, Fq, Fr};
+use ark_ed_on_bls12_381_bandersnatch::{EdwardsAffine, Fq, Fr};
 use ark_serialize::CanonicalSerialize;
 use ark_std::ops::Mul;
 use ark_std::rand::Rng;
@@ -10,7 +10,6 @@ use ark_std::{test_rng, UniformRand};
 use w3f_pcs::pcs::kzg::KZG;
 use w3f_pcs::pcs::PCS;
 
-use w3f_plonk_common::domain::Domain;
 use w3f_plonk_common::test_helpers::random_vec;
 use w3f_ring_proof::ring_prover::RingProver;
 use w3f_ring_proof::ring_verifier::RingVerifier;
@@ -21,14 +20,10 @@ type CS = KZG<Bls12_381>;
 fn setup(
     rng: &mut impl Rng,
     domain_size: usize,
-) -> (<CS as PCS<Fq>>::Params, PiopParams<Fq, BandersnatchConfig>) {
+) -> (<CS as PCS<Fq>>::Params, PiopParams<EdwardsAffine>) {
     let setup_degree = 3 * domain_size;
     let pcs_params = CS::setup(setup_degree, rng);
-    let domain = Domain::new(domain_size, true);
-    let h = EdwardsAffine::rand(rng);
-    let seed = EdwardsAffine::rand(rng);
-    let padding = EdwardsAffine::rand(rng);
-    let piop_params = PiopParams::setup(domain, h, seed, padding);
+    let piop_params = PiopParams::rand(domain_size, rng);
     (pcs_params, piop_params)
 }
 
@@ -37,13 +32,13 @@ fn make_transcript() -> ArkTranscript {
 }
 
 /// Get the Pedersen blinding base H from the PIOP params (first element of the power-of-2 multiples).
-fn get_h(piop_params: &PiopParams<Fq, BandersnatchConfig>) -> EdwardsAffine {
+fn get_h(piop_params: &PiopParams<EdwardsAffine>) -> EdwardsAffine {
     piop_params.power_of_2_multiples_of_h()[0]
 }
 
 /// Generate a proof and its corresponding blinded public key.
 fn generate_proof(
-    piop_params: &PiopParams<Fq, BandersnatchConfig>,
+    piop_params: &PiopParams<EdwardsAffine>,
     pcs_params: &<CS as PCS<Fq>>::Params,
     pks: &[EdwardsAffine],
     rng: &mut impl Rng,

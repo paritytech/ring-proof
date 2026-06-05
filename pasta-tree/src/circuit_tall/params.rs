@@ -103,7 +103,8 @@ impl<G: AffineRepr<BaseField: FftField>> PiopParams<G> {
     pub fn setup(domain: Domain<G::BaseField>, h: G, seed: G) -> Self {
         assert!(domain.domain_size() > 256);
         let actual_capacity = domain.capacity - 1;
-        let scalar_size = Domain::<G::BaseField>::new(256, domain.is_hiding()).capacity - 1;
+        let domain_fat = Domain::<G::BaseField>::with_zk_rows(256, domain.zk_rows);
+        let scalar_size = domain_fat.capacity - 1;
         let blinding_bits =
             ark_std::cmp::min(G::ScalarField::MODULUS_BIT_SIZE as usize, scalar_size);
         let max_nodes = actual_capacity - blinding_bits;

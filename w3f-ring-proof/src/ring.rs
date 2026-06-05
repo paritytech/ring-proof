@@ -10,7 +10,7 @@ use ark_std::vec::Vec;
 use w3f_pcs::pcs::kzg::urs::URS;
 use w3f_pcs::pcs::PcsParams;
 
-use w3f_plonk_common::domain::ZK_ROWS;
+use crate::piop::params::ZK_ROWS;
 
 use crate::PiopParams;
 
@@ -246,12 +246,11 @@ impl<F: PrimeField, KzgCurve: Pairing<ScalarField = F>> RingBuilderKey<F, KzgCur
 mod tests {
     use ark_bls12_381::{Bls12_381, Fr, G1Affine};
     use ark_ed_on_bls12_381_bandersnatch::EdwardsAffine;
-    use ark_std::{test_rng, UniformRand};
+    use ark_std::test_rng;
     use w3f_pcs::pcs::kzg::urs::URS;
     use w3f_pcs::pcs::kzg::KZG;
     use w3f_pcs::pcs::PCS;
 
-    use w3f_plonk_common::domain::Domain;
     use w3f_plonk_common::test_helpers::random_vec;
 
     use crate::ring::Ring;
@@ -270,13 +269,7 @@ mod tests {
         let pcs_params = KZG::<Bls12_381>::setup(domain_size - 1, rng);
         let ring_builder_key = RingBuilderKey::from_srs(&pcs_params, domain_size);
         let srs = |range: Range<usize>| Ok(ring_builder_key.lis_in_g1[range].to_vec());
-
-        // piop params
-        let h = EdwardsAffine::rand(rng);
-        let seed = EdwardsAffine::rand(rng);
-        let padding = EdwardsAffine::rand(rng);
-        let domain = Domain::new(domain_size, true);
-        let piop_params = PiopParams::setup(domain, h, seed, padding);
+        let piop_params = PiopParams::rand(domain_size, rng);
 
         let mut ring = TestRing::empty(&piop_params, srs, ring_builder_key.g1);
         let (monimial_cx, monimial_cy) = get_monomial_commitment(&pcs_params, &piop_params, &[]);
@@ -302,13 +295,7 @@ mod tests {
         let pcs_params = KZG::<Bls12_381>::setup(domain_size - 1, rng);
         let ring_builder_key = RingBuilderKey::from_srs(&pcs_params, domain_size);
         let srs = |range: Range<usize>| Ok(ring_builder_key.lis_in_g1[range].to_vec());
-
-        // piop params
-        let h = EdwardsAffine::rand(rng);
-        let seed = EdwardsAffine::rand(rng);
-        let padding = EdwardsAffine::rand(rng);
-        let domain = Domain::new(domain_size, true);
-        let piop_params = PiopParams::setup(domain, h, seed, padding);
+        let piop_params = PiopParams::rand(domain_size, rng);
 
         let ring = TestRing::empty(&piop_params, srs, ring_builder_key.g1);
         let same_ring = TestRing::with_keys(&piop_params, &[], &ring_builder_key);

@@ -224,9 +224,9 @@ mod tests {
             let setup_degree = 3 * domain_size;
             let c0_pcs_params = HidingIpa::<C0>::setup(setup_degree, rng);
             let c1_pcs_params = HidingIpa::<C1>::setup(setup_degree, rng);
-            let c0_domain = Domain::<C0::ScalarField>::new(domain_size, true);
+            let c0_domain = Domain::<C0::ScalarField>::with_zk_rows(domain_size, 3);
             let c0_piop_params = P0::setup(c0_domain, c1_pcs_params.h, C1::Affine::rand(rng));
-            let c1_domain = Domain::<C1::ScalarField>::new(domain_size, true);
+            let c1_domain = Domain::<C1::ScalarField>::with_zk_rows(domain_size, 3);
             let c1_piop_params = P1::setup(c1_domain, c0_pcs_params.h, C0::Affine::rand(rng));
             Self {
                 c0_params: CycleSideParams {

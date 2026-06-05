@@ -106,7 +106,7 @@ mod tests {
 
         let log_n = 10;
         let n = 2usize.pow(log_n);
-        let domain = Domain::new(n, hiding);
+        let domain = Domain::test_domain(n, hiding);
 
         let a = random_vec(domain.capacity - 1, rng);
         let b = random_vec(domain.capacity - 1, rng);

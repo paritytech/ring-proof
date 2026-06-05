@@ -16,10 +16,10 @@ fn bench_domain_creation(c: &mut Criterion) {
     for log_n in [9, 10, 12, 14] {
         let n = 1usize << log_n;
         group.bench_with_input(BenchmarkId::new("hiding", n), &n, |b, &n| {
-            b.iter(|| Domain::<Fq>::new(n, true));
+            b.iter(|| Domain::<Fq>::with_zk_rows(n, 3));
         });
         group.bench_with_input(BenchmarkId::new("non_hiding", n), &n, |b, &n| {
-            b.iter(|| Domain::<Fq>::new(n, false));
+            b.iter(|| Domain::<Fq>::no_zk(n));
         });
     }
     group.finish();
@@ -30,14 +30,14 @@ fn bench_field_column(c: &mut Criterion) {
     let mut group = c.benchmark_group("field_column");
     for log_n in [9, 10, 12] {
         let n = 1usize << log_n;
-        let domain = Domain::<Fq>::new(n, true);
+        let domain = Domain::<Fq>::with_zk_rows(n, 3);
         let vals: Vec<Fq> = random_vec(domain.capacity - 1, rng);
 
         group.bench_with_input(
             BenchmarkId::new("private_column", n),
             &(vals.clone(), &domain),
             |b, (vals, domain)| {
-                b.iter(|| domain.private_column(vals.clone()));
+                b.iter(|| domain.column(vals.clone()));
             },
         );
 
@@ -62,7 +62,7 @@ fn bench_booleanity_gadget(c: &mut Criterion) {
     let mut group = c.benchmark_group("booleanity");
     for log_n in [9, 10, 12] {
         let n = 1usize << log_n;
-        let domain = Domain::<Fq>::new(n, true);
+        let domain = Domain::<Fq>::with_zk_rows(n, 3);
         let bits = random_bitvec(domain.capacity - 1, 0.5, rng);
         let bit_col = BitColumn::init(bits, &domain);
 
@@ -83,7 +83,7 @@ fn bench_inner_prod_gadget(c: &mut Criterion) {
     let mut group = c.benchmark_group("inner_prod");
     for log_n in [9, 10, 12] {
         let n = 1usize << log_n;
-        let domain = Domain::<Fq>::new(n, true);
+        let domain = Domain::<Fq>::with_zk_rows(n, 3);
         let a: Vec<Fq> = random_vec(domain.capacity - 1, rng);
         let b_vals: Vec<Fq> = random_vec(domain.capacity - 1, rng);
 
@@ -92,8 +92,8 @@ fn bench_inner_prod_gadget(c: &mut Criterion) {
             &(a.clone(), b_vals.clone(), &domain),
             |bench, (a, b_vals, domain)| {
                 bench.iter(|| {
-                    let a_col = domain.private_column(a.clone());
-                    let b_col = domain.private_column(b_vals.clone());
+                    let a_col = domain.column(a.clone());
+                    let b_col = domain.column(b_vals.clone());
                     InnerProd::<Fq>::init(a_col, b_col, domain);
                 });
             },
@@ -128,7 +128,7 @@ fn bench_te_cond_add_gadget(c: &mut Criterion) {
     let mut group = c.benchmark_group("te_cond_add");
     for log_n in [9, 10, 12] {
         let n = 1usize << log_n;
-        let domain = Domain::<Fq>::new(n, true);
+        let domain = Domain::<Fq>::with_zk_rows(n, 3);
         let seed = EdwardsAffine::generator();
 
         let bitmask = random_bitvec(domain.capacity - 1, 0.5, rng);

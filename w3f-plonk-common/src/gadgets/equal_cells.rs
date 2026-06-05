@@ -92,12 +92,12 @@ mod tests {
     use ark_poly::Polynomial;
     use ark_std::test_rng;
 
-    fn _test_equal_cells_gadget(hiding: bool) {
+    fn _test_equal_cells_gadget(zk_rows: usize) {
         let rng = &mut test_rng();
 
         let log_n = 8;
         let n = 1 << log_n;
-        let domain = Domain::new(n, hiding);
+        let domain = Domain::with_zk_rows(n, zk_rows);
 
         let a = random_vec(domain.capacity, rng);
         let mut b = random_vec(domain.capacity, rng);
@@ -124,7 +124,7 @@ mod tests {
 
     #[test]
     fn test_equal_cells_gadget() {
-        _test_equal_cells_gadget(false);
-        _test_equal_cells_gadget(true);
+        _test_equal_cells_gadget(0);
+        _test_equal_cells_gadget(3);
     }
 }
