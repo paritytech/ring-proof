@@ -155,13 +155,7 @@ mod tests {
     ) -> (CS::Params, PiopParams<EdwardsAffine>) {
         let setup_degree = 3 * domain_size;
         let pcs_params = CS::setup(setup_degree, rng);
-
-        let domain = Domain::new(domain_size, true);
-        let h = EdwardsAffine::rand(rng);
-        let seed = EdwardsAffine::rand(rng);
-        let padding = EdwardsAffine::rand(rng);
-        let piop_params = PiopParams::setup(domain, h, seed, padding);
-
+        let piop_params = PiopParams::rand(domain_size, rng);
         (pcs_params, piop_params)
     }
 

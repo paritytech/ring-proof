@@ -169,7 +169,7 @@ mod tests {
 
         let log_n = 4;
         let n = 2usize.pow(log_n);
-        let domain = Domain::new(n, false);
+        let domain = Domain::test_domain(n, false);
         let p = EdwardsAffine::rand(rng);
 
         let gadget = Doubling::init(p, &domain);
