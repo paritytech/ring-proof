@@ -13,6 +13,9 @@ use w3f_plonk_common::domain::Domain;
 use w3f_plonk_common::gadgets::booleanity::BitColumn;
 use w3f_plonk_common::gadgets::ec::AffineColumn;
 
+// Hiding Pedersen commitment opened in `2` points.
+pub const ZK_ROWS: usize = 3;
+
 /// Plonk Interactive Oracle Proofs (PIOP) parameters.
 #[derive(Clone)]
 pub struct PiopParams<G: AffineRepr<BaseField: PrimeField>> {
@@ -74,7 +77,8 @@ impl<C: CurveGroup, G: AffineRepr<BaseField = C::ScalarField>> CircuitParams<C, 
     }
 
     #[cfg(test)]
-    fn setup(domain: Domain<G::BaseField>, h: G, _seed: G) -> Self {
+    fn setup(domain_size: usize, h: G, _seed: G) -> Self {
+        let domain = Domain::<G::BaseField>::with_zk_rows(domain_size, ZK_ROWS);
         Self::setup(domain, h)
     }
 }

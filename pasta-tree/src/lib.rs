@@ -10,8 +10,6 @@ use w3f_pcs::pcs::PCS;
 use w3f_pcs::pcs::commitment::WrappedAffine;
 use w3f_pcs::pcs::ipa::hiding::HidingIpa;
 use w3f_pcs::shplonk::AggregateProof;
-#[cfg(test)]
-use w3f_plonk_common::domain::Domain;
 use w3f_plonk_common::piop::{ProverPiop, VerifierPiop};
 use w3f_plonk_common::{ColumnsCommited, ColumnsEvaluated, FieldColumn};
 
@@ -58,7 +56,7 @@ pub trait CircuitParams<C: CurveGroup, G: AffineRepr<BaseField = C::ScalarField>
 
     #[cfg(test)] // an "application" runs usually a single circuit
     /// `h` is the pedersen blinding base (from the opposite side) to prove `C' = Ci + rH`
-    fn setup(domain: Domain<C::ScalarField>, h: G, seed: G) -> Self;
+    fn setup(domain_size: usize, h: G, seed: G) -> Self;
 }
 
 pub struct CycleSideParams<
@@ -224,10 +222,8 @@ mod tests {
             let setup_degree = 3 * domain_size;
             let c0_pcs_params = HidingIpa::<C0>::setup(setup_degree, rng);
             let c1_pcs_params = HidingIpa::<C1>::setup(setup_degree, rng);
-            let c0_domain = Domain::<C0::ScalarField>::with_zk_rows(domain_size, 3);
-            let c0_piop_params = P0::setup(c0_domain, c1_pcs_params.h, C1::Affine::rand(rng));
-            let c1_domain = Domain::<C1::ScalarField>::with_zk_rows(domain_size, 3);
-            let c1_piop_params = P1::setup(c1_domain, c0_pcs_params.h, C0::Affine::rand(rng));
+            let c0_piop_params = P0::setup(domain_size, c1_pcs_params.h, C1::Affine::rand(rng));
+            let c1_piop_params = P1::setup(domain_size, c0_pcs_params.h, C0::Affine::rand(rng));
             Self {
                 c0_params: CycleSideParams {
                     pcs_params: c0_pcs_params,
