@@ -86,7 +86,7 @@ fn piop_params<G: AffineRepr<BaseField: PrimeField>, R: Rng>(
     h: G,
     rng: &mut R,
 ) -> PiopParams<G> {
-    let domain = Domain::<G::BaseField>::new(domain_size, true);
+    let domain = Domain::<G::BaseField>::with_zk_rows(domain_size, 3);
     let seed = G::rand(rng);
     let padding = G::rand(rng);
     PiopParams::setup(domain, h, seed, padding)
