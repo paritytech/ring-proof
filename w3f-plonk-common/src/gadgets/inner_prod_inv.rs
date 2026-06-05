@@ -107,12 +107,12 @@ mod tests {
         a.iter().zip(b).map(|(a, b)| *a * b).sum()
     }
 
-    fn _test_inner_prod_inv_gadget(hiding: bool) {
+    fn _test_inner_prod_inv_gadget(zk_rows: usize) {
         let rng = &mut test_rng();
 
         let log_n = 10;
         let n = 2usize.pow(log_n);
-        let domain = Domain::new(n, hiding);
+        let domain = Domain::with_zk_rows(n, zk_rows);
 
         let a = random_vec(domain.capacity - 1, rng);
         let b = random_vec(domain.capacity - 1, rng);
@@ -134,7 +134,7 @@ mod tests {
 
     #[test]
     fn test_inner_prod_inv_gadget() {
-        _test_inner_prod_inv_gadget(false);
-        _test_inner_prod_inv_gadget(true);
+        _test_inner_prod_inv_gadget(0);
+        _test_inner_prod_inv_gadget(3);
     }
 }

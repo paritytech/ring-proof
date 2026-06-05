@@ -266,7 +266,7 @@ mod tests {
         let rng = &mut test_rng();
 
         let domain_size = 256;
-        let domain = Domain::<Fq>::new(domain_size, true);
+        let domain = Domain::<Fq>::with_zk_rows(domain_size, 3);
 
         let node = SWAffine::rand(rng);
         let h = SWAffine::rand(rng);
