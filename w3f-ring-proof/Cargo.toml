@@ -29,26 +29,26 @@ name = "ring_proof"
 harness = false
 
 [features]
-default = [ "std" ]
+default = ["std"]
 std = [
-  "ark-std/std",
-  "ark-ff/std",
-  "ark-ec/std",
-  "ark-poly/std",
-  "ark-serialize/std",
-  "w3f-pcs/std",
-  "w3f-plonk-common/std"
+    "ark-std/std",
+    "ark-ff/std",
+    "ark-ec/std",
+    "ark-poly/std",
+    "ark-serialize/std",
+    "w3f-pcs/std",
+    "w3f-plonk-common/std"
 ]
 parallel = [
-  "std",
-  "rayon",
-  "ark-std/parallel",
-  "ark-ff/parallel",
-  "ark-ec/parallel",
-  "ark-poly/parallel",
-  "w3f-plonk-common/parallel",
-  "w3f-pcs/parallel"
+    "std",
+    "rayon",
+    "ark-std/parallel",
+    "ark-ff/parallel",
+    "ark-ec/parallel",
+    "ark-poly/parallel",
+    "w3f-plonk-common/parallel",
+    "w3f-pcs/parallel"
 ]
 print-trace = ["ark-std/print-trace"]
-asm = [ "w3f-pcs/asm" ]
-test-vectors = [ "w3f-plonk-common/test-vectors" ]
+asm = ["w3f-pcs/asm"]
+test-vectors = ["w3f-plonk-common/test-vectors"]

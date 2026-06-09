@@ -1,4 +1,4 @@
-use crate::CycleSideParams;
+use crate::{AffinePoint, CircuitParams, CurveModel, CycleSideParams, ProjectivePoint};
 use ark_ec::{AffineRepr, CurveGroup};
 use ark_ff::{PrimeField, Zero};
 use ark_std::UniformRand;
@@ -15,8 +15,8 @@ pub struct LevelWitness<G> {
     pub(crate) path_node_idx: usize,
 }
 
-impl<G: AffineRepr> LevelWitness<G> {
-    pub fn new(siblings: Vec<G>, path_node_idx: usize) -> Result<Self, ()> {
+impl<G: CurveModel> LevelWitness<AffinePoint<G>> {
+    pub fn new(siblings: Vec<AffinePoint<G>>, path_node_idx: usize) -> Result<Self, ()> {
         debug_assert!(path_node_idx < siblings.len());
         (path_node_idx < siblings.len()).then_some(()).ok_or(())?;
         Ok(Self {
@@ -29,7 +29,7 @@ impl<G: AffineRepr> LevelWitness<G> {
         self.siblings.iter().map(|p| p.x()).flatten().collect()
     }
 
-    pub fn path_node(&self) -> G {
+    pub fn path_node(&self) -> AffinePoint<G> {
         self.siblings[self.path_node_idx]
     }
 
@@ -37,7 +37,7 @@ impl<G: AffineRepr> LevelWitness<G> {
         &self,
         self_bf: G::ScalarField,
         parent_bf: G::BaseField,
-    ) -> LevelWitnessWithBlinding<G> {
+    ) -> LevelWitnessWithBlinding<AffinePoint<G>> {
         LevelWitnessWithBlinding {
             level_witness: self.clone(),
             bf: self_bf,
@@ -49,33 +49,35 @@ impl<G: AffineRepr> LevelWitness<G> {
         &self,
         parent_bf: G::BaseField,
         rng: &mut R,
-    ) -> LevelWitnessWithBlinding<G> {
+    ) -> LevelWitnessWithBlinding<AffinePoint<G>> {
         self.with_blinding(G::ScalarField::rand(rng), parent_bf)
     }
 
-    pub fn compute_parent<C: CurveGroup<ScalarField = G::BaseField>>(
-        &self,
-        params: &CycleSideParams<C, G>,
-    ) -> Result<C::Affine, ()>
+    pub fn compute_parent<C, P>(&self, params: &CycleSideParams<C, G, P>) -> Result<C::Affine, ()>
     where
         G::BaseField: PrimeField,
+        C: CurveGroup<ScalarField = G::BaseField>,
+        P: CircuitParams<C, G>,
     {
         self.compute_parent_with_bf(params, C::ScalarField::zero())
     }
 
-    fn compute_parent_with_bf<C: CurveGroup<ScalarField = G::BaseField>>(
+    fn compute_parent_with_bf<C, P>(
         &self,
-        params: &CycleSideParams<C, G>,
+        params: &CycleSideParams<C, G, P>,
         bf: C::ScalarField,
     ) -> Result<C::Affine, ()>
     where
         G::BaseField: PrimeField,
+        C: CurveGroup<ScalarField = G::BaseField>,
+        P: CircuitParams<C, G>,
     {
-        params.commit_nodes(&self.siblings, bf)
+        params.commit_tree_nodes(&self.x_coords(), bf).map(|c| c.0)
     }
 }
 
 /// NB! It is not "blinded", meaning that the blinding factor hasn't been applied.
+#[derive(Clone)]
 pub struct LevelWitnessWithBlinding<G: AffineRepr> {
     pub(crate) level_witness: LevelWitness<G>,
     /// the verifier gets `Ci' = siblings[i] + bf.H`
@@ -88,8 +90,11 @@ pub struct LevelWitnessWithBlinding<G: AffineRepr> {
     pub(crate) parent_bf: G::BaseField, // = C::ScalarField
 }
 
-impl<G: AffineRepr> LevelWitnessWithBlinding<G> {
-    pub(crate) fn blinded_path_node(&self, ipa_pcs: &HidingIpa<G::Group>) -> Result<G, ()> {
+impl<G: CurveModel> LevelWitnessWithBlinding<AffinePoint<G>> {
+    pub(crate) fn blinded_path_node(
+        &self,
+        ipa_pcs: &HidingIpa<ProjectivePoint<G>>,
+    ) -> Result<AffinePoint<G>, ()> {
         let blinded_path_node = ipa_pcs.reblind(
             self.level_witness.path_node(),
             G::ScalarField::zero(),
@@ -98,12 +103,14 @@ impl<G: AffineRepr> LevelWitnessWithBlinding<G> {
         Ok(blinded_path_node.0)
     }
 
-    pub(crate) fn compute_parent<C: CurveGroup<ScalarField = G::BaseField>>(
+    pub(crate) fn compute_parent<C, P>(
         &self,
-        params: &CycleSideParams<C, G>,
+        params: &CycleSideParams<C, G, P>,
     ) -> Result<C::Affine, ()>
     where
         G::BaseField: PrimeField,
+        C: CurveGroup<ScalarField = G::BaseField>,
+        P: CircuitParams<C, G>,
     {
         self.level_witness
             .compute_parent_with_bf(params, self.parent_bf)

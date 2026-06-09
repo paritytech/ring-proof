@@ -1,87 +1,95 @@
+use crate::ArkTranscript;
 use crate::auth_path::blinded::BlindedAuthenticationPath;
 use crate::auth_path::node::LevelWitnessWithBlinding;
 use crate::auth_path::path::AuthenticationPath;
-use crate::{Coeffs, CurveTreeProof, CycleParams, CycleSideParams, CycleSideProof, IPACommitment};
+use crate::{
+    AffinePoint, CircuitParams, CurveModel, CycleParams, CycleSideParams, ProjectivePoint,
+};
+use crate::{Coeffs, CurveTreeProof, CycleSideProof};
 use ark_ec::CurveGroup;
-use ark_ec::short_weierstrass::{Affine, Projective, SWCurveConfig};
 use ark_ff::{PrimeField, Zero};
-use ark_std::UniformRand;
+use ark_poly::Polynomial;
 use ark_std::rand::Rng;
+use ark_std::{UniformRand, end_timer, start_timer};
 use std::collections::BTreeSet;
 use w3f_pcs::pcs::PcsParams;
+use w3f_pcs::pcs::commitment::WrappedAffine;
 use w3f_pcs::pcs::ipa::hiding::HidingIpa;
 use w3f_pcs::shplonk::Shplonk;
-use w3f_plonk_common::piop::ProverPiop;
+use w3f_plonk_common::piop::{ProverPiop, VerifierPiop};
 use w3f_plonk_common::prover::{PcsOpeningAt2Points, PlonkProver};
-use w3f_ring_proof::ArkTranscript;
-use w3f_ring_proof::piop::prover::PiopProver;
 
-impl<F0, F1, C0, C1> CycleParams<Projective<C0>, Projective<C1>>
+impl<C0, C1, P0, P1> CycleParams<C0, C1, P0, P1>
 where
-    F0: PrimeField,
-    F1: PrimeField,
-    C0: SWCurveConfig<BaseField = F1, ScalarField = F0>,
-    C1: SWCurveConfig<BaseField = F0, ScalarField = F1>,
+    C0: CurveModel<BaseField: PrimeField>,
+    C1: CurveModel<BaseField = C0::ScalarField, ScalarField = C0::BaseField>,
+    P0: CircuitParams<ProjectivePoint<C0>, C1>,
+    P1: CircuitParams<ProjectivePoint<C1>, C0>,
 {
     pub fn prove<R: Rng>(
         &self,
-        auth_path: AuthenticationPath<Projective<C0>, Projective<C1>>,
+        auth_path: AuthenticationPath<ProjectivePoint<C0>, ProjectivePoint<C1>>,
         rng: &mut R,
     ) -> (
-        BlindedAuthenticationPath<Projective<C0>, Projective<C1>>,
-        CurveTreeProof<F0, F1, Projective<C0>, Projective<C1>>,
+        BlindedAuthenticationPath<ProjectivePoint<C0>, ProjectivePoint<C1>>,
+        CurveTreeProof<C0, C1, P0, P1>,
     ) {
         let auth_path_with_bf = auth_path.with_blinding(rng);
-        let blinded_auth_path = auth_path_with_bf.apply_bfs(&self);
+        let blinded_auth_path =
+            auth_path_with_bf.apply_bfs(&self.c0_params.pcs_params, &self.c1_params.pcs_params);
         let auth_path = blinded_auth_path.clone();
         let c0_proof =
             self.c0_params
-                .prove_side(blinded_auth_path.c1_path, &auth_path_with_bf.c1_path, rng);
+                .prove_side(blinded_auth_path.c1_path, auth_path_with_bf.c1_path, rng);
         let c1_proof =
             self.c1_params
-                .prove_side(blinded_auth_path.c0_path, &auth_path_with_bf.c0_path, rng);
+                .prove_side(blinded_auth_path.c0_path, auth_path_with_bf.c0_path, rng);
         (auth_path, CurveTreeProof { c0_proof, c1_proof })
     }
 }
 
-impl<C: CurveGroup, G: SWCurveConfig<BaseField = C::ScalarField, ScalarField = C::BaseField>>
-    CycleSideParams<C, Affine<G>>
+impl<C: CurveGroup, G: CurveModel<BaseField = C::ScalarField>, P: CircuitParams<C, G>>
+    CycleSideParams<C, G, P>
 {
     pub fn prove_side<R: Rng>(
         &self,
-        blinded_path: Vec<Affine<G>>,
-        witness: &[LevelWitnessWithBlinding<Affine<G>>],
+        blinded_path: Vec<AffinePoint<G>>,
+        witness: Vec<LevelWitnessWithBlinding<AffinePoint<G>>>,
         rng: &mut R,
-    ) -> CycleSideProof<C::ScalarField, C> {
-        debug_assert_eq!(blinded_path.len(), witness.len());
-        let mut piop_proofs = Vec::with_capacity(witness.len());
-        let mut fixed_columns_committed = Vec::with_capacity(witness.len());
-        let mut polys = Vec::with_capacity(witness.len() * 9);
-        let mut coords = Vec::with_capacity(witness.len() * 9);
-        let mut bfs = Vec::with_capacity(witness.len() * 9);
+    ) -> CycleSideProof<C, G, P> {
+        let curve_name = &std::any::type_name::<C>()[53..];
+        // println!("\n\nprover {curve_name}\nchildren={blinded_path:?}\n");
+        let n_levels = witness.len(); // number of tree levels on this side
+        debug_assert_eq!(blinded_path.len(), n_levels);
+        let mut piop_proofs = Vec::with_capacity(n_levels);
+
+        // per tree level
+        let n_columns = P::VerifierCircuit::N_COLUMNS;
+        let n_to_commit = n_columns + 4; // plus the quotient chunks
+        let n_to_open = n_columns + 2; // plus the (folded) quotient (chunks) and the linearization polynomial
+
+        // per side
+        let n_openings = n_levels * n_to_open;
+        let mut polys_to_open = Vec::with_capacity(n_openings);
+        let mut at_coords = Vec::with_capacity(n_openings);
+        let mut with_bfs = Vec::with_capacity(n_openings);
 
         let plonk_prover = PlonkProver::<C::ScalarField, HidingIpa<C>, _>::init(
             self.pcs_params.ck(),
-            blinded_path.clone(),
+            (),
             ArkTranscript::new(b"pasta-tree-level-proof"),
         );
 
-        for (level, blinded_node) in witness.iter().zip(blinded_path.into_iter()) {
-            let (fixed_columns, verifier_key) =
-                self.commit_children(&level.level_witness.siblings, level.parent_bf);
-            // debug_assert_eq!(verifier_key.fixed_columns_committed.points[0].0, *blinded_node);
-            fixed_columns_committed.push(verifier_key.fixed_columns_committed);
-            let piop = PiopProver::build(
-                &self.piop_params,
-                fixed_columns,
-                level.level_witness.path_node_idx,
-                level.bf,
-            );
-            let blinded_node_ = <PiopProver<C::ScalarField, Affine<G>> as ProverPiop<
-                C::ScalarField,
-                IPACommitment<C>,
-            >>::result(&piop);
-            debug_assert_eq!(blinded_node_, blinded_node);
+        let t_commit_side = start_timer!(|| format!(
+            "Committing {n_levels} x {n_to_commit} polynomials to {curve_name}"
+        ));
+        for (level, blinded_node) in witness.into_iter().zip(blinded_path.into_iter()) {
+            // let t_commit_level = start_timer!(|| format!("Committing {n_to_commit} polynomials"));
+            let piop: P::ProverCircuit =
+                <P as CircuitParams<C, G>>::prover_circuit(&self.piop_params, level.clone());
+            let result =
+                <P::ProverCircuit as ProverPiop<C::ScalarField, WrappedAffine<C>>>::result(&piop);
+            debug_assert_eq!(result, blinded_node);
             let (pcs_openings, piop_proof, _transcript) = plonk_prover.reduce_to_pcs_opening(piop);
             piop_proofs.push(piop_proof);
             let PcsOpeningAt2Points {
@@ -90,33 +98,45 @@ impl<C: CurveGroup, G: SWCurveConfig<BaseField = C::ScalarField, ScalarField = C
                 zeta,
                 zeta_omega,
             } = pcs_openings;
-            // println!("zeta = {zeta}, q(zeta) = {}", polys_at_zeta[polys_at_zeta.len() - 1].evaluate(&zeta));
-            coords.extend(vec![BTreeSet::from([zeta]); polys_at_zeta.len()]);
-            polys.extend(polys_at_zeta);
-            coords.extend(vec![
+
+            // use ark_poly::Polynomial;
+            // println!(
+            //     "zeta = {zeta}, q(zeta) = {}",
+            //     polys_at_zeta[polys_at_zeta.len() - 1].evaluate(&zeta)
+            // );
+
+            at_coords.extend(vec![BTreeSet::from([zeta]); polys_at_zeta.len()]);
+            polys_to_open.extend(polys_at_zeta);
+            at_coords.extend(vec![
                 BTreeSet::from([zeta_omega]);
                 polys_at_zeta_omega.len()
             ]);
-            polys.extend(polys_at_zeta_omega);
-            bfs.push(level.parent_bf);
-            bfs.resize(polys.len(), C::ScalarField::zero());
+            polys_to_open.extend(polys_at_zeta_omega);
+            with_bfs.push(level.parent_bf);
+            with_bfs.resize(polys_to_open.len(), C::ScalarField::zero());
+            // end_timer!(t_commit_level);
         }
+        end_timer!(t_commit_side);
 
+        let t_open = start_timer!(|| format!(
+            "Opening {n_openings} polynomials, max_degree = {}",
+            polys_to_open.iter().map(|p| p.degree()).max().unwrap()
+        ));
         let todo = Coeffs(C::ScalarField::rand(rng), C::ScalarField::rand(rng));
         let pcs_proof = Shplonk::<C::ScalarField, HidingIpa<C>>::open_many_hiding(
             &self.pcs_params,
-            &polys,
-            &bfs,
-            &coords,
+            &polys_to_open,
+            &with_bfs,
+            &at_coords,
             &mut todo.clone(),
             rng,
         );
+        end_timer!(t_open);
 
         let proof = CycleSideProof {
             piop_proofs,
             pcs_proof,
             todo,
-            fixed_columns_committed,
         };
         proof
     }

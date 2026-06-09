@@ -1,15 +1,18 @@
+use crate::domain::{Domain, EvaluatedDomain};
+use crate::{q_chunking, ColumnsCommited, ColumnsEvaluated};
 use ark_ff::{FftField, PrimeField};
 use ark_poly::univariate::DensePolynomial;
 use ark_poly::Evaluations;
+use ark_poly::Polynomial;
 use ark_serialize::{CanonicalDeserialize, CanonicalSerialize};
+use ark_std::vec;
 use ark_std::vec::Vec;
 use w3f_pcs::pcs::Commitment;
 
-use crate::domain::{Domain, EvaluatedDomain};
-use crate::{ColumnsCommited, ColumnsEvaluated};
-
 pub trait ProverPiop<F: PrimeField, C: Commitment<F>> {
+    const N_COLUMNS: usize;
     const N_CONSTRAINTS: usize;
+    const N_QUOTIENT_CHUNKS: usize = 1;
 
     type Commitments: ColumnsCommited<F, C>;
     type Evaluations: ColumnsEvaluated<F>;
@@ -31,7 +34,27 @@ pub trait ProverPiop<F: PrimeField, C: Commitment<F>> {
     // Constraint polynomials in evaluation form.
     fn constraints(&self) -> Vec<Evaluations<F>>;
 
-    fn compute_quotient(&self, alphas: &[F]) -> Option<DensePolynomial<F>> {
+    fn _quotient_chunks(&self, alphas: &[F]) -> Option<Vec<DensePolynomial<F>>> {
+        let q = Self::_compute_quotient(self, alphas);
+        q.map(|q| {
+            let _q_deg = q.degree();
+            let q_chunks = q_chunking::chunk_quotient(q, self.domain().domain_size());
+            debug_assert_eq!(q_chunks.len(), Self::N_QUOTIENT_CHUNKS);
+            #[cfg(feature = "std")]
+            println!(
+                "Chunking deg {} polynomial into {} chunks",
+                _q_deg,
+                q_chunks.len()
+            );
+            q_chunks
+        })
+    }
+
+    fn quotient(&self, alphas: &[F]) -> Option<Vec<DensePolynomial<F>>> {
+        self._compute_quotient(alphas).map(|q| vec![q])
+    }
+
+    fn _compute_quotient(&self, alphas: &[F]) -> Option<DensePolynomial<F>> {
         let constraints = self.constraints();
         // Aggregate constraint polynomials in evaluation form...
         let agg_constraint = aggregate_evaluations(&constraints, &alphas);
@@ -78,8 +101,8 @@ pub fn aggregate_evaluations<F: FftField>(
 }
 
 pub trait VerifierPiop<F: PrimeField, C: Commitment<F>> {
-    const N_CONSTRAINTS: usize;
     const N_COLUMNS: usize;
+    const N_CONSTRAINTS: usize;
     // Columns the commitments to which are publicly known. These commitments are omitted from the proof.
     fn precommitted_columns(&self) -> Vec<C>;
 

@@ -66,26 +66,20 @@ impl<F: PrimeField, C: Commitment<F>, P: AffineRepr<BaseField = F>> PiopVerifier
 
         let cond_add_acc_x = FixedCellsValues {
             col: all_columns_evaluated.cond_add_acc[0],
-            col_first: init.0,
-            col_last: result.0,
-            l_first: domain_evals.l_first,
-            l_last: domain_evals.l_last,
+            l_i: vec![domain_evals.l_first, domain_evals.l_last],
+            col_i: vec![init.0, result.0],
         };
 
         let cond_add_acc_y = FixedCellsValues {
             col: all_columns_evaluated.cond_add_acc[1],
-            col_first: init.1,
-            col_last: result.1,
-            l_first: domain_evals.l_first,
-            l_last: domain_evals.l_last,
+            l_i: vec![domain_evals.l_first, domain_evals.l_last],
+            col_i: vec![init.1, result.1],
         };
 
         let inner_prod_acc = FixedCellsValues {
             col: all_columns_evaluated.inn_prod_acc,
-            col_first: F::zero(),
-            col_last: F::one(),
-            l_first: domain_evals.l_first,
-            l_last: domain_evals.l_last,
+            l_i: vec![domain_evals.l_first, domain_evals.l_last],
+            col_i: vec![F::zero(), F::one()],
         };
 
         Self {
@@ -153,8 +147,8 @@ impl<F: PrimeField, C: Commitment<F>, Jubjub: TECurveConfig<BaseField = F>> Veri
 impl<F: PrimeField, C: Commitment<F>, Jubjub: SWCurveConfig<BaseField = F>> VerifierPiop<F, C>
     for PiopVerifier<F, C, SwAffine<Jubjub>>
 {
-    const N_CONSTRAINTS: usize = 7;
     const N_COLUMNS: usize = 7;
+    const N_CONSTRAINTS: usize = 7;
 
     fn precommitted_columns(&self) -> Vec<C> {
         self.fixed_columns_committed.as_vec()
