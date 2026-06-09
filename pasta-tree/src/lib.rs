@@ -11,8 +11,6 @@ use w3f_pcs::pcs::PCS;
 use w3f_pcs::pcs::commitment::WrappedAffine;
 use w3f_pcs::pcs::ipa::hiding::HidingIpa;
 use w3f_pcs::shplonk::AggregateProof;
-#[cfg(test)]
-use w3f_plonk_common::domain::Domain;
 use w3f_plonk_common::piop::{ProverPiop, VerifierPiop};
 use w3f_plonk_common::{ColumnsCommited, ColumnsEvaluated, FieldColumn};
 
@@ -67,7 +65,7 @@ pub trait CircuitParams<C: CurveGroup, G: CurveModel<BaseField = C::ScalarField>
 
     #[cfg(test)] // an "application" runs usually a single circuit
     /// `h` is the pedersen blinding base (from the opposite side) to prove `C' = Ci + rH`
-    fn setup(domain: Domain<C::ScalarField>, h: AffinePoint<G>, seed: AffinePoint<G>) -> Self;
+    fn setup(domain_size: usize, h: AffinePoint<G>, seed: AffinePoint<G>) -> Self;
 }
 
 pub struct CycleSideParams<
@@ -234,12 +232,10 @@ mod tests {
             let setup_degree = 3 * domain_size;
             let c0_pcs_params = HidingIpa::<ProjectivePoint<C0>>::setup(setup_degree, rng);
             let c1_pcs_params = HidingIpa::<ProjectivePoint<C1>>::setup(setup_degree, rng);
-            let c0_domain = Domain::<C0::ScalarField>::with_zk_rows(domain_size, 3);
             let c0_piop_params =
-                P0::setup(c0_domain, c1_pcs_params.h, AffinePoint::<C1>::rand(rng));
-            let c1_domain = Domain::<C1::ScalarField>::with_zk_rows(domain_size, 3);
+                P0::setup(domain_size, c1_pcs_params.h, AffinePoint::<C1>::rand(rng));
             let c1_piop_params =
-                P1::setup(c1_domain, c0_pcs_params.h, AffinePoint::<C0>::rand(rng));
+                P1::setup(domain_size, c0_pcs_params.h, AffinePoint::<C0>::rand(rng));
             Self {
                 c0_params: CycleSideParams {
                     pcs_params: c0_pcs_params,
@@ -255,8 +251,28 @@ mod tests {
         }
     }
 
-    // cargo test test_bench_curve_tree --release --features="print-trace" -- --show-output
-    // cargo test test_bench_curve_tree --release --features="print-trace parallel" -- --show-output
+    #[test]
+    fn test_circuit_tall() {
+        _test_proof::<
+            PallasConfig,
+            VestaConfig,
+            CircuitParamsTall<ark_vesta::Affine>,
+            CircuitParamsTall<ark_pallas::Affine>,
+        >(9, 2);
+    }
+
+    #[test]
+    fn test_circuit_fat() {
+        _test_proof::<
+            PallasConfig,
+            VestaConfig,
+            CircuitParamsFat<ark_vesta::Affine>,
+            CircuitParamsFat<ark_pallas::Affine>,
+        >(8, 2);
+    }
+
+    // cargo test test_bench_curve_tree --release --features="print-trace" -- --show-output --ignored
+    // cargo test test_bench_curve_tree --release --features="print-trace parallel" -- --show-output --ignored
     #[test]
     #[ignore]
     fn test_bench_curve_tree() {
@@ -300,7 +316,7 @@ mod tests {
         >(log_n, h);
         println!();
 
-        let (log_n, h) = (9, 4);
+        let (log_n, h) = (10, 4);
         println!("n = {}, height = {h}, TALL", 1 << log_n);
         _test_proof::<
             PallasConfig,

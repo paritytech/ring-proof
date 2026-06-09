@@ -14,6 +14,7 @@ pub mod gadgets;
 pub mod kzg_acc;
 pub mod piop;
 pub mod prover;
+pub mod q_chunking;
 pub mod test_helpers;
 pub mod transcript;
 pub mod verifier;
@@ -103,7 +104,7 @@ where
 {
     pub column_commitments: Commitments,
     pub columns_at_zeta: Evaluations,
-    pub quotient_commitment: CS::C,
+    pub quotient_chunks: Vec<CS::C>,
     pub lin_at_zeta_omega: F,
     pub agg_at_zeta_proof: CS::Proof,
     pub lin_at_zeta_omega_proof: CS::Proof,
@@ -120,7 +121,7 @@ where
 {
     pub column_commitments: Commitments,
     pub columns_at_zeta: Evaluations,
-    pub quotient_commitment: C,
+    pub quotient_chunks: Vec<C>,
     pub lin_at_zeta_omega: F,
 }
 
@@ -135,7 +136,7 @@ where
         PiopProof {
             column_commitments: self.column_commitments.clone(),
             columns_at_zeta: self.columns_at_zeta.clone(),
-            quotient_commitment: self.quotient_commitment.clone(),
+            quotient_chunks: self.quotient_chunks.clone(),
             lin_at_zeta_omega: self.lin_at_zeta_omega,
         }
     }

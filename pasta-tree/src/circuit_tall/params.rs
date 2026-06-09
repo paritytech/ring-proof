@@ -13,6 +13,9 @@ use w3f_plonk_common::domain::Domain;
 use w3f_plonk_common::gadgets::booleanity::BitColumn;
 use w3f_plonk_common::gadgets::ec::AffineColumn;
 
+// Hiding Pedersen commitment opened in `2` points.
+pub const ZK_ROWS: usize = 2;
+
 // `max_nodes + blinding_bits = domain.capacity - 1`
 // where `1` acounts for the `seed` point.
 /// Circuit parameters
@@ -97,7 +100,8 @@ impl<C: CurveGroup, G: CurveModel<BaseField = C::ScalarField>> CircuitParams<C, 
     }
 
     #[cfg(test)]
-    fn setup(domain: Domain<G::BaseField>, h: AffinePoint<G>, seed: AffinePoint<G>) -> Self {
+    fn setup(domain_size: usize, h: AffinePoint<G>, seed: AffinePoint<G>) -> Self {
+        let domain = Domain::<G::BaseField>::with_zk_rows(domain_size, ZK_ROWS);
         Self::setup(domain, h, seed)
     }
 }

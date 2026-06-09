@@ -57,15 +57,22 @@ impl<C: CurveGroup, G: CurveModel<BaseField = C::ScalarField>, P: CircuitParams<
         witness: Vec<LevelWitnessWithBlinding<AffinePoint<G>>>,
         rng: &mut R,
     ) -> CycleSideProof<C, G, P> {
-        let curve_name = &std::any::type_name::<C>()[70..];
+        let curve_name = &std::any::type_name::<C>()[53..];
         // println!("\n\nprover {curve_name}\nchildren={blinded_path:?}\n");
+        let n_levels = witness.len(); // number of tree levels on this side
+        debug_assert_eq!(blinded_path.len(), n_levels);
+        let mut piop_proofs = Vec::with_capacity(n_levels);
 
-        debug_assert_eq!(blinded_path.len(), witness.len());
-        let n_polys = P::VerifierCircuit::N_COLUMNS + 2; // plus the quotient and the linearization polys
-        let mut piop_proofs = Vec::with_capacity(witness.len());
-        let mut polys = Vec::with_capacity(witness.len() * n_polys);
-        let mut coords = Vec::with_capacity(witness.len() * n_polys);
-        let mut bfs = Vec::with_capacity(witness.len() * n_polys);
+        // per tree level
+        let n_columns = P::VerifierCircuit::N_COLUMNS;
+        let n_to_commit = n_columns + 4; // plus the quotient chunks
+        let n_to_open = n_columns + 2; // plus the (folded) quotient (chunks) and the linearization polynomial
+
+        // per side
+        let n_openings = n_levels * n_to_open;
+        let mut polys_to_open = Vec::with_capacity(n_openings);
+        let mut at_coords = Vec::with_capacity(n_openings);
+        let mut with_bfs = Vec::with_capacity(n_openings);
 
         let plonk_prover = PlonkProver::<C::ScalarField, HidingIpa<C>, _>::init(
             self.pcs_params.ck(),
@@ -74,11 +81,10 @@ impl<C: CurveGroup, G: CurveModel<BaseField = C::ScalarField>, P: CircuitParams<
         );
 
         let t_commit_side = start_timer!(|| format!(
-            "Committing to {} polynomials at {curve_name}",
-            witness.len() * (n_polys - 1)
+            "Committing {n_levels} x {n_to_commit} polynomials to {curve_name}"
         ));
         for (level, blinded_node) in witness.into_iter().zip(blinded_path.into_iter()) {
-            let t_commit_level = start_timer!(|| format!("Committing to {} polynomials", n_polys));
+            // let t_commit_level = start_timer!(|| format!("Committing {n_to_commit} polynomials"));
             let piop: P::ProverCircuit =
                 <P as CircuitParams<C, G>>::prover_circuit(&self.piop_params, level.clone());
             let result =
@@ -99,31 +105,29 @@ impl<C: CurveGroup, G: CurveModel<BaseField = C::ScalarField>, P: CircuitParams<
             //     polys_at_zeta[polys_at_zeta.len() - 1].evaluate(&zeta)
             // );
 
-            coords.extend(vec![BTreeSet::from([zeta]); polys_at_zeta.len()]);
-            polys.extend(polys_at_zeta);
-            coords.extend(vec![
+            at_coords.extend(vec![BTreeSet::from([zeta]); polys_at_zeta.len()]);
+            polys_to_open.extend(polys_at_zeta);
+            at_coords.extend(vec![
                 BTreeSet::from([zeta_omega]);
                 polys_at_zeta_omega.len()
             ]);
-            polys.extend(polys_at_zeta_omega);
-            bfs.push(level.parent_bf);
-            bfs.resize(polys.len(), C::ScalarField::zero());
-            end_timer!(t_commit_level);
+            polys_to_open.extend(polys_at_zeta_omega);
+            with_bfs.push(level.parent_bf);
+            with_bfs.resize(polys_to_open.len(), C::ScalarField::zero());
+            // end_timer!(t_commit_level);
         }
         end_timer!(t_commit_side);
 
-        let max_degree = polys.iter().map(|p| p.degree()).max().unwrap();
         let t_open = start_timer!(|| format!(
-            "Opening {} polynomials with maximal degree-{}",
-            polys.len(),
-            max_degree
+            "Opening {n_openings} polynomials, max_degree = {}",
+            polys_to_open.iter().map(|p| p.degree()).max().unwrap()
         ));
         let todo = Coeffs(C::ScalarField::rand(rng), C::ScalarField::rand(rng));
         let pcs_proof = Shplonk::<C::ScalarField, HidingIpa<C>>::open_many_hiding(
             &self.pcs_params,
-            &polys,
-            &bfs,
-            &coords,
+            &polys_to_open,
+            &with_bfs,
+            &at_coords,
             &mut todo.clone(),
             rng,
         );

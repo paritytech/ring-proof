@@ -1,10 +1,9 @@
 use crate::auth_path::node::LevelWitnessWithBlinding;
 use crate::circuit_fat::params::PiopParams;
 use crate::circuit_fat::{ProofComms, ProofEvals};
+use crate::{AffinePoint, CurveModel};
 use ark_ec::AffineRepr;
 use ark_ec::CurveGroup;
-// use ark_ec::short_weierstrass::{Affine as SwAffine, SWCurveConfig};
-use crate::{AffinePoint, CurveModel};
 use ark_ff::One;
 use ark_ff::{FftField, PrimeField, Zero};
 use ark_poly::Evaluations;
@@ -166,6 +165,8 @@ impl<C: CurveGroup, G: CurveModel<BaseField = C::ScalarField>>
 {
     const N_COLUMNS: usize = 9;
     const N_CONSTRAINTS: usize = 12;
+    const N_QUOTIENT_CHUNKS: usize = 3;
+
     type Commitments = ProofComms<C>;
     type Evaluations = ProofEvals<C::ScalarField>;
     type Instance = AffinePoint<G>;
@@ -227,6 +228,10 @@ impl<C: CurveGroup, G: CurveModel<BaseField = C::ScalarField>>
             )],
         ]
         .concat()
+    }
+
+    fn quotient(&self, alphas: &[C::ScalarField]) -> Option<Vec<DensePolynomial<C::ScalarField>>> {
+        <Self as ProverPiop<C::ScalarField, WrappedAffine<C>>>::_quotient_chunks(self, alphas)
     }
 
     fn constraints_lin(&self, zeta: &C::ScalarField) -> Vec<DensePolynomial<C::ScalarField>> {
