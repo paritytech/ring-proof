@@ -103,7 +103,7 @@ where
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::circuit_tall::params::PiopParams;
+    use crate::circuit_fat::params::PiopParams;
     use crate::tests::random_path;
     use ark_std::test_rng;
 

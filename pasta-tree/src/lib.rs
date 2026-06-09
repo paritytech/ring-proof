@@ -17,7 +17,7 @@ use w3f_plonk_common::{ColumnsCommited, ColumnsEvaluated, FieldColumn};
 
 pub mod auth_path;
 pub mod circuit_fat;
-pub mod circuit_tall;
+// pub mod circuit_tall;
 // pub mod level;
 pub mod prover;
 pub mod verifier;
@@ -189,7 +189,7 @@ mod tests {
     use crate::auth_path::node::LevelWitness;
     use crate::auth_path::path::AuthenticationPath;
     use crate::circuit_fat::params::PiopParams as CircuitParamsFat;
-    use crate::circuit_tall::params::PiopParams as CircuitParamsTall;
+    // use crate::circuit_tall::params::PiopParams as CircuitParamsTall;
     use ark_ec::AdditiveGroup;
     use ark_ec::scalar_mul::glv::GLVConfig;
     use ark_ec::scalar_mul::wnaf::WnafContext;
@@ -258,25 +258,25 @@ mod tests {
         >(log_n, h);
         println!();
 
-        let (log_n, h) = (9, 2);
-        println!("n = {}, height = {h}, TALL", 1 << log_n);
-        _test_proof::<
-            ark_pallas::Projective,
-            ark_vesta::Projective,
-            CircuitParamsTall<ark_vesta::Affine>,
-            CircuitParamsTall<ark_pallas::Affine>,
-        >(log_n, h);
-        println!();
-
-        let (log_n, h) = (10, 2);
-        println!("n = {}, height = {h}, TALL", 1 << log_n);
-        _test_proof::<
-            ark_pallas::Projective,
-            ark_vesta::Projective,
-            CircuitParamsTall<ark_vesta::Affine>,
-            CircuitParamsTall<ark_pallas::Affine>,
-        >(log_n, h);
-        println!();
+        // let (log_n, h) = (9, 2);
+        // println!("n = {}, height = {h}, TALL", 1 << log_n);
+        // _test_proof::<
+        //     ark_pallas::Projective,
+        //     ark_vesta::Projective,
+        //     CircuitParamsTall<ark_vesta::Affine>,
+        //     CircuitParamsTall<ark_pallas::Affine>,
+        // >(log_n, h);
+        // println!();
+        //
+        // let (log_n, h) = (10, 2);
+        // println!("n = {}, height = {h}, TALL", 1 << log_n);
+        // _test_proof::<
+        //     ark_pallas::Projective,
+        //     ark_vesta::Projective,
+        //     CircuitParamsTall<ark_vesta::Affine>,
+        //     CircuitParamsTall<ark_pallas::Affine>,
+        // >(log_n, h);
+        // println!();
 
         let (log_n, h) = (8, 4);
         println!("n = {}, height = {h}, FAT", 1 << log_n);
@@ -288,15 +288,15 @@ mod tests {
         >(log_n, h);
         println!();
 
-        let (log_n, h) = (9, 4);
-        println!("n = {}, height = {h}, TALL", 1 << log_n);
-        _test_proof::<
-            ark_pallas::Projective,
-            ark_vesta::Projective,
-            CircuitParamsTall<ark_vesta::Affine>,
-            CircuitParamsTall<ark_pallas::Affine>,
-        >(log_n, h);
-        println!();
+        // let (log_n, h) = (9, 4);
+        // println!("n = {}, height = {h}, TALL", 1 << log_n);
+        // _test_proof::<
+        //     ark_pallas::Projective,
+        //     ark_vesta::Projective,
+        //     CircuitParamsTall<ark_vesta::Affine>,
+        //     CircuitParamsTall<ark_pallas::Affine>,
+        // >(log_n, h);
+        // println!();
     }
 
     fn _test_proof<C0, C1, P0, P1>(log_n: usize, height: usize)
