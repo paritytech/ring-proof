@@ -2,6 +2,7 @@ use crate::auth_path::node::LevelWitnessWithBlinding;
 use crate::circuit_tall::params::PiopParams;
 use crate::circuit_tall::{ProofComms, ProofEvals};
 // use ark_ec::short_weierstrass::{Affine as SwAffine, SWCurveConfig};
+use crate::{AffinePoint, CurveModel};
 use ark_ec::{AffineRepr, CurveGroup};
 use ark_ff::{FftField, One, Zero};
 use ark_poly::Evaluations;
@@ -18,7 +19,6 @@ use w3f_plonk_common::gadgets::ec::CondAdd;
 use w3f_plonk_common::gadgets::fixed_cells::FixedCells;
 use w3f_plonk_common::gadgets::inner_prod::InnerProd;
 use w3f_plonk_common::piop::ProverPiop;
-
 // struct Witness<F: PrimeField, G: AffineRepr<BaseField=F>> {
 //     // `x` coordinates of all the children of a node. Public input.
 //     // `H, 2H, 4H,...,2^sH` Fixed column.
@@ -49,8 +49,11 @@ pub struct PiopProver<G: AffineRepr<BaseField: FftField>> {
     result: G,
 }
 
-impl<G: AffineRepr<BaseField: FftField>> PiopProver<G> {
-    pub fn build(params: &PiopParams<G>, level: LevelWitnessWithBlinding<G>) -> Self {
+impl<G: CurveModel<BaseField: FftField>> PiopProver<AffinePoint<G>> {
+    pub fn build(
+        params: &PiopParams<AffinePoint<G>>,
+        level: LevelWitnessWithBlinding<AffinePoint<G>>,
+    ) -> Self {
         let domain = params.domain.clone();
         let points = params.points_column(level.level_witness.siblings);
         let bits = params.bits_column(level.level_witness.path_node_idx, level.bf);
@@ -98,14 +101,14 @@ impl<G: AffineRepr<BaseField: FftField>> PiopProver<G> {
     }
 }
 
-impl<C: CurveGroup, G: AffineRepr<BaseField = C::ScalarField>>
-    ProverPiop<C::ScalarField, WrappedAffine<C>> for PiopProver<G>
+impl<C: CurveGroup, G: CurveModel<BaseField = C::ScalarField>>
+    ProverPiop<C::ScalarField, WrappedAffine<C>> for PiopProver<AffinePoint<G>>
 {
     const N_COLUMNS: usize = 7;
     const N_CONSTRAINTS: usize = 7;
     type Commitments = ProofComms<C>;
     type Evaluations = ProofEvals<C::ScalarField>;
-    type Instance = G;
+    type Instance = AffinePoint<G>;
 
     fn committed_columns<Fun: Fn(&DensePolynomial<C::ScalarField>) -> WrappedAffine<C>>(
         &self,

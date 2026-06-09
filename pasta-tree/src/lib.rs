@@ -18,7 +18,7 @@ use w3f_plonk_common::{ColumnsCommited, ColumnsEvaluated, FieldColumn};
 
 pub mod auth_path;
 pub mod circuit_fat;
-// pub mod circuit_tall;
+pub mod circuit_tall;
 // pub mod level;
 pub mod prover;
 pub mod verifier;
@@ -198,11 +198,11 @@ mod tests {
     use crate::auth_path::node::LevelWitness;
     use crate::auth_path::path::AuthenticationPath;
     use crate::circuit_fat::params::PiopParams as CircuitParamsFat;
+    use crate::circuit_tall::params::PiopParams as CircuitParamsTall;
+    use ark_ec::AdditiveGroup;
     use ark_ec::scalar_mul::glv::GLVConfig;
     use ark_ec::scalar_mul::wnaf::WnafContext;
     use ark_ec::short_weierstrass::{Affine, SWCurveConfig};
-    // use crate::circuit_tall::params::PiopParams as CircuitParamsTall;
-    use ark_ec::AdditiveGroup;
     use ark_ec::{AffineRepr, CurveGroup};
     use ark_ff::{BigInteger, Field, Zero};
     use ark_ff::{FftField, PrimeField};
@@ -210,6 +210,7 @@ mod tests {
     use ark_poly::DenseUVPolynomial;
     use ark_std::rand::Rng;
     use ark_std::{UniformRand, cfg_iter_mut, end_timer, start_timer, test_rng};
+    use ark_vesta::VestaConfig;
     use num_format::{Locale, ToFormattedString};
     use w3f_pcs::Poly;
     use w3f_pcs::pcs::PCS;
@@ -262,52 +263,52 @@ mod tests {
         let (log_n, h) = (8, 2);
         println!("n = {}, height = {h}, FAT", 1 << log_n);
         _test_proof::<
-            ark_pallas::PallasConfig,
-            ark_vesta::VestaConfig,
+            PallasConfig,
+            VestaConfig,
             CircuitParamsFat<ark_vesta::Affine>,
             CircuitParamsFat<ark_pallas::Affine>,
         >(log_n, h);
         println!();
 
-        // let (log_n, h) = (9, 2);
-        // println!("n = {}, height = {h}, TALL", 1 << log_n);
-        // _test_proof::<
-        //     ark_pallas::Projective,
-        //     ark_vesta::Projective,
-        //     CircuitParamsTall<ark_vesta::Affine>,
-        //     CircuitParamsTall<ark_pallas::Affine>,
-        // >(log_n, h);
-        // println!();
-        //
-        // let (log_n, h) = (10, 2);
-        // println!("n = {}, height = {h}, TALL", 1 << log_n);
-        // _test_proof::<
-        //     ark_pallas::Projective,
-        //     ark_vesta::Projective,
-        //     CircuitParamsTall<ark_vesta::Affine>,
-        //     CircuitParamsTall<ark_pallas::Affine>,
-        // >(log_n, h);
-        // println!();
+        let (log_n, h) = (9, 2);
+        println!("n = {}, height = {h}, TALL", 1 << log_n);
+        _test_proof::<
+            PallasConfig,
+            VestaConfig,
+            CircuitParamsTall<ark_vesta::Affine>,
+            CircuitParamsTall<ark_pallas::Affine>,
+        >(log_n, h);
+        println!();
+
+        let (log_n, h) = (10, 2);
+        println!("n = {}, height = {h}, TALL", 1 << log_n);
+        _test_proof::<
+            PallasConfig,
+            VestaConfig,
+            CircuitParamsTall<ark_vesta::Affine>,
+            CircuitParamsTall<ark_pallas::Affine>,
+        >(log_n, h);
+        println!();
 
         let (log_n, h) = (8, 4);
         println!("n = {}, height = {h}, FAT", 1 << log_n);
         _test_proof::<
-            ark_pallas::PallasConfig,
-            ark_vesta::VestaConfig,
+            PallasConfig,
+            VestaConfig,
             CircuitParamsFat<ark_vesta::Affine>,
             CircuitParamsFat<ark_pallas::Affine>,
         >(log_n, h);
         println!();
 
-        // let (log_n, h) = (9, 4);
-        // println!("n = {}, height = {h}, TALL", 1 << log_n);
-        // _test_proof::<
-        //     ark_pallas::Projective,
-        //     ark_vesta::Projective,
-        //     CircuitParamsTall<ark_vesta::Affine>,
-        //     CircuitParamsTall<ark_pallas::Affine>,
-        // >(log_n, h);
-        // println!();
+        let (log_n, h) = (9, 4);
+        println!("n = {}, height = {h}, TALL", 1 << log_n);
+        _test_proof::<
+            PallasConfig,
+            VestaConfig,
+            CircuitParamsTall<ark_vesta::Affine>,
+            CircuitParamsTall<ark_pallas::Affine>,
+        >(log_n, h);
+        println!();
     }
 
     fn _test_proof<C0, C1, P0, P1>(log_n: usize, height: usize)
