@@ -88,8 +88,8 @@ impl<G: CurveModel<BaseField: FftField>> PiopProver<AffinePoint<G>> {
     }
 }
 
-impl<C: CurveGroup, G: CurveModel<BaseField=C::ScalarField>>
-ProverPiop<C::ScalarField, WrappedAffine<C>> for PiopProver<AffinePoint<G>>
+impl<C: CurveGroup, G: CurveModel<BaseField = C::ScalarField>>
+    ProverPiop<C::ScalarField, WrappedAffine<C>> for PiopProver<AffinePoint<G>>
 {
     const N_COLUMNS: usize = 7;
     const N_CONSTRAINTS: usize = 7;

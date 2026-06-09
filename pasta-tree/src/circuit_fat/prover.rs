@@ -6,11 +6,13 @@ use ark_ec::AffineRepr;
 use ark_ec::CurveGroup;
 use ark_ff::One;
 use ark_ff::{FftField, PrimeField, Zero};
-use ark_poly::univariate::DensePolynomial;
 use ark_poly::Evaluations;
+use ark_poly::univariate::DensePolynomial;
 use ark_std::{vec, vec::Vec};
 use w3f_pcs::pcs::commitment::WrappedAffine;
+use w3f_plonk_common::FieldColumn;
 use w3f_plonk_common::domain::Domain;
+use w3f_plonk_common::gadgets::ProverGadget;
 use w3f_plonk_common::gadgets::booleanity::{BitColumn, Booleanity};
 use w3f_plonk_common::gadgets::column_sum::ColumnSumPolys;
 use w3f_plonk_common::gadgets::ec::AffineColumn;
@@ -18,9 +20,7 @@ use w3f_plonk_common::gadgets::ec::CondAdd;
 use w3f_plonk_common::gadgets::equal_cells::CellsEqPolys;
 use w3f_plonk_common::gadgets::fixed_cells::FixedCells;
 use w3f_plonk_common::gadgets::inner_prod_inv::InnerProdInv;
-use w3f_plonk_common::gadgets::ProverGadget;
 use w3f_plonk_common::piop::ProverPiop;
-use w3f_plonk_common::FieldColumn;
 
 pub struct PiopProver<G: AffineRepr<BaseField: FftField>> {
     domain: Domain<G::BaseField>,
@@ -160,8 +160,8 @@ impl<G: CurveModel<BaseField: PrimeField>> PiopProver<AffinePoint<G>> {
     }
 }
 
-impl<C: CurveGroup, G: CurveModel<BaseField=C::ScalarField>>
-ProverPiop<C::ScalarField, WrappedAffine<C>> for PiopProver<AffinePoint<G>>
+impl<C: CurveGroup, G: CurveModel<BaseField = C::ScalarField>>
+    ProverPiop<C::ScalarField, WrappedAffine<C>> for PiopProver<AffinePoint<G>>
 {
     const N_COLUMNS: usize = 9;
     const N_CONSTRAINTS: usize = 12;
@@ -227,7 +227,7 @@ ProverPiop<C::ScalarField, WrappedAffine<C>> for PiopProver<AffinePoint<G>>
                 C::ScalarField::one(),
             )],
         ]
-            .concat()
+        .concat()
     }
 
     fn quotient(&self, alphas: &[C::ScalarField]) -> Option<Vec<DensePolynomial<C::ScalarField>>> {
@@ -249,7 +249,7 @@ ProverPiop<C::ScalarField, WrappedAffine<C>> for PiopProver<AffinePoint<G>>
             // vec![DensePolynomial::zero()],
             vec![DensePolynomial::zero()],
         ]
-            .concat()
+        .concat()
     }
 
     fn domain(&self) -> &Domain<C::ScalarField> {
@@ -267,7 +267,7 @@ mod tests {
     use crate::tests::random_witness;
     use ark_bls12_381::G1Projective;
     use ark_ed_on_bls12_381_bandersnatch::{Fq, Fr, SWAffine};
-    use ark_std::{test_rng, UniformRand};
+    use ark_std::{UniformRand, test_rng};
     use w3f_pcs::pcs::commitment::WrappedAffine;
 
     #[test]
