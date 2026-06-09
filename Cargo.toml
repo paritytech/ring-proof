@@ -2,9 +2,9 @@
 resolver = "2"
 members = [
 #    "evm-vrfier",
-    "pasta-tree",
+#    "pasta-tree",
     "w3f-plonk-common",
-#    "w3f-ring-proof",
+    "w3f-ring-proof",
     #    "w3f-ring-vrf-snark",
 ]
 

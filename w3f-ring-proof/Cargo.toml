@@ -29,7 +29,7 @@ name = "ring_proof"
 harness = false
 
 [features]
-default = ["std", "twisted_edwards"]
+default = ["std"]
 std = [
     "ark-std/std",
     "ark-ff/std",
@@ -52,4 +52,3 @@ parallel = [
 print-trace = ["ark-std/print-trace"]
 asm = ["w3f-pcs/asm"]
 test-vectors = ["w3f-plonk-common/test-vectors"]
-twisted_edwards = ["w3f-plonk-common/twisted_edwards"]
