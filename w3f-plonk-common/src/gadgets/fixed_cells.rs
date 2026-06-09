@@ -10,18 +10,15 @@ use crate::{const_evals, Column, FieldColumn};
 
 pub struct FixedCells<F: FftField> {
     col: FieldColumn<F>,
-    l_first: FieldColumn<F>,
-    l_last: FieldColumn<F>,
-    col_first: F,
-    col_last: F,
+    i: Vec<usize>,
+    l_i: Vec<FieldColumn<F>>,
+    col_i: Vec<F>,
 }
 
 pub struct FixedCellsValues<F: Field> {
     pub col: F,
-    pub col_first: F,
-    pub col_last: F,
-    pub l_first: F,
-    pub l_last: F,
+    pub l_i: Vec<F>,
+    pub col_i: Vec<F>,
 }
 
 impl<F: FftField> FixedCells<F> {
@@ -29,19 +26,49 @@ impl<F: FftField> FixedCells<F> {
         debug_assert_eq!(col.payload_len(), domain.capacity);
         let col_first = col.evals[0];
         let col_last = col.evals[domain.capacity - 1];
-        Self::init(col, domain, col_first, col_last)
+        Self::first_and_last(col, domain, col_first, col_last)
     }
 
     pub fn init(col: FieldColumn<F>, domain: &Domain<F>, col_first: F, col_last: F) -> Self {
+        Self::first_and_last(col, domain, col_first, col_last)
+    }
+
+    pub fn first_and_last(
+        col: FieldColumn<F>,
+        domain: &Domain<F>,
+        col_first: F,
+        col_last: F,
+    ) -> Self {
         debug_assert_eq!(col.payload_len(), domain.capacity);
         let l_first = domain.l_first.clone();
         let l_last = domain.l_last.clone();
         Self {
             col,
-            l_first,
-            l_last,
-            col_first,
-            col_last,
+            i: vec![0, domain.capacity - 1],
+            l_i: vec![l_first, l_last],
+            col_i: vec![col_first, col_last],
+        }
+    }
+
+    pub fn first(col: FieldColumn<F>, domain: &Domain<F>, col_first: F) -> Self {
+        debug_assert_eq!(col.payload_len(), domain.capacity);
+        let l_first = domain.l_first.clone();
+        Self {
+            col,
+            i: vec![0],
+            l_i: vec![l_first],
+            col_i: vec![col_first],
+        }
+    }
+
+    pub fn last(col: FieldColumn<F>, domain: &Domain<F>, col_last: F) -> Self {
+        debug_assert_eq!(col.payload_len(), domain.capacity);
+        let l_last = domain.l_last.clone();
+        Self {
+            col,
+            i: vec![domain.capacity - 1],
+            l_i: vec![l_last],
+            col_i: vec![col_last],
         }
     }
 
@@ -69,9 +96,16 @@ impl<F: FftField> ProverGadget<F> for FixedCells<F> {
     }
 
     fn constraints(&self) -> Vec<Evaluations<F>> {
-        let domain_capacity = self.col.payload_len(); // that's an ugly way to learn the capacity, but we've asserted it above.
-        let c = &Self::constraint_cell(&self.col, &self.l_first, 0, self.col_first)
-            + &Self::constraint_cell(&self.col, &self.l_last, domain_capacity - 1, self.col_last);
+        let c = self
+            .i
+            .iter()
+            .zip(self.l_i.iter())
+            .zip(self.col_i.iter())
+            .map(|((i, l_i), col_i)| Self::constraint_cell(&self.col, l_i, *i, *col_i))
+            .reduce(|acc, c| &acc + &c)
+            .unwrap();
+        // let c = &Self::constraint_cell(&self.col, &self.l_first, 0, self.col_first)
+        //     + &Self::constraint_cell(&self.col, &self.l_last, domain_capacity - 1, self.col_last);
         vec![c]
     }
 
@@ -92,8 +126,12 @@ impl<F: Field> FixedCellsValues<F> {
 
 impl<F: Field> VerifierGadget<F> for FixedCellsValues<F> {
     fn evaluate_constraints_main(&self) -> Vec<F> {
-        let c = Self::evaluate_for_cell(self.col, self.l_first, self.col_first)
-            + Self::evaluate_for_cell(self.col, self.l_last, self.col_last);
+        let c = self
+            .l_i
+            .iter()
+            .zip(self.col_i.iter())
+            .map(|(l_i, col_i)| Self::evaluate_for_cell(self.col, *l_i, *col_i))
+            .sum();
         vec![c]
     }
 }

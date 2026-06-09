@@ -63,26 +63,20 @@ impl<C: CurveGroup, G: AffineRepr<BaseField = C::ScalarField>> PiopVerifier<C, G
 
         let cond_add_acc_x = FixedCellsValues {
             col: evals.cond_add_acc[0],
-            col_first: seed_x,
-            col_last: res_x,
-            l_first: domain_evals.l_first,
-            l_last: domain_evals.l_last,
+            l_i: vec![domain_evals.l_first, domain_evals.l_last],
+            col_i: vec![seed_x, res_x],
         };
 
         let cond_add_acc_y = FixedCellsValues {
             col: evals.cond_add_acc[1],
-            col_first: seed_y,
-            col_last: res_y,
-            l_first: domain_evals.l_first,
-            l_last: domain_evals.l_last,
+            l_i: vec![domain_evals.l_first, domain_evals.l_last],
+            col_i: vec![seed_y, res_y],
         };
 
         let inner_prod_acc = FixedCellsValues {
             col: evals.inn_prod_acc,
-            col_first: C::ScalarField::zero(),
-            col_last: C::ScalarField::one(),
-            l_first: domain_evals.l_first,
-            l_last: domain_evals.l_last,
+            l_i: vec![domain_evals.l_first, domain_evals.l_last],
+            col_i: vec![C::ScalarField::zero(), C::ScalarField::one()],
         };
 
         Self {

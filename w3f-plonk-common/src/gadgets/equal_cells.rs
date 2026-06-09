@@ -1,11 +1,11 @@
 use ark_ff::{FftField, Field, Zero};
 use ark_poly::univariate::DensePolynomial;
-use ark_poly::Evaluations;
+use ark_poly::{Evaluations, GeneralEvaluationDomain};
 
 use ark_std::{vec, vec::Vec};
 
 use crate::domain::Domain;
-use crate::gadgets::VerifierGadget;
+use crate::gadgets::{ProverGadget, VerifierGadget};
 use crate::{Column, FieldColumn};
 
 pub struct CellsEqPolys<F: FftField> {
@@ -42,18 +42,6 @@ impl<F: FftField> CellsEqPolys<F> {
         Self { a, b, li }
     }
 
-    pub fn constraints(&self) -> Vec<Evaluations<F>> {
-        let a = &self.a.evals_4x;
-        let b = &self.b.evals_4x;
-        let li = &self.li.evals_4x;
-        let c = li * &(a - b);
-        vec![c]
-    }
-
-    pub fn constraints_linearized(&self, _z: &F) -> Vec<DensePolynomial<F>> {
-        Self::constraints_lin()
-    }
-
     pub fn first_constraints(
         a: FieldColumn<F>,
         b: FieldColumn<F>,
@@ -74,6 +62,28 @@ impl<F: FftField> CellsEqPolys<F> {
 
     pub fn constraints_lin() -> Vec<DensePolynomial<F>> {
         vec![DensePolynomial::zero()]
+    }
+}
+
+impl<F: FftField> ProverGadget<F> for CellsEqPolys<F> {
+    fn witness_columns(&self) -> Vec<DensePolynomial<F>> {
+        todo!()
+    }
+
+    fn constraints(&self) -> Vec<Evaluations<F>> {
+        let a = &self.a.evals_4x;
+        let b = &self.b.evals_4x;
+        let li = &self.li.evals_4x;
+        let c = li * &(a - b);
+        vec![c]
+    }
+
+    fn constraints_linearized(&self, _z: &F) -> Vec<DensePolynomial<F>> {
+        Self::constraints_lin()
+    }
+
+    fn domain(&self) -> GeneralEvaluationDomain<F> {
+        todo!()
     }
 }
 

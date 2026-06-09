@@ -31,7 +31,6 @@ pub struct PiopProver<G: AffineRepr<BaseField: FftField>> {
     inner_prod_acc: DensePolynomial<G::BaseField>,
     cond_add_acc_x: DensePolynomial<G::BaseField>,
     cond_add_acc_y: DensePolynomial<G::BaseField>,
-    // columns: Witness<F, G>,
     gadgets: Vec<Box<dyn ProverGadget<G::BaseField>>>,
     result: G,
 }

@@ -11,7 +11,7 @@ use w3f_plonk_common::domain::EvaluatedDomain;
 use w3f_plonk_common::gadgets::VerifierGadget;
 use w3f_plonk_common::gadgets::booleanity::BooleanityValues;
 use w3f_plonk_common::gadgets::column_sum::ColumnSumEvals;
-use w3f_plonk_common::gadgets::ec::CondAddValues;
+use w3f_plonk_common::gadgets::ec::{AffineColumn, CondAddValues};
 use w3f_plonk_common::gadgets::equal_cells::EqualCells;
 use w3f_plonk_common::gadgets::fixed_cells::FixedCellsValues;
 use w3f_plonk_common::gadgets::inner_prod_inv::InnerProdInvValues;
@@ -68,10 +68,8 @@ impl<C: CurveGroup, G: AffineRepr<BaseField = C::ScalarField>> PiopVerifier<C, G
         };
         let node_idx_sum_vals = FixedCellsValues {
             col: all_evals.node_idx_sum_acc,
-            col_first: C::ScalarField::zero(),
-            col_last: C::ScalarField::one(),
-            l_first: domain_evals.l_first,
-            l_last: domain_evals.l_last,
+            l_i: vec![domain_evals.l_first, domain_evals.l_last],
+            col_i: vec![C::ScalarField::zero(), C::ScalarField::one()],
         };
         let seed_eq_node = EqualCells {
             a: selected_node.acc,
@@ -100,7 +98,7 @@ impl<C: CurveGroup, G: CurveModel<BaseField = C::ScalarField>>
     VerifierPiop<C::ScalarField, WrappedAffine<C>> for PiopVerifier<C, AffinePoint<G>>
 {
     const N_COLUMNS: usize = 9;
-    const N_CONSTRAINTS: usize = 12;
+    const N_CONSTRAINTS: usize = 13;
 
     fn precommitted_columns(&self) -> Vec<WrappedAffine<C>> {
         vec![
@@ -135,9 +133,11 @@ impl<C: CurveGroup, G: CurveModel<BaseField = C::ScalarField>>
                 C::ScalarField::zero(),
             )],
             self.seed_eq_node.evaluate_constraints_main(),
-            // vec![AffineColumn::<C::ScalarField, SwAffine<G>>::on_curve_eval(
-            //     self.blinded_node.acc,
-            // )],
+            vec![
+                AffineColumn::<C::ScalarField, AffinePoint<G>>::on_curve_eval(
+                    self.blinded_node.acc,
+                ),
+            ],
             vec![FixedCellsValues::evaluate_for_cell(
                 self.selected_node.a,
                 self.domain_evals.l_last,

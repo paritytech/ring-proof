@@ -32,13 +32,13 @@ pub struct PiopProver<G: AffineRepr<BaseField: FftField>> {
     node_idx: BitColumn<G::BaseField>,
     // Bits of the chosen blinding factor. Private input.
     bf_bits: BitColumn<G::BaseField>,
-    selected_node: InnerProdInv<G::BaseField>,
-    blinded_node: CondAdd<G::BaseField, G>, // blinded_node.acc[0] = (x_i, y_i) = Ci, blinded_node.acc[capacity] = Ci + bf.H = Ci'
-    node_idx_bool: Booleanity<G::BaseField>,
-    bf_bits_bool: Booleanity<G::BaseField>,
-    node_idx_sum: ColumnSumPolys<G::BaseField>,
-    node_idx_sum_vals: FixedCells<G::BaseField>,
-    seed_eq_node: CellsEqPolys<G::BaseField>,
+
+    selected_node_acc: FieldColumn<G::BaseField>,
+    blinded_node_acc: AffineColumn<G::BaseField, G>,
+    node_idx_sum_acc: FieldColumn<G::BaseField>,
+
+    gadgets: Vec<Box<dyn ProverGadget<G::BaseField>>>,
+    result: G,
 }
 
 impl<G: CurveModel<BaseField: PrimeField>> PiopProver<AffinePoint<G>> {
@@ -78,19 +78,43 @@ impl<G: CurveModel<BaseField: PrimeField>> PiopProver<AffinePoint<G>> {
             &domain,
         );
 
+        let result = blinded_node.seed_plus_sum();
+        let (node_blinded_x, node_blinded_y) = result.xy().unwrap();
+
+        let blinded_node_val_x =
+            FixedCells::last(blinded_node.acc.xs.clone(), &domain, node_blinded_x);
+        let blinded_node_val_y =
+            FixedCells::last(blinded_node.acc.ys.clone(), &domain, node_blinded_y);
+        let selected_node_val =
+            FixedCells::last(selected_node.acc.clone(), &domain, G::BaseField::zero());
+
+        let selected_node_acc = selected_node.acc.clone();
+        let blinded_node_acc = blinded_node.acc.clone();
+        let node_idx_sum_acc = node_idx_sum.acc.clone();
+
+        let mut gadgets: Vec<Box<dyn ProverGadget<G::BaseField>>> = Vec::new();
+        gadgets.push(Box::new(selected_node));
+        gadgets.push(Box::new(blinded_node));
+        gadgets.push(Box::new(node_idx_sum));
+        gadgets.push(Box::new(node_idx_bool));
+        gadgets.push(Box::new(bf_bits_bool));
+        gadgets.push(Box::new(node_idx_sum_vals));
+        gadgets.push(Box::new(blinded_node_val_x));
+        gadgets.push(Box::new(blinded_node_val_y));
+        gadgets.push(Box::new(selected_node_val));
+        gadgets.push(Box::new(seed_eq_node));
+
         Self {
             domain,
             nodes: x_coords,
             h_powers,
             node_idx,
             bf_bits,
-            selected_node,
-            blinded_node,
-            node_idx_bool,
-            bf_bits_bool,
-            node_idx_sum,
-            node_idx_sum_vals,
-            seed_eq_node,
+            selected_node_acc,
+            blinded_node_acc,
+            node_idx_sum_acc,
+            gadgets,
+            result,
         }
     }
 
@@ -103,12 +127,12 @@ impl<G: CurveModel<BaseField: PrimeField>> PiopProver<AffinePoint<G>> {
     ) -> ProofComms<C> {
         let node_idx = commit(self.node_idx.as_poly());
         let bf_bits = commit(self.bf_bits.as_poly());
-        let selected_node_acc = commit(self.selected_node.acc.as_poly());
+        let selected_node_acc = commit(self.selected_node_acc.as_poly());
         let blinded_node_acc = [
-            commit(self.blinded_node.acc.xs.as_poly()),
-            commit(self.blinded_node.acc.ys.as_poly()),
+            commit(self.blinded_node_acc.xs.as_poly()),
+            commit(self.blinded_node_acc.ys.as_poly()),
         ];
-        let node_idx_sum_acc = commit(self.node_idx_sum.acc.as_poly());
+        let node_idx_sum_acc = commit(self.node_idx_sum_acc.as_poly());
         ProofComms {
             node_idx,
             bf_bits,
@@ -127,10 +151,10 @@ impl<G: CurveModel<BaseField: PrimeField>> PiopProver<AffinePoint<G>> {
             self.h_powers.ys.as_poly().clone(),
             self.node_idx.as_poly().clone(),
             self.bf_bits.as_poly().clone(),
-            self.selected_node.acc.as_poly().clone(),
-            self.blinded_node.acc.xs.as_poly().clone(),
-            self.blinded_node.acc.ys.as_poly().clone(),
-            self.node_idx_sum.acc.as_poly().clone(),
+            self.selected_node_acc.as_poly().clone(),
+            self.blinded_node_acc.xs.as_poly().clone(),
+            self.blinded_node_acc.ys.as_poly().clone(),
+            self.node_idx_sum_acc.as_poly().clone(),
         ]
     }
 
@@ -143,11 +167,11 @@ impl<G: CurveModel<BaseField: PrimeField>> PiopProver<AffinePoint<G>> {
         let node_idx = self.node_idx.evaluate(zeta);
         let bf_bits = self.bf_bits.evaluate(zeta);
         let blinded_node_acc = [
-            self.blinded_node.acc.xs.evaluate(zeta),
-            self.blinded_node.acc.ys.evaluate(zeta),
+            self.blinded_node_acc.xs.evaluate(zeta),
+            self.blinded_node_acc.ys.evaluate(zeta),
         ];
-        let selected_node_acc = self.selected_node.acc.evaluate(zeta);
-        let node_idx_sum_acc = self.node_idx_sum.acc.evaluate(zeta);
+        let selected_node_acc = self.selected_node_acc.evaluate(zeta);
+        let node_idx_sum_acc = self.node_idx_sum_acc.evaluate(zeta);
         ProofEvals {
             x_coords,
             h_powers,
@@ -164,7 +188,7 @@ impl<C: CurveGroup, G: CurveModel<BaseField = C::ScalarField>>
     ProverPiop<C::ScalarField, WrappedAffine<C>> for PiopProver<AffinePoint<G>>
 {
     const N_COLUMNS: usize = 9;
-    const N_CONSTRAINTS: usize = 12;
+    const N_CONSTRAINTS: usize = 13;
     const N_QUOTIENT_CHUNKS: usize = 3;
 
     type Commitments = ProofComms<C>;
@@ -189,34 +213,10 @@ impl<C: CurveGroup, G: CurveModel<BaseField = C::ScalarField>>
     }
 
     fn constraints(&self) -> Vec<Evaluations<C::ScalarField>> {
-        let (node_blinded_x, node_blinded_y) = self.blinded_node.seed_plus_sum().xy().unwrap();
+        let constraints = self.gadgets.iter().flat_map(|g| g.constraints()).collect();
         vec![
-            self.selected_node.constraints(),
-            self.blinded_node.constraints(),
-            self.node_idx_sum.constraints(),
-            self.node_idx_bool.constraints(),
-            self.bf_bits_bool.constraints(),
-            self.node_idx_sum_vals.constraints(),
-            vec![FixedCells::constraint_cell(
-                &self.blinded_node.acc.xs,
-                &self.domain.l_last,
-                self.domain.capacity - 1,
-                node_blinded_x,
-            )],
-            vec![FixedCells::constraint_cell(
-                &self.blinded_node.acc.ys,
-                &self.domain.l_last,
-                self.domain.capacity - 1,
-                node_blinded_y,
-            )],
-            vec![FixedCells::constraint_cell(
-                &self.selected_node.acc,
-                &self.domain.l_last,
-                self.domain.capacity - 1,
-                C::ScalarField::zero(),
-            )],
-            self.seed_eq_node.constraints(),
-            // vec![self.blinded_node.acc.on_curve_constraint()],
+            constraints,
+            vec![self.blinded_node_acc.on_curve_constraint()],
             // this prevents opening to -parent=(x,-y)
             // parent = commit([x1, ..., xl, 1, 0, 0, 0]; 0) = x1.G1 + ... + xl.Gl + 1.G_{l+1}
             // then -parent = commit([-x1, ..., -xl, -1, 0, 0, 0]; 0)
@@ -235,18 +235,14 @@ impl<C: CurveGroup, G: CurveModel<BaseField = C::ScalarField>>
     }
 
     fn constraints_lin(&self, zeta: &C::ScalarField) -> Vec<DensePolynomial<C::ScalarField>> {
+        let constraints = self
+            .gadgets
+            .iter()
+            .flat_map(|g| g.constraints_linearized(zeta))
+            .collect();
         vec![
-            self.selected_node.constraints_linearized(zeta),
-            self.blinded_node.constraints_linearized(zeta),
-            self.node_idx_sum.constraints_linearized(zeta),
-            self.node_idx_bool.constraints_linearized(zeta),
-            self.bf_bits_bool.constraints_linearized(zeta),
-            self.node_idx_sum_vals.constraints_linearized(zeta),
+            constraints,
             vec![DensePolynomial::zero()],
-            vec![DensePolynomial::zero()],
-            vec![DensePolynomial::zero()],
-            self.seed_eq_node.constraints_linearized(zeta),
-            // vec![DensePolynomial::zero()],
             vec![DensePolynomial::zero()],
         ]
         .concat()
@@ -257,7 +253,7 @@ impl<C: CurveGroup, G: CurveModel<BaseField = C::ScalarField>>
     }
 
     fn result(&self) -> Self::Instance {
-        self.blinded_node.seed_plus_sum()
+        self.result
     }
 }
 
