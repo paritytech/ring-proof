@@ -1,7 +1,6 @@
 use crate::auth_path::node::LevelWitnessWithBlinding;
 use crate::circuit_tall::params::PiopParams;
 use crate::circuit_tall::{ProofComms, ProofEvals};
-// use ark_ec::short_weierstrass::{Affine as SwAffine, SWCurveConfig};
 use crate::{AffinePoint, CurveModel};
 use ark_ec::{AffineRepr, CurveGroup};
 use ark_ff::{FftField, One, Zero};
@@ -19,18 +18,6 @@ use w3f_plonk_common::gadgets::ec::CondAdd;
 use w3f_plonk_common::gadgets::fixed_cells::FixedCells;
 use w3f_plonk_common::gadgets::inner_prod::InnerProd;
 use w3f_plonk_common::piop::ProverPiop;
-// struct Witness<F: PrimeField, G: AffineRepr<BaseField=F>> {
-//     // `x` coordinates of all the children of a node. Public input.
-//     // `H, 2H, 4H,...,2^sH` Fixed column.
-//     points: AffineColumn<F, G>,
-//     // `node_x = self.x_coords[self.node_idx]` Private input.
-//     // Bits of the chosen blinding factor. Private input.
-//     bits: BitColumn<F>,
-//     select_part: FieldColumn<F>,
-//     inner_prod_acc: DensePolynomial<F>,
-//     cond_add_acc_x: DensePolynomial<F>,
-//     cond_add_acc_y: DensePolynomial<F>,
-// }
 
 pub struct PiopProver<G: AffineRepr<BaseField: FftField>> {
     domain: Domain<G::BaseField>,
@@ -101,11 +88,13 @@ impl<G: CurveModel<BaseField: FftField>> PiopProver<AffinePoint<G>> {
     }
 }
 
-impl<C: CurveGroup, G: CurveModel<BaseField = C::ScalarField>>
-    ProverPiop<C::ScalarField, WrappedAffine<C>> for PiopProver<AffinePoint<G>>
+impl<C: CurveGroup, G: CurveModel<BaseField=C::ScalarField>>
+ProverPiop<C::ScalarField, WrappedAffine<C>> for PiopProver<AffinePoint<G>>
 {
     const N_COLUMNS: usize = 7;
     const N_CONSTRAINTS: usize = 7;
+    const N_QUOTIENT_CHUNKS: usize = 3;
+
     type Commitments = ProofComms<C>;
     type Evaluations = ProofEvals<C::ScalarField>;
     type Instance = AffinePoint<G>;
@@ -163,11 +152,7 @@ impl<C: CurveGroup, G: CurveModel<BaseField = C::ScalarField>>
     }
 
     fn quotient(&self, alphas: &[C::ScalarField]) -> Option<Vec<DensePolynomial<C::ScalarField>>> {
-        let chunks =
-            <Self as ProverPiop<C::ScalarField, WrappedAffine<C>>>::_quotient_chunks(self, alphas);
-        debug_assert_eq!(chunks.as_ref().unwrap().len(), 4);
-        debug_assert_eq!(chunks.as_ref().unwrap()[3].degree(), 0);
-        chunks
+        <Self as ProverPiop<C::ScalarField, WrappedAffine<C>>>::_quotient_chunks(self, alphas)
     }
 
     fn constraints_lin(&self, zeta: &C::ScalarField) -> Vec<DensePolynomial<C::ScalarField>> {

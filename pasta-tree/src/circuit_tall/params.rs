@@ -14,7 +14,7 @@ use w3f_plonk_common::gadgets::booleanity::BitColumn;
 use w3f_plonk_common::gadgets::ec::AffineColumn;
 
 // Hiding Pedersen commitment opened in `2` points.
-pub const ZK_ROWS: usize = 3;
+pub const ZK_ROWS: usize = 2;
 
 // `max_nodes + blinding_bits = domain.capacity - 1`
 // where `1` acounts for the `seed` point.

@@ -12,6 +12,7 @@ use w3f_pcs::pcs::Commitment;
 pub trait ProverPiop<F: PrimeField, C: Commitment<F>> {
     const N_COLUMNS: usize;
     const N_CONSTRAINTS: usize;
+    const N_QUOTIENT_CHUNKS: usize = 1;
 
     type Commitments: ColumnsCommited<F, C>;
     type Evaluations: ColumnsEvaluated<F>;
@@ -38,6 +39,7 @@ pub trait ProverPiop<F: PrimeField, C: Commitment<F>> {
         q.map(|q| {
             let _q_deg = q.degree();
             let q_chunks = q_chunking::chunk_quotient(q, self.domain().domain_size());
+            debug_assert_eq!(q_chunks.len(), Self::N_QUOTIENT_CHUNKS);
             #[cfg(feature = "std")]
             println!(
                 "Chunking deg {} polynomial into {} chunks",

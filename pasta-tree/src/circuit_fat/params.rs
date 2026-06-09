@@ -14,7 +14,7 @@ use w3f_plonk_common::gadgets::booleanity::BitColumn;
 use w3f_plonk_common::gadgets::ec::AffineColumn;
 
 // Hiding Pedersen commitment opened in `2` points.
-pub const ZK_ROWS: usize = 3;
+pub const ZK_ROWS: usize = 2;
 
 /// Plonk Interactive Oracle Proofs (PIOP) parameters.
 #[derive(Clone)]
