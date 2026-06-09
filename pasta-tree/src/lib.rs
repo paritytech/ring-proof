@@ -232,8 +232,10 @@ mod tests {
             let setup_degree = 3 * domain_size;
             let c0_pcs_params = HidingIpa::<ProjectivePoint<C0>>::setup(setup_degree, rng);
             let c1_pcs_params = HidingIpa::<ProjectivePoint<C1>>::setup(setup_degree, rng);
-            let c0_piop_params = P0::setup(domain_size, c1_pcs_params.h, AffinePoint::<C1>::rand(rng));
-            let c1_piop_params = P1::setup(domain_size, c0_pcs_params.h, AffinePoint::<C0>::rand(rng));
+            let c0_piop_params =
+                P0::setup(domain_size, c1_pcs_params.h, AffinePoint::<C1>::rand(rng));
+            let c1_piop_params =
+                P1::setup(domain_size, c0_pcs_params.h, AffinePoint::<C0>::rand(rng));
             Self {
                 c0_params: CycleSideParams {
                     pcs_params: c0_pcs_params,
@@ -252,8 +254,8 @@ mod tests {
     #[test]
     fn test_circuit_tall() {
         _test_proof::<
-            ark_pallas::Projective,
-            ark_vesta::Projective,
+            PallasConfig,
+            VestaConfig,
             CircuitParamsTall<ark_vesta::Affine>,
             CircuitParamsTall<ark_pallas::Affine>,
         >(9, 2);
@@ -262,8 +264,8 @@ mod tests {
     #[test]
     fn test_circuit_fat() {
         _test_proof::<
-            ark_pallas::Projective,
-            ark_vesta::Projective,
+            PallasConfig,
+            VestaConfig,
             CircuitParamsFat<ark_vesta::Affine>,
             CircuitParamsFat<ark_pallas::Affine>,
         >(8, 2);
