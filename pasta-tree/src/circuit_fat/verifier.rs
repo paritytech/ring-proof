@@ -11,7 +11,7 @@ use w3f_plonk_common::domain::EvaluatedDomain;
 use w3f_plonk_common::gadgets::VerifierGadget;
 use w3f_plonk_common::gadgets::booleanity::BooleanityValues;
 use w3f_plonk_common::gadgets::column_sum::ColumnSumEvals;
-use w3f_plonk_common::gadgets::ec::{AffineColumn, CondAddValues};
+use w3f_plonk_common::gadgets::ec::CondAddValues;
 use w3f_plonk_common::gadgets::equal_cells::EqualCells;
 use w3f_plonk_common::gadgets::fixed_cells::FixedCellsValues;
 use w3f_plonk_common::gadgets::inner_prod_inv::InnerProdInvValues;
@@ -110,6 +110,9 @@ impl<C: CurveGroup, G: CurveModel<BaseField = C::ScalarField>>
 
     fn evaluate_constraints_main(&self) -> Vec<C::ScalarField> {
         let (x, y) = self.instance.xy().unwrap();
+        // doesn't have to be on curve
+        let blinded_node_acc =
+            AffinePoint::<G>::new_unchecked(self.blinded_node.acc.0, self.blinded_node.acc.1);
         vec![
             self.selected_node.evaluate_constraints_main(),
             self.blinded_node.evaluate_constraints_main(),
@@ -133,11 +136,7 @@ impl<C: CurveGroup, G: CurveModel<BaseField = C::ScalarField>>
                 C::ScalarField::zero(),
             )],
             self.seed_eq_node.evaluate_constraints_main(),
-            vec![
-                AffineColumn::<C::ScalarField, AffinePoint<G>>::on_curve_eval(
-                    self.blinded_node.acc,
-                ),
-            ],
+            blinded_node_acc.evaluate_constraints_main(),
             vec![FixedCellsValues::evaluate_for_cell(
                 self.selected_node.a,
                 self.domain_evals.l_last,

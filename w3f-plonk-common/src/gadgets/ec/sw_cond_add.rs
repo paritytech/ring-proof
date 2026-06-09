@@ -1,4 +1,5 @@
 use ark_ec::short_weierstrass::{Affine, SWCurveConfig};
+use ark_ec::AffineRepr;
 use ark_ff::{FftField, Field, Zero};
 use ark_poly::univariate::DensePolynomial;
 use ark_poly::{Evaluations, GeneralEvaluationDomain};
@@ -8,23 +9,6 @@ use crate::gadgets::ec::{AffineColumn, CondAdd, CondAddValues};
 use crate::gadgets::{ProverGadget, VerifierGadget};
 use crate::{const_evals, Column};
 
-impl<F: FftField, Curve: SWCurveConfig<BaseField = F>> AffineColumn<F, Affine<Curve>> {
-    // y^2 = x^3 + ax + b
-    pub fn on_curve_constraint(&self) -> Evaluations<F> {
-        let domain = self.xs.domain_4x();
-        let sw_coeff_a = &const_evals(Curve::COEFF_A, domain);
-        let sw_coeff_b = &const_evals(Curve::COEFF_B, domain);
-        let x = &self.xs.evals_4x;
-        let y = &self.ys.evals_4x;
-
-        &(&(y * y) - &(&(x * x) * x)) - &(&(sw_coeff_a * x) + &sw_coeff_b)
-    }
-
-    pub fn on_curve_eval((x, y): (F, F)) -> F {
-        y * y - x * x * x - Curve::COEFF_A * x - Curve::COEFF_B
-    }
-}
-
 impl<F: FftField, Curve: SWCurveConfig<BaseField = F>> ProverGadget<F>
     for AffineColumn<F, Affine<Curve>>
 {
@@ -32,8 +16,15 @@ impl<F: FftField, Curve: SWCurveConfig<BaseField = F>> ProverGadget<F>
         todo!()
     }
 
+    // y^2 = x^3 + ax + b
     fn constraints(&self) -> Vec<Evaluations<F>> {
-        vec![self.on_curve_constraint()]
+        let domain = self.xs.domain_4x();
+        let sw_coeff_a = &const_evals(Curve::COEFF_A, domain);
+        let sw_coeff_b = &const_evals(Curve::COEFF_B, domain);
+        let x = &self.xs.evals_4x;
+        let y = &self.ys.evals_4x;
+        let c = &(&(y * y) - &(&(x * x) * x)) - &(&(sw_coeff_a * x) + &sw_coeff_b);
+        vec![c]
     }
 
     fn constraints_linearized(&self, _zeta: &F) -> Vec<DensePolynomial<F>> {
@@ -42,6 +33,14 @@ impl<F: FftField, Curve: SWCurveConfig<BaseField = F>> ProverGadget<F>
 
     fn domain(&self) -> GeneralEvaluationDomain<F> {
         todo!()
+    }
+}
+
+impl<F: Field, C: SWCurveConfig<BaseField = F>> VerifierGadget<F> for Affine<C> {
+    fn evaluate_constraints_main(&self) -> Vec<F> {
+        let (x, y) = self.xy().unwrap();
+        let c = y * y - x * x * x - C::COEFF_A * x - C::COEFF_B;
+        vec![c]
     }
 }
 
