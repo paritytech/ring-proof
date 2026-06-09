@@ -171,14 +171,6 @@ impl<C: CurveGroup, G: CurveModel<BaseField = C::ScalarField>>
     type Evaluations = ProofEvals<C::ScalarField>;
     type Instance = AffinePoint<G>;
 
-    fn quotient(&self, alphas: &[C::ScalarField]) -> Option<Vec<DensePolynomial<C::ScalarField>>> {
-        let chunks =
-            <Self as ProverPiop<C::ScalarField, WrappedAffine<C>>>::_quotient_chunks(self, alphas);
-        debug_assert_eq!(chunks.as_ref().unwrap().len(), 4);
-        debug_assert_eq!(chunks.as_ref().unwrap()[3].degree(), 0);
-        chunks
-    }
-
     fn committed_columns<Fun: Fn(&DensePolynomial<C::ScalarField>) -> WrappedAffine<C>>(
         &self,
         commit: Fun,
@@ -236,6 +228,14 @@ impl<C: CurveGroup, G: CurveModel<BaseField = C::ScalarField>>
             )],
         ]
         .concat()
+    }
+
+    fn quotient(&self, alphas: &[C::ScalarField]) -> Option<Vec<DensePolynomial<C::ScalarField>>> {
+        let chunks =
+            <Self as ProverPiop<C::ScalarField, WrappedAffine<C>>>::_quotient_chunks(self, alphas);
+        debug_assert_eq!(chunks.as_ref().unwrap().len(), 4);
+        debug_assert_eq!(chunks.as_ref().unwrap()[3].degree(), 0);
+        chunks
     }
 
     fn constraints_lin(&self, zeta: &C::ScalarField) -> Vec<DensePolynomial<C::ScalarField>> {
