@@ -1,9 +1,10 @@
-use crate::auth_path::blinded::BlindedAuthenticationPath;
-use crate::{CircuitParams, CycleParams, CycleSideParams};
-use crate::{CurveTreeProof, CycleSideProof};
-use ark_ec::{AffineRepr, CurveGroup};
-// use ark_ec::short_weierstrass::{Affine, Projective, SWCurveConfig};
 use crate::ArkTranscript;
+use crate::auth_path::blinded::BlindedAuthenticationPath;
+use crate::{
+    AffinePoint, CircuitParams, CurveModel, CycleParams, CycleSideParams, ProjectivePoint,
+};
+use crate::{CurveTreeProof, CycleSideProof};
+use ark_ec::CurveGroup;
 use ark_ff::PrimeField;
 use w3f_pcs::pcs::PcsParams;
 use w3f_pcs::pcs::ipa::hiding::HidingIpa;
@@ -13,16 +14,16 @@ use w3f_plonk_common::verifier::{PcsOpeningAt2Points, PlonkVerifier};
 
 impl<C0, C1, P0, P1> CycleParams<C0, C1, P0, P1>
 where
-    C0: CurveGroup<BaseField: PrimeField>,
-    C1: CurveGroup<BaseField = C0::ScalarField, ScalarField = C0::BaseField>,
-    P0: CircuitParams<C0, C1::Affine>,
-    P1: CircuitParams<C1, C0::Affine>,
+    C0: CurveModel<BaseField: PrimeField>,
+    C1: CurveModel<BaseField = C0::ScalarField, ScalarField = C0::BaseField>,
+    P0: CircuitParams<ProjectivePoint<C0>, C1>,
+    P1: CircuitParams<ProjectivePoint<C1>, C0>,
 {
     pub fn verify(
         &self,
-        auth_path: BlindedAuthenticationPath<C0, C1>,
+        auth_path: BlindedAuthenticationPath<ProjectivePoint<C0>, ProjectivePoint<C1>>,
         proof: CurveTreeProof<C0, C1, P0, P1>,
-        root: C0::Affine,
+        root: AffinePoint<C0>,
     ) -> bool {
         let BlindedAuthenticationPath { c0_path, c1_path } = auth_path;
         let mut c0_parents = c0_path[1..].to_vec();
@@ -37,13 +38,13 @@ where
     }
 }
 
-impl<C: CurveGroup, G: AffineRepr<BaseField = C::ScalarField>, P: CircuitParams<C, G>>
+impl<C: CurveGroup, G: CurveModel<BaseField = C::ScalarField>, P: CircuitParams<C, G>>
     CycleSideParams<C, G, P>
 {
     pub fn verify_side(
         &self,
         // selected re-randomized children
-        children: Vec<G>,
+        children: Vec<AffinePoint<G>>,
         // parents, re-randomized at the previous step
         parents: Vec<C::Affine>,
         side_proof: CycleSideProof<C, G, P>,

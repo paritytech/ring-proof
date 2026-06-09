@@ -1,11 +1,12 @@
+use crate::ArkTranscript;
 use crate::auth_path::blinded::BlindedAuthenticationPath;
 use crate::auth_path::node::LevelWitnessWithBlinding;
 use crate::auth_path::path::AuthenticationPath;
-use crate::{CircuitParams, CycleParams, CycleSideParams};
+use crate::{
+    AffinePoint, CircuitParams, CurveModel, CycleParams, CycleSideParams, ProjectivePoint,
+};
 use crate::{Coeffs, CurveTreeProof, CycleSideProof};
-use ark_ec::{AffineRepr, CurveGroup};
-// use ark_ec::short_weierstrass::{Affine as SwAffine, Projective, SWCurveConfig};
-use crate::ArkTranscript;
+use ark_ec::CurveGroup;
 use ark_ff::{PrimeField, Zero};
 use ark_poly::Polynomial;
 use ark_std::rand::Rng;
@@ -20,17 +21,17 @@ use w3f_plonk_common::prover::{PcsOpeningAt2Points, PlonkProver};
 
 impl<C0, C1, P0, P1> CycleParams<C0, C1, P0, P1>
 where
-    C0: CurveGroup<BaseField: PrimeField>,
-    C1: CurveGroup<BaseField = C0::ScalarField, ScalarField = C0::BaseField>,
-    P0: CircuitParams<C0, C1::Affine>,
-    P1: CircuitParams<C1, C0::Affine>,
+    C0: CurveModel<BaseField: PrimeField>,
+    C1: CurveModel<BaseField = C0::ScalarField, ScalarField = C0::BaseField>,
+    P0: CircuitParams<ProjectivePoint<C0>, C1>,
+    P1: CircuitParams<ProjectivePoint<C1>, C0>,
 {
     pub fn prove<R: Rng>(
         &self,
-        auth_path: AuthenticationPath<C0, C1>,
+        auth_path: AuthenticationPath<ProjectivePoint<C0>, ProjectivePoint<C1>>,
         rng: &mut R,
     ) -> (
-        BlindedAuthenticationPath<C0, C1>,
+        BlindedAuthenticationPath<ProjectivePoint<C0>, ProjectivePoint<C1>>,
         CurveTreeProof<C0, C1, P0, P1>,
     ) {
         let auth_path_with_bf = auth_path.with_blinding(rng);
@@ -47,13 +48,13 @@ where
     }
 }
 
-impl<C: CurveGroup, G: AffineRepr<BaseField = C::ScalarField>, P: CircuitParams<C, G>>
+impl<C: CurveGroup, G: CurveModel<BaseField = C::ScalarField>, P: CircuitParams<C, G>>
     CycleSideParams<C, G, P>
 {
     pub fn prove_side<R: Rng>(
         &self,
-        blinded_path: Vec<G>,
-        witness: Vec<LevelWitnessWithBlinding<G>>,
+        blinded_path: Vec<AffinePoint<G>>,
+        witness: Vec<LevelWitnessWithBlinding<AffinePoint<G>>>,
         rng: &mut R,
     ) -> CycleSideProof<C, G, P> {
         let curve_name = &std::any::type_name::<C>()[53..];

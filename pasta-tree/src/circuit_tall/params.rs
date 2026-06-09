@@ -1,7 +1,7 @@
-use crate::CircuitParams;
 use crate::auth_path::node::LevelWitnessWithBlinding;
 use crate::circuit_tall::prover::PiopProver;
 use crate::circuit_tall::verifier::PiopVerifier;
+use crate::{AffinePoint, CircuitParams, CurveModel};
 // use ark_ec::short_weierstrass::{Affine as SwAffine, SWCurveConfig};
 use ark_ec::{AffineRepr, CurveGroup};
 use ark_ff::{AdditiveGroup, BigInteger, PrimeField, Zero};
@@ -33,21 +33,24 @@ pub struct PiopParams<G: AffineRepr<BaseField: FftField>> {
     pub h: G,
 }
 
-impl<C: CurveGroup, G: AffineRepr<BaseField = C::ScalarField>> CircuitParams<C, G>
-    for PiopParams<G>
+impl<C: CurveGroup, G: CurveModel<BaseField = C::ScalarField>> CircuitParams<C, G>
+    for PiopParams<AffinePoint<G>>
 {
     type Commitments = crate::circuit_tall::ProofComms<C>;
     type Evaluations = crate::circuit_tall::ProofEvals<C::ScalarField>;
-    type ProverCircuit = PiopProver<G>;
-    type VerifierCircuit = PiopVerifier<C, G>;
+    type ProverCircuit = PiopProver<AffinePoint<G>>;
+    type VerifierCircuit = PiopVerifier<C, AffinePoint<G>>;
 
-    fn prover_circuit(&self, level: LevelWitnessWithBlinding<G>) -> Self::ProverCircuit {
+    fn prover_circuit(
+        &self,
+        level: LevelWitnessWithBlinding<AffinePoint<G>>,
+    ) -> Self::ProverCircuit {
         PiopProver::build(&self, level)
     }
 
     fn verifier_circuit(
         &self,
-        instance: (G, C::Affine),
+        instance: (AffinePoint<G>, C::Affine),
         fixed_cols: &[WrappedAffine<C>],
         cols: Self::Commitments,
         evals: Self::Evaluations,
@@ -97,7 +100,7 @@ impl<C: CurveGroup, G: AffineRepr<BaseField = C::ScalarField>> CircuitParams<C, 
     }
 
     #[cfg(test)]
-    fn setup(domain_size: usize, h: G, seed: G) -> Self {
+    fn setup(domain_size: usize, h: AffinePoint<G>, seed: AffinePoint<G>) -> Self {
         let domain = Domain::<G::BaseField>::with_zk_rows(domain_size, ZK_ROWS);
         Self::setup(domain, h, seed)
     }
