@@ -1,5 +1,5 @@
 use ark_ec::short_weierstrass::{Affine, SWCurveConfig};
-use ark_ff::{FftField, Field};
+use ark_ff::{FftField, Field, Zero};
 use ark_poly::univariate::DensePolynomial;
 use ark_poly::{Evaluations, GeneralEvaluationDomain};
 use ark_std::{vec, vec::Vec};
@@ -22,6 +22,26 @@ impl<F: FftField, Curve: SWCurveConfig<BaseField = F>> AffineColumn<F, Affine<Cu
 
     pub fn on_curve_eval((x, y): (F, F)) -> F {
         y * y - x * x * x - Curve::COEFF_A * x - Curve::COEFF_B
+    }
+}
+
+impl<F: FftField, Curve: SWCurveConfig<BaseField = F>> ProverGadget<F>
+    for AffineColumn<F, Affine<Curve>>
+{
+    fn witness_columns(&self) -> Vec<DensePolynomial<F>> {
+        todo!()
+    }
+
+    fn constraints(&self) -> Vec<Evaluations<F>> {
+        vec![self.on_curve_constraint()]
+    }
+
+    fn constraints_linearized(&self, _zeta: &F) -> Vec<DensePolynomial<F>> {
+        vec![DensePolynomial::zero()]
+    }
+
+    fn domain(&self) -> GeneralEvaluationDomain<F> {
+        todo!()
     }
 }
 

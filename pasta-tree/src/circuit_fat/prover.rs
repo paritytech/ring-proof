@@ -25,7 +25,7 @@ use w3f_plonk_common::piop::ProverPiop;
 pub struct PiopProver<G: AffineRepr<BaseField: FftField>> {
     domain: Domain<G::BaseField>,
     // `x` coordinates of all the children of a node. Public input.
-    nodes: FieldColumn<G::BaseField>,
+    x_coords: FieldColumn<G::BaseField>,
     // `H, 2H, 4H,...,2^sH` Fixed column.
     h_powers: AffineColumn<G::BaseField, G>,
     // `node_x = self.x_coords[self.node_idx]` Private input.
@@ -87,6 +87,13 @@ impl<G: CurveModel<BaseField: PrimeField>> PiopProver<AffinePoint<G>> {
             FixedCells::last(blinded_node.acc.ys.clone(), &domain, node_blinded_y);
         let selected_node_val =
             FixedCells::last(selected_node.acc.clone(), &domain, G::BaseField::zero());
+        // this prevents opening to -parent=(x,-y)
+        // parent = commit([x1, ..., xl, 1, 0, 0, 0]; 0) = x1.G1 + ... + xl.Gl + 1.G_{l+1}
+        // then -parent = commit([-x1, ..., -xl, -1, 0, 0, 0]; 0)
+        // TODO:
+        let mut x_coords_with_one_cell = x_coords.clone();
+        x_coords_with_one_cell.payload_len = domain.capacity;
+        let one_cell = FixedCells::last(x_coords_with_one_cell, &domain, G::BaseField::one());
 
         let selected_node_acc = selected_node.acc.clone();
         let blinded_node_acc = blinded_node.acc.clone();
@@ -103,10 +110,12 @@ impl<G: CurveModel<BaseField: PrimeField>> PiopProver<AffinePoint<G>> {
         gadgets.push(Box::new(blinded_node_val_y));
         gadgets.push(Box::new(selected_node_val));
         gadgets.push(Box::new(seed_eq_node));
+        gadgets.push(Box::new(blinded_node_acc.clone()));
+        gadgets.push(Box::new(one_cell));
 
         Self {
             domain,
-            nodes: x_coords,
+            x_coords,
             h_powers,
             node_idx,
             bf_bits,
@@ -146,7 +155,7 @@ impl<G: CurveModel<BaseField: PrimeField>> PiopProver<AffinePoint<G>> {
     // Self::Evaluations::to_vec() and Self::Commitments::to_vec().
     fn _columns(&self) -> Vec<DensePolynomial<G::BaseField>> {
         vec![
-            self.nodes.as_poly().clone(),
+            self.x_coords.as_poly().clone(),
             self.h_powers.xs.as_poly().clone(),
             self.h_powers.ys.as_poly().clone(),
             self.node_idx.as_poly().clone(),
@@ -159,7 +168,7 @@ impl<G: CurveModel<BaseField: PrimeField>> PiopProver<AffinePoint<G>> {
     }
 
     fn _columns_evaluated(&self, zeta: &G::BaseField) -> ProofEvals<G::BaseField> {
-        let x_coords = self.nodes.evaluate(zeta);
+        let x_coords = self.x_coords.evaluate(zeta);
         let h_powers = [
             self.h_powers.xs.evaluate(zeta),
             self.h_powers.ys.evaluate(zeta),
@@ -213,21 +222,7 @@ impl<C: CurveGroup, G: CurveModel<BaseField = C::ScalarField>>
     }
 
     fn constraints(&self) -> Vec<Evaluations<C::ScalarField>> {
-        let constraints = self.gadgets.iter().flat_map(|g| g.constraints()).collect();
-        vec![
-            constraints,
-            vec![self.blinded_node_acc.on_curve_constraint()],
-            // this prevents opening to -parent=(x,-y)
-            // parent = commit([x1, ..., xl, 1, 0, 0, 0]; 0) = x1.G1 + ... + xl.Gl + 1.G_{l+1}
-            // then -parent = commit([-x1, ..., -xl, -1, 0, 0, 0]; 0)
-            vec![FixedCells::constraint_cell(
-                &self.nodes,
-                &self.domain.l_last,
-                self.domain.capacity - 1,
-                C::ScalarField::one(),
-            )],
-        ]
-        .concat()
+        self.gadgets.iter().flat_map(|g| g.constraints()).collect()
     }
 
     fn quotient(&self, alphas: &[C::ScalarField]) -> Option<Vec<DensePolynomial<C::ScalarField>>> {
@@ -235,17 +230,10 @@ impl<C: CurveGroup, G: CurveModel<BaseField = C::ScalarField>>
     }
 
     fn constraints_lin(&self, zeta: &C::ScalarField) -> Vec<DensePolynomial<C::ScalarField>> {
-        let constraints = self
-            .gadgets
+        self.gadgets
             .iter()
             .flat_map(|g| g.constraints_linearized(zeta))
-            .collect();
-        vec![
-            constraints,
-            vec![DensePolynomial::zero()],
-            vec![DensePolynomial::zero()],
-        ]
-        .concat()
+            .collect()
     }
 
     fn domain(&self) -> &Domain<C::ScalarField> {

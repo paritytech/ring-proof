@@ -36,7 +36,7 @@ pub struct FieldColumn<F: FftField> {
     // We require all the evaluations padded to the domain size
     // (as we need to add blinding cells aka zk_rows) at the end of the vector.
     // `payload_len` keeps the original length of the data.
-    payload_len: usize,
+    pub payload_len: usize,
 }
 
 impl<F: FftField> FieldColumn<F> {
