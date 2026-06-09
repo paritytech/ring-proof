@@ -1,5 +1,6 @@
 use crate::auth_path::node::LevelWitnessWithBlinding;
-use ark_ec::{AffineRepr, CurveGroup, PrimeGroup};
+use ark_ec::short_weierstrass::SWCurveConfig;
+use ark_ec::{CurveGroup, PrimeGroup};
 use ark_ff::PrimeField;
 use ark_ff::Zero;
 use ark_serialize::CanonicalSerialize;
@@ -22,25 +23,33 @@ pub mod circuit_fat;
 pub mod prover;
 pub mod verifier;
 
+pub trait CurveModel: SWCurveConfig {}
+impl<T> CurveModel for T where T: SWCurveConfig {}
+type AffinePoint<C> = ark_ec::short_weierstrass::Affine<C>;
+type ProjectivePoint<C> = ark_ec::short_weierstrass::Projective<C>;
+
 // TODO: goes vto plonk-common in some form
 /// A circuit over `C::ScalarField`.
-pub trait CircuitParams<C: CurveGroup, G: AffineRepr<BaseField = C::ScalarField>> {
+pub trait CircuitParams<C: CurveGroup, G: CurveModel<BaseField = C::ScalarField>> {
     type Commitments: ColumnsCommited<C::ScalarField, WrappedAffine<C>>;
     type Evaluations: ColumnsEvaluated<C::ScalarField>;
     type ProverCircuit: ProverPiop<
             C::ScalarField,
             WrappedAffine<C>,
-            Instance = G,
+            Instance = AffinePoint<G>,
             Commitments = Self::Commitments,
             Evaluations = Self::Evaluations,
         >;
     type VerifierCircuit: VerifierPiop<C::ScalarField, WrappedAffine<C>>;
 
-    fn prover_circuit(&self, level: LevelWitnessWithBlinding<G>) -> Self::ProverCircuit;
+    fn prover_circuit(
+        &self,
+        level: LevelWitnessWithBlinding<AffinePoint<G>>,
+    ) -> Self::ProverCircuit;
 
     fn verifier_circuit(
         &self,
-        instance: (G, C::Affine),
+        instance: (AffinePoint<G>, C::Affine),
         fixed_cols: &[WrappedAffine<C>],
         cols: Self::Commitments,
         evals: Self::Evaluations,
@@ -58,12 +67,12 @@ pub trait CircuitParams<C: CurveGroup, G: AffineRepr<BaseField = C::ScalarField>
 
     #[cfg(test)] // an "application" runs usually a single circuit
     /// `h` is the pedersen blinding base (from the opposite side) to prove `C' = Ci + rH`
-    fn setup(domain: Domain<C::ScalarField>, h: G, seed: G) -> Self;
+    fn setup(domain: Domain<C::ScalarField>, h: AffinePoint<G>, seed: AffinePoint<G>) -> Self;
 }
 
 pub struct CycleSideParams<
     C: CurveGroup,
-    G: AffineRepr<BaseField = C::ScalarField>,
+    G: CurveModel<BaseField = C::ScalarField>,
     P: CircuitParams<C, G>,
 > {
     pcs_params: HidingIpa<C>,
@@ -72,13 +81,13 @@ pub struct CycleSideParams<
 }
 
 pub struct CycleParams<
-    C0: CurveGroup,
-    C1: CurveGroup<BaseField = C0::ScalarField, ScalarField = C0::BaseField>,
-    P0: CircuitParams<C0, C1::Affine>,
-    P1: CircuitParams<C1, C0::Affine>,
+    C0: CurveModel,
+    C1: CurveModel<BaseField = C0::ScalarField, ScalarField = C0::BaseField>,
+    P0: CircuitParams<ProjectivePoint<C0>, C1>,
+    P1: CircuitParams<ProjectivePoint<C1>, C0>,
 > {
-    c0_params: CycleSideParams<C0, C1::Affine, P0>,
-    c1_params: CycleSideParams<C1, C0::Affine, P1>,
+    c0_params: CycleSideParams<ProjectivePoint<C0>, C1, P0>,
+    c1_params: CycleSideParams<ProjectivePoint<C1>, C0, P1>,
 }
 
 type LevelProof<C, G, P> = w3f_plonk_common::PiopProof<
@@ -91,7 +100,7 @@ type LevelProof<C, G, P> = w3f_plonk_common::PiopProof<
 #[derive(Clone)]
 pub struct CycleSideProof<
     C: CurveGroup,
-    G: AffineRepr<BaseField = C::ScalarField>,
+    G: CurveModel<BaseField = C::ScalarField>,
     P: CircuitParams<C, G>,
 > {
     piop_proofs: Vec<LevelProof<C, G, P>>,
@@ -101,16 +110,16 @@ pub struct CycleSideProof<
 
 #[derive(Clone)]
 pub struct CurveTreeProof<
-    C0: CurveGroup,
-    C1: CurveGroup<BaseField = C0::ScalarField, ScalarField = C0::BaseField>,
-    P0: CircuitParams<C0, C1::Affine>,
-    P1: CircuitParams<C1, C0::Affine>,
+    C0: CurveModel,
+    C1: CurveModel<BaseField = C0::ScalarField, ScalarField = C0::BaseField>,
+    P0: CircuitParams<ProjectivePoint<C0>, C1>,
+    P1: CircuitParams<ProjectivePoint<C1>, C0>,
 > {
-    c0_proof: CycleSideProof<C0, C1::Affine, P0>,
-    c1_proof: CycleSideProof<C1, C0::Affine, P1>,
+    c0_proof: CycleSideProof<ProjectivePoint<C0>, C1, P0>,
+    c1_proof: CycleSideProof<ProjectivePoint<C1>, C0, P1>,
 }
 
-impl<C: CurveGroup, G: AffineRepr<BaseField = C::ScalarField>, P: CircuitParams<C, G>>
+impl<C: CurveGroup, G: CurveModel<BaseField = C::ScalarField>, P: CircuitParams<C, G>>
     CycleSideParams<C, G, P>
 {
     pub fn commit_tree_nodes(
@@ -189,11 +198,11 @@ mod tests {
     use crate::auth_path::node::LevelWitness;
     use crate::auth_path::path::AuthenticationPath;
     use crate::circuit_fat::params::PiopParams as CircuitParamsFat;
-    // use crate::circuit_tall::params::PiopParams as CircuitParamsTall;
-    use ark_ec::AdditiveGroup;
     use ark_ec::scalar_mul::glv::GLVConfig;
     use ark_ec::scalar_mul::wnaf::WnafContext;
     use ark_ec::short_weierstrass::{Affine, SWCurveConfig};
+    // use crate::circuit_tall::params::PiopParams as CircuitParamsTall;
+    use ark_ec::AdditiveGroup;
     use ark_ec::{AffineRepr, CurveGroup};
     use ark_ff::{BigInteger, Field, Zero};
     use ark_ff::{FftField, PrimeField};
@@ -215,19 +224,21 @@ mod tests {
 
     impl<C0, C1, P0, P1> CycleParams<C0, C1, P0, P1>
     where
-        C0: CurveGroup<BaseField: PrimeField>,
-        C1: CurveGroup<BaseField = C0::ScalarField, ScalarField = C0::BaseField>,
-        P0: CircuitParams<C0, C1::Affine>,
-        P1: CircuitParams<C1, C0::Affine>,
+        C0: CurveModel<BaseField: PrimeField>,
+        C1: CurveModel<BaseField = C0::ScalarField, ScalarField = C0::BaseField>,
+        P0: CircuitParams<ProjectivePoint<C0>, C1>,
+        P1: CircuitParams<ProjectivePoint<C1>, C0>,
     {
         pub fn setup<R: Rng>(domain_size: usize, rng: &mut R) -> Self {
             let setup_degree = 3 * domain_size;
-            let c0_pcs_params = HidingIpa::<C0>::setup(setup_degree, rng);
-            let c1_pcs_params = HidingIpa::<C1>::setup(setup_degree, rng);
+            let c0_pcs_params = HidingIpa::<ProjectivePoint<C0>>::setup(setup_degree, rng);
+            let c1_pcs_params = HidingIpa::<ProjectivePoint<C1>>::setup(setup_degree, rng);
             let c0_domain = Domain::<C0::ScalarField>::with_zk_rows(domain_size, 3);
-            let c0_piop_params = P0::setup(c0_domain, c1_pcs_params.h, C1::Affine::rand(rng));
+            let c0_piop_params =
+                P0::setup(c0_domain, c1_pcs_params.h, AffinePoint::<C1>::rand(rng));
             let c1_domain = Domain::<C1::ScalarField>::with_zk_rows(domain_size, 3);
-            let c1_piop_params = P1::setup(c1_domain, c0_pcs_params.h, C0::Affine::rand(rng));
+            let c1_piop_params =
+                P1::setup(c1_domain, c0_pcs_params.h, AffinePoint::<C0>::rand(rng));
             Self {
                 c0_params: CycleSideParams {
                     pcs_params: c0_pcs_params,
@@ -251,8 +262,8 @@ mod tests {
         let (log_n, h) = (8, 2);
         println!("n = {}, height = {h}, FAT", 1 << log_n);
         _test_proof::<
-            ark_pallas::Projective,
-            ark_vesta::Projective,
+            ark_pallas::PallasConfig,
+            ark_vesta::VestaConfig,
             CircuitParamsFat<ark_vesta::Affine>,
             CircuitParamsFat<ark_pallas::Affine>,
         >(log_n, h);
@@ -281,8 +292,8 @@ mod tests {
         let (log_n, h) = (8, 4);
         println!("n = {}, height = {h}, FAT", 1 << log_n);
         _test_proof::<
-            ark_pallas::Projective,
-            ark_vesta::Projective,
+            ark_pallas::PallasConfig,
+            ark_vesta::VestaConfig,
             CircuitParamsFat<ark_vesta::Affine>,
             CircuitParamsFat<ark_pallas::Affine>,
         >(log_n, h);
@@ -301,10 +312,10 @@ mod tests {
 
     fn _test_proof<C0, C1, P0, P1>(log_n: usize, height: usize)
     where
-        C0: CurveGroup<BaseField: PrimeField>,
-        C1: CurveGroup<BaseField = C0::ScalarField, ScalarField = C0::BaseField>,
-        P0: CircuitParams<C0, C1::Affine>,
-        P1: CircuitParams<C1, C0::Affine>,
+        C0: CurveModel<BaseField: PrimeField>,
+        C1: CurveModel<BaseField = C0::ScalarField, ScalarField = C0::BaseField>,
+        P0: CircuitParams<ProjectivePoint<C0>, C1>,
+        P1: CircuitParams<ProjectivePoint<C1>, C0>,
     {
         let rng = &mut test_rng();
         let domain_size = 1 << log_n;
@@ -350,33 +361,33 @@ mod tests {
 
     pub fn random_nodes<
         C: CurveGroup,
-        G: AffineRepr<BaseField = C::ScalarField>,
+        G: CurveModel<BaseField = C::ScalarField>,
         P: CircuitParams<C, G>,
         R: Rng,
     >(
         params: &CycleSideParams<C, G, P>,
-        path_node: G,
+        path_node: AffinePoint<G>,
         rng: &mut R,
-    ) -> (C::Affine, LevelWitness<G>) {
+    ) -> (C::Affine, LevelWitness<AffinePoint<G>>) {
         let level_witness = random_witness(params.piop_params.max_children(), path_node, rng);
         let parent = level_witness.compute_parent(params).unwrap();
         (parent, level_witness)
     }
 
     pub fn random_path<
-        C0: CurveGroup<BaseField: FftField>,
-        C1: CurveGroup<BaseField = C0::ScalarField, ScalarField = C0::BaseField>,
-        P0: CircuitParams<C0, C1::Affine>,
-        P1: CircuitParams<C1, C0::Affine>,
+        C0: CurveModel<BaseField: FftField>,
+        C1: CurveModel<BaseField = C0::ScalarField, ScalarField = C0::BaseField>,
+        P0: CircuitParams<ProjectivePoint<C0>, C1>,
+        P1: CircuitParams<ProjectivePoint<C1>, C0>,
         R: Rng,
     >(
         params: &CycleParams<C0, C1, P0, P1>,
         length: usize,
         rng: &mut R,
     ) -> (
-        C0::Affine,
-        AuthenticationPath<C0, C1>,
-        CycleSide<C0::Affine, C1::Affine>,
+        AffinePoint<C0>,
+        AuthenticationPath<ProjectivePoint<C0>, ProjectivePoint<C1>>,
+        CycleSide<AffinePoint<C0>, AffinePoint<C1>>,
     ) {
         let c0_len = (length + 1) / 2;
         let c1_len = length / 2;
@@ -384,7 +395,7 @@ mod tests {
         let mut c0_path = Vec::with_capacity(c0_len);
         let mut c1_path = Vec::with_capacity(c1_len);
 
-        let leaf = C0::Affine::rand(rng);
+        let leaf = AffinePoint::<C0>::rand(rng);
         let mut c0_path_node = leaf;
         for _ in 0..c1_len {
             let (parent_on_c1, c0_nodes) = random_nodes(&params.c1_params, c0_path_node, rng);
