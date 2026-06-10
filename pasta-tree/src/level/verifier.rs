@@ -39,9 +39,6 @@ impl<C: CurveGroup, G: SWCurveConfig<BaseField = C::ScalarField, ScalarField = C
         let (challenges, _rng) = plonk_verifier.restore_challenges(
             &blinded_child,
             &piop_proof,
-            // '1' accounts for the quotient polynomial that is aggregated together with the columns
-            PiopVerifier::<C::ScalarField, IPACommitment<C>, Affine<G>>::N_COLUMNS + 1,
-            PiopVerifier::<C::ScalarField, IPACommitment<C>, Affine<G>>::N_CONSTRAINTS,
         );
         let seed = self.piop_params.seed;
         let seed_plus_result = (seed + blinded_child).into_affine();

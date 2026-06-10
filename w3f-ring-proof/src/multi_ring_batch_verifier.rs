@@ -6,7 +6,6 @@ use w3f_pcs::pcs::kzg::params::KzgVerifierKey;
 use w3f_pcs::pcs::kzg::KZG;
 use w3f_pcs::pcs::PCS;
 use w3f_plonk_common::kzg_acc::KzgAccumulator;
-use w3f_plonk_common::piop::VerifierPiop;
 use w3f_plonk_common::transcript::PlonkTranscript;
 use w3f_plonk_common::verifier::Challenges;
 
@@ -44,12 +43,12 @@ where
     where
         T: PlonkTranscript<E::ScalarField, KZG<E>>,
     {
-        let (challenges, mut transcript) = verifier.plonk_verifier.restore_challenges(
-            &result,
-            &proof.to_piop_proof(),
-            PiopVerifier::<E::ScalarField, <KZG<E> as PCS<_>>::C, Affine<J>>::N_COLUMNS + 1,
-            PiopVerifier::<E::ScalarField, <KZG<E> as PCS<_>>::C, Affine<J>>::N_CONSTRAINTS,
-        );
+        let (challenges, mut transcript) = verifier
+            .plonk_verifier
+            .restore_challenges::<PiopVerifier<_, _, Affine<J>>, _, _>(
+                &result,
+                &proof.to_piop_proof(),
+            );
         transcript.add_kzg_proofs(&proof.agg_at_zeta_proof, &proof.lin_at_zeta_omega_proof);
         let seed = verifier.piop_params.seed;
         let seed_plus_result = (seed + result).into_affine();

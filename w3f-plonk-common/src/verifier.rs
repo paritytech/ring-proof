@@ -117,27 +117,26 @@ impl<F: PrimeField, CS: PCS<F>, T: PlonkTranscript<F, CS>> PlonkVerifier<F, CS, 
         .is_ok()
     }
 
-    pub fn restore_challenges<Commitments, Evaluations>(
+    pub fn restore_challenges<Piop, Cols, Evals>(
         &self,
-        instance: &impl CanonicalSerialize,
-        proof: &PiopProof<F, CS::C, Commitments, Evaluations>,
-        n_polys: usize,
-        n_constraints: usize,
+        instance: &Piop::Instance,
+        proof: &PiopProof<F, CS::C, Cols, Evals>,
     ) -> (Challenges<F>, T)
     where
-        Commitments: ColumnsCommited<F, CS::C>,
-        Evaluations: ColumnsEvaluated<F>,
+        Piop: VerifierPiop<F, CS::C>,
+        Cols: ColumnsCommited<F, CS::C>,
+        Evals: ColumnsEvaluated<F>,
     {
         let mut transcript = self.transcript_prelude.clone();
         transcript.add_instance(instance);
         transcript.add_committed_cols(&proof.column_commitments);
         // let r = transcript.get_bitmask_aggregation_challenge();
         // transcript.append_2nd_round_register_commitments(&proof.additional_commitments);
-        let alphas = transcript.get_constraints_aggregation_coeffs(n_constraints);
+        let alphas = transcript.get_constraints_aggregation_coeffs(Piop::N_CONSTRAINTS);
         transcript.add_quotient_commitment(&proof.quotient_commitment);
         let zeta = transcript.get_evaluation_point();
         transcript.add_evaluations(&proof.columns_at_zeta, &proof.lin_at_zeta_omega);
-        let nus = transcript.get_kzg_aggregation_challenges(n_polys);
+        let nus = transcript.get_kzg_aggregation_challenges(Piop::N_COLUMNS + 1); //TODO: chunks
         let challenges = Challenges { alphas, zeta, nus };
         (challenges, transcript)
     }
