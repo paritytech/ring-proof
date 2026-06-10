@@ -47,13 +47,9 @@ where
     }
 
     pub fn verify(&self, proof: RingProof<F, CS>, result: Affine<Jubjub>) -> bool {
-        let (challenges, mut transcript) = self
+        let (challenges, mut fs_rng) = self
             .plonk_verifier
-            .restore_challenges::<PiopVerifier<_, _, Affine<Jubjub>>, _, _>(
-                &result,
-                &proof.to_piop_proof(),
-            );
-        transcript.add_kzg_proofs(&proof.agg_at_zeta_proof, &proof.lin_at_zeta_omega_proof);
+            .restore_fs_with_rng::<PiopVerifier<_, _, Affine<Jubjub>>, _, _>(&result, &proof);
         let seed = self.piop_params.seed;
         let seed_plus_result = (seed + result).into_affine();
         let domain_at_zeta = self.piop_params.domain.evaluate(challenges.zeta);
@@ -67,7 +63,7 @@ where
         );
 
         self.plonk_verifier
-            .verify(piop, proof, challenges, &mut transcript.to_rng())
+            .verify(piop, proof, challenges, &mut fs_rng)
     }
 
     pub fn piop_params(&self) -> &PiopParams<Affine<Jubjub>> {

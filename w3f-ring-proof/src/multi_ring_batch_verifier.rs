@@ -43,13 +43,9 @@ where
     where
         T: PlonkTranscript<E::ScalarField, KZG<E>>,
     {
-        let (challenges, mut transcript) = verifier
+        let (challenges, mut fs_rng) = verifier
             .plonk_verifier
-            .restore_challenges::<PiopVerifier<_, _, Affine<J>>, _, _>(
-                &result,
-                &proof.to_piop_proof(),
-            );
-        transcript.add_kzg_proofs(&proof.agg_at_zeta_proof, &proof.lin_at_zeta_omega_proof);
+            .restore_fs_with_rng::<PiopVerifier<_, _, Affine<J>>, _, _>(&result, &proof);
         let seed = verifier.piop_params.seed;
         let seed_plus_result = (seed + result).into_affine();
         let domain_at_zeta = verifier.piop_params.domain.evaluate(challenges.zeta);
@@ -63,7 +59,7 @@ where
         );
 
         let mut entropy = [0_u8; 32];
-        transcript.to_rng().fill_bytes(&mut entropy);
+        fs_rng.fill_bytes(&mut entropy);
 
         Self {
             piop,
