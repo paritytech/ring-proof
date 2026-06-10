@@ -104,7 +104,8 @@ impl<F: PrimeField, C: Commitment<F>, V: VerifierPiop<F, C>, const K: usize> Ver
 
     fn lin_poly_commitment(&self, agg_coeffs: &[F]) -> (Vec<F>, Vec<C>) {
         self.0.iter()
-            .map(|p| p.lin_poly_commitment(agg_coeffs))
+            .zip(agg_coeffs.chunks(V::N_CONSTRAINTS))
+            .map(|(p, alphas)| p.lin_poly_commitment(alphas))
             .reduce(| (mut acc_f, mut acc_c), (f, c)| {
                 acc_f.extend(f);
                 acc_c.extend(c);

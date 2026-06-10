@@ -390,7 +390,7 @@ mod tests {
         //
         let t_verify = start_timer!(|| "Verifying CurveTree membership");
         // let valid = params.verify(auth_path, proof, root);
-        let valid = params.batch_verify(auth_path, proof, root);
+        let valid = params.batch_verify::<2>(auth_path, proof, root);
         end_timer!(t_verify);
         assert!(valid);
     }

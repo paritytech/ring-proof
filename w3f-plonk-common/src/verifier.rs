@@ -119,7 +119,7 @@ impl<F: PrimeField, CS: PCS<F>, T: PlonkTranscript<F, CS>> PlonkVerifier<F, CS, 
             vec![proof.agg_at_zeta_proof, proof.lin_at_zeta_omega_proof],
             rng,
         )
-        .is_ok()
+            .is_ok()
     }
 
     pub fn restore_challenges<Commitments, Evaluations>(

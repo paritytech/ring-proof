@@ -13,6 +13,7 @@ use ark_std::rand::Rng;
 use ark_std::{UniformRand, end_timer, start_timer};
 use std::collections::BTreeSet;
 use std::marker::PhantomData;
+use ark_std::iterable::Iterable;
 use w3f_pcs::pcs::PcsParams;
 use w3f_pcs::pcs::commitment::WrappedAffine;
 use w3f_pcs::pcs::ipa::hiding::HidingIpa;
@@ -190,7 +191,6 @@ CycleSideParams<C, G, P>
         let batch_piop = witness.map(|level| self.piop_params.prover_circuit(level));
         let batch_piop = BatchProver(batch_piop, PhantomData, PhantomData);
 
-
         let t_commit_side = start_timer!(|| format!(
             "Committing {L}x{n_columns}+3 = {n_to_commit} polynomials to {curve_name}"
         ));
@@ -203,11 +203,30 @@ CycleSideParams<C, G, P>
             zeta,
             zeta_omega,
         } = pcs_openings;
+        println!("zeta = {zeta}\nq(zeta) = {}\n", polys_at_zeta[polys_at_zeta.len() - 1].evaluate(&zeta));
         let mut at_coords = vec![BTreeSet::from([zeta]); polys_at_zeta.len()];
         let mut polys_to_open = polys_at_zeta;
         at_coords.extend(vec![BTreeSet::from([zeta_omega]); polys_at_zeta_omega.len()]);
-        polys_to_open.extend(polys_at_zeta_omega);
-        let with_bfs = vec![C::ScalarField::zero(); polys_to_open.len()];
+        polys_to_open.extend(polys_at_zeta_omega.clone());
+        let with_bfs = parent_bfs.into_iter().flat_map(|bf| {
+            let mut res = vec![C::ScalarField::zero(); n_columns];
+            res[0] = bf;
+            res
+        }).chain(vec![C::ScalarField::zero(); 2])
+            .collect::<Vec<_>>();
+        debug_assert_eq!(with_bfs.len(), n_to_open);
+
+        let lin = &polys_at_zeta_omega[0];
+        use w3f_pcs::pcs::PCS;
+        let lin_c = HidingIpa::<C>::commit(&self.pcs_params,&lin).unwrap().0;
+        println!("C_lin = {lin_c}");
+
+        for (i, ((p, z), bf)) in polys_to_open.iter()
+            .zip(at_coords.iter().map(|z| z.first().unwrap()))
+            .zip(with_bfs.iter())
+            .enumerate() {
+            println!("{i}: z={z}, p(z)={}, bf={bf}", p.evaluate(z));
+        }
 
         let t_open = start_timer!(|| format!(
             "Opening {L}x{n_columns}+2 = {n_to_open} polynomials, max_degree = {}",
