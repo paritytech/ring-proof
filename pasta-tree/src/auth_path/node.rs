@@ -77,7 +77,7 @@ impl<G: CurveModel> LevelWitness<AffinePoint<G>> {
 }
 
 /// NB! It is not "blinded", meaning that the blinding factor hasn't been applied.
-#[derive(Clone)]
+#[derive(Clone, Debug)]
 pub struct LevelWitnessWithBlinding<G: AffineRepr> {
     pub(crate) level_witness: LevelWitness<G>,
     /// the verifier gets `Ci' = siblings[i] + bf.H`

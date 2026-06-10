@@ -16,10 +16,10 @@ pub trait ProverPiop<F: PrimeField, C: Commitment<F>> {
 
     type Commitments: ColumnsCommited<F, C>;
     type Evaluations: ColumnsEvaluated<F>;
-    type Instance: CanonicalSerialize + CanonicalDeserialize;
+    type Instance: Clone + ark_std::fmt::Debug + CanonicalSerialize + CanonicalDeserialize;
 
     // Commitments to the column polynomials excluding the precommitted columns.
-    fn committed_columns<Fun: Fn(&DensePolynomial<F>) -> C>(
+    fn committed_columns<Fun: Fn(&DensePolynomial<F>) -> C + Clone>(
         &self,
         commit: Fun,
     ) -> Self::Commitments;

@@ -28,16 +28,16 @@ type ProjectivePoint<C> = ark_ec::short_weierstrass::Projective<C>;
 
 // TODO: goes vto plonk-common in some form
 /// A circuit over `C::ScalarField`.
-pub trait CircuitParams<C: CurveGroup, G: CurveModel<BaseField = C::ScalarField>> {
+pub trait CircuitParams<C: CurveGroup, G: CurveModel<BaseField=C::ScalarField>> {
     type Commitments: ColumnsCommited<C::ScalarField, WrappedAffine<C>>;
     type Evaluations: ColumnsEvaluated<C::ScalarField>;
     type ProverCircuit: ProverPiop<
-            C::ScalarField,
-            WrappedAffine<C>,
-            Instance = AffinePoint<G>,
-            Commitments = Self::Commitments,
-            Evaluations = Self::Evaluations,
-        >;
+        C::ScalarField,
+        WrappedAffine<C>,
+        Instance=AffinePoint<G>,
+        Commitments=Self::Commitments,
+        Evaluations=Self::Evaluations,
+    >;
     type VerifierCircuit: VerifierPiop<C::ScalarField, WrappedAffine<C>>;
 
     fn prover_circuit(
@@ -70,7 +70,7 @@ pub trait CircuitParams<C: CurveGroup, G: CurveModel<BaseField = C::ScalarField>
 
 pub struct CycleSideParams<
     C: CurveGroup,
-    G: CurveModel<BaseField = C::ScalarField>,
+    G: CurveModel<BaseField=C::ScalarField>,
     P: CircuitParams<C, G>,
 > {
     pcs_params: HidingIpa<C>,
@@ -80,7 +80,7 @@ pub struct CycleSideParams<
 
 pub struct CycleParams<
     C0: CurveModel,
-    C1: CurveModel<BaseField = C0::ScalarField, ScalarField = C0::BaseField>,
+    C1: CurveModel<BaseField=C0::ScalarField, ScalarField=C0::BaseField>,
     P0: CircuitParams<ProjectivePoint<C0>, C1>,
     P1: CircuitParams<ProjectivePoint<C1>, C0>,
 > {
@@ -95,10 +95,29 @@ type LevelProof<C, G, P> = w3f_plonk_common::PiopProof<
     <P as CircuitParams<C, G>>::Evaluations,
 >;
 
+type BatchLevelProof<C, G, P, const L: usize> = w3f_plonk_common::PiopProof<
+    <C as PrimeGroup>::ScalarField,
+    WrappedAffine<C>,
+    [<P as CircuitParams<C, G>>::Commitments; L],
+    [<P as CircuitParams<C, G>>::Evaluations; L],
+>;
+
+#[derive(Clone, Debug)]
+pub struct BatchSideProof<
+    C: CurveGroup,
+    G: CurveModel<BaseField=C::ScalarField>,
+    P: CircuitParams<C, G>,
+    const L: usize,
+> {
+    piop_proof: BatchLevelProof<C, G, P, L>,
+    pcs_proof: AggregateProof<C::ScalarField, HidingIpa<C>>,
+    todo: Coeffs<C::ScalarField>,
+}
+
 #[derive(Clone)]
 pub struct CycleSideProof<
     C: CurveGroup,
-    G: CurveModel<BaseField = C::ScalarField>,
+    G: CurveModel<BaseField=C::ScalarField>,
     P: CircuitParams<C, G>,
 > {
     piop_proofs: Vec<LevelProof<C, G, P>>,
@@ -109,7 +128,7 @@ pub struct CycleSideProof<
 #[derive(Clone)]
 pub struct CurveTreeProof<
     C0: CurveModel,
-    C1: CurveModel<BaseField = C0::ScalarField, ScalarField = C0::BaseField>,
+    C1: CurveModel<BaseField=C0::ScalarField, ScalarField=C0::BaseField>,
     P0: CircuitParams<ProjectivePoint<C0>, C1>,
     P1: CircuitParams<ProjectivePoint<C1>, C0>,
 > {
@@ -117,8 +136,20 @@ pub struct CurveTreeProof<
     c1_proof: CycleSideProof<ProjectivePoint<C1>, C0, P1>,
 }
 
-impl<C: CurveGroup, G: CurveModel<BaseField = C::ScalarField>, P: CircuitParams<C, G>>
-    CycleSideParams<C, G, P>
+#[derive(Clone, Debug)]
+pub struct CurveTreeProof2<
+    C0: CurveModel,
+    C1: CurveModel<BaseField=C0::ScalarField, ScalarField=C0::BaseField>,
+    P0: CircuitParams<ProjectivePoint<C0>, C1>,
+    P1: CircuitParams<ProjectivePoint<C1>, C0>,
+    const L: usize,
+> {
+    c0_proof: BatchSideProof<ProjectivePoint<C0>, C1, P0, L>,
+    c1_proof: BatchSideProof<ProjectivePoint<C1>, C0, P1, L>,
+}
+
+impl<C: CurveGroup, G: CurveModel<BaseField=C::ScalarField>, P: CircuitParams<C, G>>
+CycleSideParams<C, G, P>
 {
     pub fn commit_tree_nodes(
         &self,
@@ -154,7 +185,7 @@ pub enum CycleSide<C0, C1> {
 pub struct ArkTranscript(ark_transcript::Transcript);
 
 impl<F: PrimeField, CS: PCS<F>> w3f_plonk_common::transcript::PlonkTranscript<F, CS>
-    for ArkTranscript
+for ArkTranscript
 {
     fn _128_bit_point(&mut self, label: &'static [u8]) -> F {
         self.0.challenge(label).read_reduce()
@@ -176,7 +207,7 @@ impl ArkTranscript {
     }
 }
 
-#[derive(Clone)]
+#[derive(Clone, Debug)]
 pub struct Coeffs<F: PrimeField>(F, F);
 impl<F: PrimeField, CS: PCS<F>> ShplonkTranscript<F, CS> for Coeffs<F> {
     fn get_gamma(&mut self) -> F {
@@ -224,7 +255,7 @@ mod tests {
     impl<C0, C1, P0, P1> CycleParams<C0, C1, P0, P1>
     where
         C0: CurveModel<BaseField: PrimeField>,
-        C1: CurveModel<BaseField = C0::ScalarField, ScalarField = C0::BaseField>,
+        C1: CurveModel<BaseField=C0::ScalarField, ScalarField=C0::BaseField>,
         P0: CircuitParams<ProjectivePoint<C0>, C1>,
         P1: CircuitParams<ProjectivePoint<C1>, C0>,
     {
@@ -268,7 +299,7 @@ mod tests {
             VestaConfig,
             CircuitParamsFat<ark_vesta::Affine>,
             CircuitParamsFat<ark_pallas::Affine>,
-        >(8, 2);
+        >(8, 4);
     }
 
     // cargo test test_bench_curve_tree --release --features="print-trace" -- --show-output --ignored
@@ -330,7 +361,7 @@ mod tests {
     fn _test_proof<C0, C1, P0, P1>(log_n: usize, height: usize)
     where
         C0: CurveModel<BaseField: PrimeField>,
-        C1: CurveModel<BaseField = C0::ScalarField, ScalarField = C0::BaseField>,
+        C1: CurveModel<BaseField=C0::ScalarField, ScalarField=C0::BaseField>,
         P0: CircuitParams<ProjectivePoint<C0>, C1>,
         P1: CircuitParams<ProjectivePoint<C1>, C0>,
     {
@@ -353,11 +384,13 @@ mod tests {
             "Proving CurveTree membership, height={height}, domain={domain_size}, arity={max_nodes}, capacity={}",
             max_nodes.pow(height as u32)
         ));
-        let (auth_path, proof) = params.prove(path, rng);
+        let (auth_path, proof) = params.batch_prove::<_, 2>(path, rng);
+        // let (auth_path, proof) = params.prove(path, rng);
         end_timer!(t_prove);
-
+        //
         let t_verify = start_timer!(|| "Verifying CurveTree membership");
-        let valid = params.verify(auth_path, proof, root);
+        // let valid = params.verify(auth_path, proof, root);
+        let valid = params.batch_verify(auth_path, proof, root);
         end_timer!(t_verify);
         assert!(valid);
     }
@@ -378,7 +411,7 @@ mod tests {
 
     pub fn random_nodes<
         C: CurveGroup,
-        G: CurveModel<BaseField = C::ScalarField>,
+        G: CurveModel<BaseField=C::ScalarField>,
         P: CircuitParams<C, G>,
         R: Rng,
     >(
@@ -393,7 +426,7 @@ mod tests {
 
     pub fn random_path<
         C0: CurveModel<BaseField: FftField>,
-        C1: CurveModel<BaseField = C0::ScalarField, ScalarField = C0::BaseField>,
+        C1: CurveModel<BaseField=C0::ScalarField, ScalarField=C0::BaseField>,
         P0: CircuitParams<ProjectivePoint<C0>, C1>,
         P1: CircuitParams<ProjectivePoint<C1>, C0>,
         R: Rng,

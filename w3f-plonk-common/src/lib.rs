@@ -18,6 +18,7 @@ pub mod q_chunking;
 pub mod test_helpers;
 pub mod transcript;
 pub mod verifier;
+pub mod batch;
 
 pub trait Column<F: FftField, V> {
     fn domain(&self) -> GeneralEvaluationDomain<F>;
@@ -74,13 +75,13 @@ pub fn const_evals<F: FftField>(c: F, domain: GeneralEvaluationDomain<F>) -> Eva
 }
 
 pub trait ColumnsEvaluated<F: PrimeField>:
-    Clone + CanonicalSerialize + CanonicalDeserialize
+Clone + ark_std::fmt::Debug + CanonicalSerialize + CanonicalDeserialize
 {
     fn to_vec(self) -> Vec<F>;
 }
 
 pub trait ColumnsCommited<F: PrimeField, C: Commitment<F>>:
-    Clone + CanonicalSerialize + CanonicalDeserialize
+Clone + ark_std::fmt::Debug + CanonicalSerialize + CanonicalDeserialize
 {
     fn to_vec(self) -> Vec<C>;
 }
@@ -111,7 +112,7 @@ where
 }
 
 /// Same as `Proof` but excluding the PCS opening.
-#[derive(Clone, CanonicalSerialize, CanonicalDeserialize)]
+#[derive(Clone, Debug, CanonicalSerialize, CanonicalDeserialize)]
 pub struct PiopProof<F, C, Commitments, Evaluations>
 where
     F: PrimeField,

@@ -20,6 +20,13 @@ pub struct AuthenticationPath<C0: CurveGroup, C1: CurveGroup> {
     pub c1_path: Vec<LevelWitness<C1::Affine>>,
 }
 
+pub struct AuthenticationPath2<const L0: usize, const L1: usize, C0: CurveGroup, C1: CurveGroup> {
+    /// Nodes on the `C0` curve.
+    pub c0_path: [LevelWitness<C0::Affine>; L0],
+    /// Nodes on the `C1` curve.
+    pub c1_path: [LevelWitness<C1::Affine>; L1],
+}
+
 impl<C0, C1> AuthenticationPath<ProjectivePoint<C0>, ProjectivePoint<C1>>
 where
     C0: CurveModel<BaseField: PrimeField>,

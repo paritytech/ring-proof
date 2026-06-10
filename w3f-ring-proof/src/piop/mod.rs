@@ -21,7 +21,7 @@ pub mod params;
 pub mod prover;
 pub mod verifier;
 
-#[derive(Clone, CanonicalSerialize, CanonicalDeserialize)]
+#[derive(Clone, Debug, CanonicalSerialize, CanonicalDeserialize)]
 pub struct RingCommitments<F: PrimeField, C: Commitment<F>> {
     pub(crate) bits: C,
     pub(crate) inn_prod_acc: C,
@@ -40,7 +40,7 @@ impl<F: PrimeField, C: Commitment<F>> ColumnsCommited<F, C> for RingCommitments<
     }
 }
 
-#[derive(Clone, CanonicalSerialize, CanonicalDeserialize)]
+#[derive(Clone, Debug, CanonicalSerialize, CanonicalDeserialize)]
 pub struct RingEvaluations<F: PrimeField> {
     pub(crate) points: [F; 2],
     pub(crate) ring_selector: F,
