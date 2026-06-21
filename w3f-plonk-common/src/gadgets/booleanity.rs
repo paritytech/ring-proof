@@ -5,7 +5,7 @@ use ark_poly::{Evaluations, GeneralEvaluationDomain, Polynomial};
 use ark_std::{vec, vec::Vec};
 
 use crate::domain::Domain;
-use crate::gadgets::VerifierGadget;
+use crate::gadgets::{ProverGadget, VerifierGadget};
 use crate::{const_evals, Column, FieldColumn};
 
 #[derive(Clone)]
@@ -51,12 +51,18 @@ pub struct Booleanity<F: FftField> {
     bits: BitColumn<F>,
 }
 
-impl<'a, F: FftField> Booleanity<F> {
+impl<F: FftField> Booleanity<F> {
     pub fn init(bits: BitColumn<F>) -> Self {
         Self { bits }
     }
+}
 
-    pub fn constraints(&self) -> Vec<Evaluations<F>> {
+impl<F: FftField> ProverGadget<F> for Booleanity<F> {
+    fn witness_columns(&self) -> Vec<DensePolynomial<F>> {
+        todo!()
+    }
+
+    fn constraints(&self) -> Vec<Evaluations<F>> {
         let mut c = const_evals(F::one(), self.bits.domain_4x()); // c = 1
         let b = &self.bits.col.evals_4x;
         c -= b; // c = 1 - b
@@ -64,8 +70,12 @@ impl<'a, F: FftField> Booleanity<F> {
         vec![c]
     }
 
-    pub fn constraints_linearized(&self, _z: &F) -> Vec<DensePolynomial<F>> {
+    fn constraints_linearized(&self, _z: &F) -> Vec<DensePolynomial<F>> {
         vec![DensePolynomial::zero()]
+    }
+
+    fn domain(&self) -> GeneralEvaluationDomain<F> {
+        todo!()
     }
 }
 

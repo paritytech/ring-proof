@@ -9,11 +9,13 @@ use ark_serialize::{CanonicalDeserialize, CanonicalSerialize};
 use ark_std::{vec, vec::Vec};
 use w3f_pcs::pcs::{Commitment, PCS};
 
+pub mod batch;
 pub mod domain;
 pub mod gadgets;
 pub mod kzg_acc;
 pub mod piop;
 pub mod prover;
+pub mod q_chunking;
 pub mod test_helpers;
 pub mod transcript;
 pub mod verifier;
@@ -35,7 +37,7 @@ pub struct FieldColumn<F: FftField> {
     // We require all the evaluations padded to the domain size
     // (as we need to add blinding cells aka zk_rows) at the end of the vector.
     // `payload_len` keeps the original length of the data.
-    payload_len: usize,
+    pub payload_len: usize,
 }
 
 impl<F: FftField> FieldColumn<F> {
@@ -73,13 +75,13 @@ pub fn const_evals<F: FftField>(c: F, domain: GeneralEvaluationDomain<F>) -> Eva
 }
 
 pub trait ColumnsEvaluated<F: PrimeField>:
-    Clone + CanonicalSerialize + CanonicalDeserialize
+    Clone + ark_std::fmt::Debug + CanonicalSerialize + CanonicalDeserialize
 {
     fn to_vec(self) -> Vec<F>;
 }
 
 pub trait ColumnsCommited<F: PrimeField, C: Commitment<F>>:
-    Clone + CanonicalSerialize + CanonicalDeserialize
+    Clone + ark_std::fmt::Debug + CanonicalSerialize + CanonicalDeserialize
 {
     fn to_vec(self) -> Vec<C>;
 }
@@ -103,14 +105,14 @@ where
 {
     pub column_commitments: Commitments,
     pub columns_at_zeta: Evaluations,
-    pub quotient_commitment: CS::C,
+    pub quotient_chunks: Vec<CS::C>,
     pub lin_at_zeta_omega: F,
     pub agg_at_zeta_proof: CS::Proof,
     pub lin_at_zeta_omega_proof: CS::Proof,
 }
 
 /// Same as `Proof` but excluding the PCS opening.
-#[derive(Clone, CanonicalSerialize, CanonicalDeserialize)]
+#[derive(Clone, Debug, CanonicalSerialize, CanonicalDeserialize)]
 pub struct PiopProof<F, C, Commitments, Evaluations>
 where
     F: PrimeField,
@@ -120,7 +122,7 @@ where
 {
     pub column_commitments: Commitments,
     pub columns_at_zeta: Evaluations,
-    pub quotient_commitment: C,
+    pub quotient_chunks: Vec<C>,
     pub lin_at_zeta_omega: F,
 }
 
@@ -135,7 +137,7 @@ where
         PiopProof {
             column_commitments: self.column_commitments.clone(),
             columns_at_zeta: self.columns_at_zeta.clone(),
-            quotient_commitment: self.quotient_commitment.clone(),
+            quotient_chunks: self.quotient_chunks.clone(),
             lin_at_zeta_omega: self.lin_at_zeta_omega,
         }
     }

@@ -1,8 +1,9 @@
 use crate::auth_path::blinded::AuthenticationPathWithBlinding;
 use crate::auth_path::node::LevelWitness;
-use crate::{CycleParams, CycleSide};
+use crate::{AffinePoint, CircuitParams, CurveModel, CycleParams, CycleSide, ProjectivePoint};
 use ark_ec::CurveGroup;
-use ark_ff::PrimeField;
+use ark_ff::UniformRand;
+use ark_ff::{PrimeField, Zero};
 use ark_std::rand::Rng;
 
 /// A non-hiding authentication path from a leaf to the root, split between the curves of the cycle.
@@ -12,6 +13,7 @@ use ark_std::rand::Rng;
 /// `path_0[0]` contains the leaf (with its siblings).
 /// `commit(path_0[k].siblings) = path_1[k].siblings[path_1[k].i]`, if `path_1[k]` exists,
 /// otherwise it's the root.
+#[derive(Clone, Debug)]
 pub struct AuthenticationPath<C0: CurveGroup, C1: CurveGroup> {
     /// Nodes on the `C0` curve.
     pub c0_path: Vec<LevelWitness<C0::Affine>>,
@@ -19,27 +21,35 @@ pub struct AuthenticationPath<C0: CurveGroup, C1: CurveGroup> {
     pub c1_path: Vec<LevelWitness<C1::Affine>>,
 }
 
-impl<F0, F1, C0, C1> AuthenticationPath<C0, C1>
+pub struct AuthenticationPath2<const L0: usize, const L1: usize, C0: CurveGroup, C1: CurveGroup> {
+    /// Nodes on the `C0` curve.
+    pub c0_path: [LevelWitness<C0::Affine>; L0],
+    /// Nodes on the `C1` curve.
+    pub c1_path: [LevelWitness<C1::Affine>; L1],
+}
+
+impl<C0, C1> AuthenticationPath<ProjectivePoint<C0>, ProjectivePoint<C1>>
 where
-    F0: PrimeField,
-    F1: PrimeField,
-    C0: CurveGroup<BaseField = F1, ScalarField = F0>,
-    C1: CurveGroup<BaseField = F0, ScalarField = F1>,
+    C0: CurveModel<BaseField: PrimeField>,
+    C1: CurveModel<BaseField = C0::ScalarField, ScalarField = C0::BaseField>,
 {
-    pub fn with_blinding<R: Rng>(&self, rng: &mut R) -> AuthenticationPathWithBlinding<C0, C1> {
+    pub fn with_blinding<R: Rng>(
+        &self,
+        rng: &mut R,
+    ) -> AuthenticationPathWithBlinding<ProjectivePoint<C0>, ProjectivePoint<C1>> {
         let mut path_0 = Vec::with_capacity(self.c0_path.len());
         let mut path_1 = Vec::with_capacity(self.c1_path.len());
 
         let mut c0_path_iter = self.c0_path.iter();
         let mut c0_nodes = c0_path_iter.next().unwrap(); // shouldn't be empty
-        let mut c0_bf = C0::ScalarField::rand(rng);
+        let mut c0_bf = C0::ScalarField::from(u128::rand(rng));
         for c1_nodes in self.c1_path.iter() {
-            let c1_bf = C1::ScalarField::rand(rng);
+            let c1_bf = C1::ScalarField::from(u128::rand(rng));
             path_0.push(c0_nodes.with_blinding(c0_bf, c1_bf));
             match c0_path_iter.next() {
                 Some(c0_nodes_) => {
                     c0_nodes = c0_nodes_;
-                    c0_bf = C0::ScalarField::rand(rng);
+                    c0_bf = C0::ScalarField::from(u128::rand(rng));
                     path_1.push(c1_nodes.with_blinding(c1_bf, c0_bf));
                 }
                 None => {
@@ -65,14 +75,18 @@ where
         }
     }
 
-    pub fn get_leaf(&self) -> C0::Affine {
+    pub fn get_leaf(&self) -> AffinePoint<C0> {
         self.c0_path[0].path_node()
     }
 
-    pub fn compute_root(
+    pub fn compute_root<P0, P1>(
         &self,
-        params: &CycleParams<C0, C1>,
-    ) -> Result<CycleSide<C0::Affine, C1::Affine>, ()> {
+        params: &CycleParams<C0, C1, P0, P1>,
+    ) -> Result<CycleSide<AffinePoint<C0>, AffinePoint<C1>>, ()>
+    where
+        P0: CircuitParams<ProjectivePoint<C0>, C1>,
+        P1: CircuitParams<ProjectivePoint<C1>, C0>,
+    {
         let mut c0_path_iter = self.c0_path.iter();
         let c0_nodes = c0_path_iter.next().unwrap(); // shouldn't be empty
         let mut parent_on_c1 = c0_nodes.compute_parent(&params.c1_params)?;
@@ -100,6 +114,7 @@ where
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::circuit_fat::params::PiopParams;
     use crate::tests::random_path;
     use ark_std::test_rng;
 
@@ -108,8 +123,12 @@ mod tests {
         let rng = &mut test_rng();
 
         let domain_size = 2usize.pow(9);
-        let params =
-            CycleParams::<ark_pallas::Projective, ark_vesta::Projective>::setup(domain_size, rng);
+        let params = CycleParams::<
+            ark_pallas::PallasConfig,
+            ark_vesta::VestaConfig,
+            PiopParams<ark_vesta::Affine>,
+            PiopParams<ark_pallas::Affine>,
+        >::setup(domain_size, rng);
 
         let (leaf, path, root) = random_path(&params, 2, rng);
 
