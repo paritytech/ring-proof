@@ -13,6 +13,7 @@ use ark_std::rand::Rng;
 /// `path_0[0]` contains the leaf (with its siblings).
 /// `commit(path_0[k].siblings) = path_1[k].siblings[path_1[k].i]`, if `path_1[k]` exists,
 /// otherwise it's the root.
+#[derive(Clone, Debug)]
 pub struct AuthenticationPath<C0: CurveGroup, C1: CurveGroup> {
     /// Nodes on the `C0` curve.
     pub c0_path: Vec<LevelWitness<C0::Affine>>,
@@ -41,14 +42,14 @@ where
 
         let mut c0_path_iter = self.c0_path.iter();
         let mut c0_nodes = c0_path_iter.next().unwrap(); // shouldn't be empty
-        let mut c0_bf = C0::ScalarField::zero();//::from(u128::rand(rng));
+        let mut c0_bf = C0::ScalarField::from(u128::rand(rng));
         for c1_nodes in self.c1_path.iter() {
-            let c1_bf = C1::ScalarField::zero();//::from(u128::rand(rng));
+            let c1_bf = C1::ScalarField::from(u128::rand(rng));
             path_0.push(c0_nodes.with_blinding(c0_bf, c1_bf));
             match c0_path_iter.next() {
                 Some(c0_nodes_) => {
                     c0_nodes = c0_nodes_;
-                    c0_bf = C0::ScalarField::zero();//::from(u128::rand(rng));
+                    c0_bf = C0::ScalarField::from(u128::rand(rng));
                     path_1.push(c1_nodes.with_blinding(c1_bf, c0_bf));
                 }
                 None => {

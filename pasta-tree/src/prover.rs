@@ -1,10 +1,10 @@
-use crate::{ArkTranscript, BatchLevelProof, BatchSideProof, CurveTreeProof2};
 use crate::auth_path::blinded::BlindedAuthenticationPath;
 use crate::auth_path::node::LevelWitnessWithBlinding;
 use crate::auth_path::path::AuthenticationPath;
 use crate::{
     AffinePoint, CircuitParams, CurveModel, CycleParams, CycleSideParams, ProjectivePoint,
 };
+use crate::{ArkTranscript, BatchSideProof, CurveTreeProof2};
 use crate::{Coeffs, CurveTreeProof, CycleSideProof};
 use ark_ec::CurveGroup;
 use ark_ff::{PrimeField, Zero};
@@ -13,20 +13,18 @@ use ark_std::rand::Rng;
 use ark_std::{UniformRand, end_timer, start_timer};
 use std::collections::BTreeSet;
 use std::marker::PhantomData;
-use ark_std::iterable::Iterable;
 use w3f_pcs::pcs::PcsParams;
 use w3f_pcs::pcs::commitment::WrappedAffine;
 use w3f_pcs::pcs::ipa::hiding::HidingIpa;
 use w3f_pcs::shplonk::Shplonk;
 use w3f_plonk_common::batch::BatchProver;
 use w3f_plonk_common::piop::{ProverPiop, VerifierPiop};
-use w3f_plonk_common::Proof;
 use w3f_plonk_common::prover::{PcsOpeningAt2Points, PlonkProver};
 
 impl<C0, C1, P0, P1> CycleParams<C0, C1, P0, P1>
 where
     C0: CurveModel<BaseField: PrimeField>,
-    C1: CurveModel<BaseField=C0::ScalarField, ScalarField=C0::BaseField>,
+    C1: CurveModel<BaseField = C0::ScalarField, ScalarField = C0::BaseField>,
     P0: CircuitParams<ProjectivePoint<C0>, C1>,
     P1: CircuitParams<ProjectivePoint<C1>, C0>,
 {
@@ -65,14 +63,18 @@ where
         let auth_path = blinded_auth_path.clone();
         let c1_path: [_; L] = auth_path_with_bf.c1_path.try_into().unwrap();
         let c0_path: [_; L] = auth_path_with_bf.c0_path.try_into().unwrap();
-        let c0_proof = self.c0_params.batch_prove_side(blinded_auth_path.c1_path, c1_path, rng);
-        let c1_proof = self.c1_params.batch_prove_side(blinded_auth_path.c0_path, c0_path, rng);
+        let c0_proof = self
+            .c0_params
+            .batch_prove_side(blinded_auth_path.c1_path, c1_path, rng);
+        let c1_proof = self
+            .c1_params
+            .batch_prove_side(blinded_auth_path.c0_path, c0_path, rng);
         (auth_path, CurveTreeProof2 { c0_proof, c1_proof })
     }
 }
 
-impl<C: CurveGroup, G: CurveModel<BaseField=C::ScalarField>, P: CircuitParams<C, G>>
-CycleSideParams<C, G, P>
+impl<C: CurveGroup, G: CurveModel<BaseField = C::ScalarField>, P: CircuitParams<C, G>>
+    CycleSideParams<C, G, P>
 {
     pub fn prove_side<R: Rng>(
         &self,
@@ -166,24 +168,20 @@ CycleSideParams<C, G, P>
 
     pub fn batch_prove_side<R: Rng, const L: usize>(
         &self,
-        blinded_path: Vec<AffinePoint<G>>,
+        _blinded_path: Vec<AffinePoint<G>>, // TODO: probably not required
         witness: [LevelWitnessWithBlinding<AffinePoint<G>>; L],
         rng: &mut R,
     ) -> BatchSideProof<C, G, P, L> {
         let curve_name = &std::any::type_name::<C>()[53..];
         // println!("\n\nprover {curve_name}\nchildren={blinded_path:?}\n");
-        // let n_levels = witness.len(); // number of tree levels on this side
-        // debug_assert_eq!(blinded_path.len(), n_levels);
-        // let mut piop_proofs = Vec::with_capacity(n_levels);
-        //
-        // // per tree level
+
         let n_columns = P::VerifierCircuit::N_COLUMNS;
-        let n_to_commit = L * n_columns + 3; // plus the quotient chunks
-        let n_to_open = L * n_columns + 2; // plus the (folded) quotient (chunks) and the linearization polynomial
+        let n_to_commit = L * n_columns + 3; // columns for multiple levels + the shared quotient chunks
+        let n_to_open = L * n_columns + 2; // --//-- + the (folded) quotient + the linearization polynomial
 
         let plonk_prover = PlonkProver::<C::ScalarField, HidingIpa<C>, _>::init(
             self.pcs_params.ck(),
-            (),
+            (), // TODO:
             ArkTranscript::new(b"pasta-tree-level-proof"),
         );
 
@@ -194,7 +192,8 @@ CycleSideParams<C, G, P>
         let t_commit_side = start_timer!(|| format!(
             "Committing {L}x{n_columns}+3 = {n_to_commit} polynomials to {curve_name}"
         ));
-        let (pcs_openings, piop_proof, _transcript) = plonk_prover.reduce_to_pcs_opening(batch_piop);
+        let (pcs_openings, piop_proof, _transcript) =
+            plonk_prover.reduce_to_pcs_opening(batch_piop);
         end_timer!(t_commit_side);
 
         let PcsOpeningAt2Points {
@@ -203,30 +202,32 @@ CycleSideParams<C, G, P>
             zeta,
             zeta_omega,
         } = pcs_openings;
-        println!("zeta = {zeta}\nq(zeta) = {}\n", polys_at_zeta[polys_at_zeta.len() - 1].evaluate(&zeta));
+        // println!("zeta = {zeta}\nq(zeta) = {}\n", polys_at_zeta[polys_at_zeta.len() - 1].evaluate(&zeta));
+
         let mut at_coords = vec![BTreeSet::from([zeta]); polys_at_zeta.len()];
         let mut polys_to_open = polys_at_zeta;
-        at_coords.extend(vec![BTreeSet::from([zeta_omega]); polys_at_zeta_omega.len()]);
+        at_coords.extend(vec![
+            BTreeSet::from([zeta_omega]);
+            polys_at_zeta_omega.len()
+        ]);
         polys_to_open.extend(polys_at_zeta_omega.clone());
-        let with_bfs = parent_bfs.into_iter().flat_map(|bf| {
-            let mut res = vec![C::ScalarField::zero(); n_columns];
-            res[0] = bf;
-            res
-        }).chain(vec![C::ScalarField::zero(); 2])
-            .collect::<Vec<_>>();
-        debug_assert_eq!(with_bfs.len(), n_to_open);
+        assert_eq!(polys_to_open.len(), n_to_open);
 
-        let lin = &polys_at_zeta_omega[0];
-        use w3f_pcs::pcs::PCS;
-        let lin_c = HidingIpa::<C>::commit(&self.pcs_params,&lin).unwrap().0;
-        println!("C_lin = {lin_c}");
+        let mut with_bfs: Vec<_> = parent_bfs
+            .into_iter()
+            .flat_map(|bf| vec![bf, C::ScalarField::zero(), C::ScalarField::zero()])
+            .collect();
+        with_bfs.resize(n_to_open, C::ScalarField::zero());
 
-        for (i, ((p, z), bf)) in polys_to_open.iter()
-            .zip(at_coords.iter().map(|z| z.first().unwrap()))
-            .zip(with_bfs.iter())
-            .enumerate() {
-            println!("{i}: z={z}, p(z)={}, bf={bf}", p.evaluate(z));
-        }
+        // use ark_ec::AffineRepr;
+        // for (i, ((p, z), bf)) in polys_to_open.iter()
+        //     .zip(at_coords.iter().map(|z| z.first().unwrap()))
+        //     .zip(with_bfs.iter())
+        //     .enumerate() {
+        //     let v = p.evaluate(z);
+        //     let c = HidingIpa::<C>::commit(&self.pcs_params, &p).unwrap().0;
+        //     println!("{i}: z={:.5}, v={:.5}, c={:.5}, bf={:.5}", z.to_string(), v.to_string(), c.x().unwrap().to_string(), bf.to_string());
+        // }
 
         let t_open = start_timer!(|| format!(
             "Opening {L}x{n_columns}+2 = {n_to_open} polynomials, max_degree = {}",

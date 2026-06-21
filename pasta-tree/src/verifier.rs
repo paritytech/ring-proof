@@ -1,13 +1,12 @@
-use std::collections::BTreeSet;
-use std::marker::PhantomData;
-use crate::{ArkTranscript, BatchSideProof, CurveTreeProof2};
 use crate::auth_path::blinded::BlindedAuthenticationPath;
 use crate::{
     AffinePoint, CircuitParams, CurveModel, CycleParams, CycleSideParams, ProjectivePoint,
 };
+use crate::{ArkTranscript, BatchSideProof, CurveTreeProof2};
 use crate::{CurveTreeProof, CycleSideProof};
 use ark_ec::CurveGroup;
 use ark_ff::PrimeField;
+use std::marker::PhantomData;
 use w3f_pcs::pcs::PcsParams;
 use w3f_pcs::pcs::ipa::hiding::HidingIpa;
 use w3f_pcs::shplonk::Shplonk;
@@ -18,7 +17,7 @@ use w3f_plonk_common::verifier::{PcsOpeningAt2Points, PlonkVerifier};
 impl<C0, C1, P0, P1> CycleParams<C0, C1, P0, P1>
 where
     C0: CurveModel<BaseField: PrimeField>,
-    C1: CurveModel<BaseField=C0::ScalarField, ScalarField=C0::BaseField>,
+    C1: CurveModel<BaseField = C0::ScalarField, ScalarField = C0::BaseField>,
     P0: CircuitParams<ProjectivePoint<C0>, C1>,
     P1: CircuitParams<ProjectivePoint<C1>, C0>,
 {
@@ -53,14 +52,16 @@ where
             .c0_params
             .verify_batch(c1_path.clone(), c0_parents, proof.c0_proof);
         assert!(c0_proof);
-        let c1_proof = self.c1_params.verify_batch(c0_path, c1_path, proof.c1_proof);
+        let c1_proof = self
+            .c1_params
+            .verify_batch(c0_path, c1_path, proof.c1_proof);
         assert!(c1_proof);
         c0_proof && c1_proof
     }
 }
 
-impl<C: CurveGroup, G: CurveModel<BaseField=C::ScalarField>, P: CircuitParams<C, G>>
-CycleSideParams<C, G, P>
+impl<C: CurveGroup, G: CurveModel<BaseField = C::ScalarField>, P: CircuitParams<C, G>>
+    CycleSideParams<C, G, P>
 {
     pub fn verify_side(
         &self,
@@ -156,19 +157,7 @@ CycleSideParams<C, G, P>
         // let curve_name = &std::any::type_name::<C>()[53..];
         // println!("\n\nverifier {curve_name}\nchildren={children:?}\nparents={parents:?}\n");
 
-        // // number of tree levels on this side
-        // let n_levels = side_proof.piop_proofs.len();
-        // // per tree level
-        // let n_to_open = P::VerifierCircuit::N_COLUMNS + 2; // plus the (folded) quotient (chunks) and the linearization polynomial
-        // // per side
-        // let n_openings = n_levels * n_to_open;
-        //
-        // let mut polys_to_open = Vec::with_capacity(n_openings);
-        // let mut at_coords = Vec::with_capacity(n_openings);
-        // let mut to_values = Vec::with_capacity(n_openings);
-
-        //TODO: precompute
-        let fixed_cols = self.commit_fixed_columns();
+        let fixed_cols = self.commit_fixed_columns(); // TODO: precompute
         let piop_proof = side_proof.piop_proof.clone();
         let instance: [AffinePoint<G>; L] = children.clone().try_into().unwrap();
 
@@ -185,20 +174,25 @@ CycleSideParams<C, G, P>
             L * P::VerifierCircuit::N_CONSTRAINTS,
         );
         let zeta_ = challenges.zeta;
-        println!("zeta = {zeta_}");
+        // println!("zeta = {zeta_}");
 
-        let batch_piop: [_; L] = children.into_iter()
+        let batch_piop: [_; L] = children
+            .into_iter()
             .zip(parents.into_iter())
             .zip(piop_proof.column_commitments.into_iter())
             .zip(piop_proof.columns_at_zeta.into_iter())
-            .map(|(((child, parent), cols), evals)|
+            .map(|(((child, parent), cols), evals)| {
                 self.piop_params.verifier_circuit(
                     (child, parent),
                     &fixed_cols,
                     cols,
                     evals,
                     challenges.zeta,
-                )).collect::<Vec<_>>().try_into().unwrap_or_else(|_| panic!("wtf"));
+                )
+            })
+            .collect::<Vec<_>>()
+            .try_into()
+            .unwrap_or_else(|_| panic!("wtf"));
         let batch_piop = BatchVerifier(batch_piop, PhantomData, PhantomData);
 
         let PcsOpeningAt2Points {
@@ -210,25 +204,25 @@ CycleSideParams<C, G, P>
             vals_at_zeta_omega,
         } = plonk_verifier.evaluate_piop(batch_piop, side_proof.piop_proof, challenges);
         debug_assert_eq!(zeta, zeta_);
-        println!("q(zeta) = {}", vals_at_zeta[vals_at_zeta.len() - 1]);
+        // println!("q(zeta) = {}", vals_at_zeta[vals_at_zeta.len() - 1]);
 
         let mut at_coords = vec![vec![zeta]; open_at_zeta.len()];
         let mut polys_to_open = open_at_zeta;
         at_coords.extend(vec![vec![zeta_omega]; open_at_zeta_omega.len()]);
         polys_to_open.extend(open_at_zeta_omega.clone());
-        let to_values: Vec<Vec<_>> = vals_at_zeta.into_iter()
+        let to_values: Vec<Vec<_>> = vals_at_zeta
+            .into_iter()
             .chain(vals_at_zeta_omega.into_iter())
             .map(|v| vec![v])
             .collect();
 
-        let lin = open_at_zeta_omega[0].0;
-        println!("C_lin = {lin}");
-        for (i, ((p, z), v)) in polys_to_open.iter()
-            .zip(at_coords.iter().map(|z| z.first().unwrap()))
-            .zip(to_values.iter().map(|v| v.first().unwrap()))
-            .enumerate() {
-            println!("{i}: z={z}, v={v}");
-        }
+        // use ark_ec::AffineRepr;
+        // for (i, ((c, z), v)) in polys_to_open.iter()
+        //     .zip(at_coords.iter().map(|z| z.first().unwrap()))
+        //     .zip(to_values.iter().map(|v| v.first().unwrap()))
+        //     .enumerate() {
+        //     println!("{i}: z={:.5}, v={:.5}, c = {:.5}", z.to_string(), v.to_string(), c.0.x().unwrap().to_string());
+        // }
 
         let mut todo = side_proof.todo;
         let valid = Shplonk::<C::ScalarField, HidingIpa<C>>::verify_many(

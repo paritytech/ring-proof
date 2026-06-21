@@ -9,6 +9,7 @@ use ark_serialize::{CanonicalDeserialize, CanonicalSerialize};
 use ark_std::{vec, vec::Vec};
 use w3f_pcs::pcs::{Commitment, PCS};
 
+pub mod batch;
 pub mod domain;
 pub mod gadgets;
 pub mod kzg_acc;
@@ -18,7 +19,6 @@ pub mod q_chunking;
 pub mod test_helpers;
 pub mod transcript;
 pub mod verifier;
-pub mod batch;
 
 pub trait Column<F: FftField, V> {
     fn domain(&self) -> GeneralEvaluationDomain<F>;
@@ -75,13 +75,13 @@ pub fn const_evals<F: FftField>(c: F, domain: GeneralEvaluationDomain<F>) -> Eva
 }
 
 pub trait ColumnsEvaluated<F: PrimeField>:
-Clone + ark_std::fmt::Debug + CanonicalSerialize + CanonicalDeserialize
+    Clone + ark_std::fmt::Debug + CanonicalSerialize + CanonicalDeserialize
 {
     fn to_vec(self) -> Vec<F>;
 }
 
 pub trait ColumnsCommited<F: PrimeField, C: Commitment<F>>:
-Clone + ark_std::fmt::Debug + CanonicalSerialize + CanonicalDeserialize
+    Clone + ark_std::fmt::Debug + CanonicalSerialize + CanonicalDeserialize
 {
     fn to_vec(self) -> Vec<C>;
 }

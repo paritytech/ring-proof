@@ -208,3 +208,58 @@ pub fn index<F: PrimeField, CS: PCS<F>, G: AffineRepr<BaseField = F>>(
     };
     (prover_key, verifier_key)
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::index;
+    use crate::tests::setup;
+    use ark_ed_on_bls12_381_bandersnatch::{EdwardsAffine, Fq, Fr};
+    use ark_std::{test_rng, UniformRand};
+    use w3f_pcs::pcs::id::WrappedPolynomial;
+    use w3f_pcs::pcs::IdentityCommitment;
+    use w3f_pcs::Polynomial;
+    use w3f_plonk_common::piop::ProverPiop;
+    use w3f_plonk_common::test_helpers::random_vec;
+
+    #[test]
+    fn test_ring_piop() {
+        let rng = &mut test_rng();
+
+        let log_n = 9;
+        let n = 1 << log_n;
+
+        let (pcs_params, piop_params) = setup::<_, IdentityCommitment>(rng, n);
+        let pks = random_vec::<EdwardsAffine, _>(piop_params.keyset_part_size, rng);
+        let (prover_key, verifier_key) =
+            index::<_, IdentityCommitment, _>(&pcs_params, &piop_params, &pks);
+        let fixed_columns = prover_key.fixed_columns.clone();
+        let prover: PiopProver<Fq, EdwardsAffine> =
+            PiopProver::build(&piop_params, fixed_columns, 1, Fr::rand(rng));
+        assert!(ProverPiop::<Fq, WrappedPolynomial<Fq>>::constraints_satisfied(&prover));
+
+        let zeta = Fq::rand(rng);
+        let columns = ProverPiop::<Fq, WrappedPolynomial<Fq>>::columns(&prover);
+        let evals = ProverPiop::<Fq, WrappedPolynomial<Fq>>::columns_evaluated(&prover, &zeta);
+        let evals = evals.to_vec();
+        assert_eq!(columns.len(), evals.len());
+        for (p, v) in columns.iter().zip(evals) {
+            assert_eq!(p.evaluate(&zeta), v);
+        }
+
+        let fixed_columns = verifier_key.fixed_columns_committed.as_vec();
+        let advice_columns =
+            ProverPiop::<Fq, WrappedPolynomial<Fq>>::committed_columns(&prover, |p| {
+                IdentityCommitment::commit(&prover_key.pcs_ck, p).unwrap()
+            });
+        let advice_columns = advice_columns.to_vec();
+        let commitments = [fixed_columns, advice_columns].concat();
+        assert_eq!(columns.len(), commitments.len());
+        for (p, c) in columns.iter().zip(commitments) {
+            assert_eq!(
+                IdentityCommitment::commit(&prover_key.pcs_ck, p).unwrap(),
+                c
+            );
+        }
+    }
+}
