@@ -12,9 +12,10 @@ use w3f_plonk_common::gadgets::ec::CondAddValues;
 use w3f_plonk_common::gadgets::fixed_cells::FixedCellsValues;
 use w3f_plonk_common::gadgets::inner_prod::InnerProdValues;
 use w3f_plonk_common::gadgets::VerifierGadget;
+use w3f_plonk_common::piop::ProverPiop;
 use w3f_plonk_common::piop::VerifierPiop;
 
-use crate::piop::{FixedColumnsCommitted, RingCommitments};
+use crate::piop::{FixedColumnsCommitted, PiopProver, RingCommitments};
 use crate::RingEvaluations;
 
 pub struct PiopVerifier<F: PrimeField, C: Commitment<F>, P: AffineRepr<BaseField = F>> {
@@ -105,8 +106,10 @@ impl<F: PrimeField, C: Commitment<F>, P: AffineRepr<BaseField = F>> PiopVerifier
 impl<F: PrimeField, C: Commitment<F>, Jubjub: TECurveConfig<BaseField = F>> VerifierPiop<F, C>
     for PiopVerifier<F, C, TeAffine<Jubjub>>
 {
-    const N_CONSTRAINTS: usize = 7;
-    const N_COLUMNS: usize = 7;
+    const N_COLUMNS: usize = <PiopProver<F, TeAffine<Jubjub>> as ProverPiop<F, C>>::N_COLUMNS;
+    const N_CONSTRAINTS: usize =
+        <PiopProver<F, TeAffine<Jubjub>> as ProverPiop<F, C>>::N_CONSTRAINTS;
+    type Instance = <PiopProver<F, TeAffine<Jubjub>> as ProverPiop<F, C>>::Instance;
 
     fn precommitted_columns(&self) -> Vec<C> {
         self.fixed_columns_committed.as_vec()
@@ -153,8 +156,10 @@ impl<F: PrimeField, C: Commitment<F>, Jubjub: TECurveConfig<BaseField = F>> Veri
 impl<F: PrimeField, C: Commitment<F>, Jubjub: SWCurveConfig<BaseField = F>> VerifierPiop<F, C>
     for PiopVerifier<F, C, SwAffine<Jubjub>>
 {
-    const N_CONSTRAINTS: usize = 7;
-    const N_COLUMNS: usize = 7;
+    const N_COLUMNS: usize = <PiopProver<F, SwAffine<Jubjub>> as ProverPiop<F, C>>::N_COLUMNS;
+    const N_CONSTRAINTS: usize =
+        <PiopProver<F, SwAffine<Jubjub>> as ProverPiop<F, C>>::N_CONSTRAINTS;
+    type Instance = <PiopProver<F, SwAffine<Jubjub>> as ProverPiop<F, C>>::Instance;
 
     fn precommitted_columns(&self) -> Vec<C> {
         self.fixed_columns_committed.as_vec()

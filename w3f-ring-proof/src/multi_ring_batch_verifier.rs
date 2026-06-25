@@ -6,7 +6,6 @@ use w3f_pcs::pcs::kzg::params::KzgVerifierKey;
 use w3f_pcs::pcs::kzg::KZG;
 use w3f_pcs::pcs::PCS;
 use w3f_plonk_common::kzg_acc::KzgAccumulator;
-use w3f_plonk_common::piop::VerifierPiop;
 use w3f_plonk_common::transcript::PlonkTranscript;
 use w3f_plonk_common::verifier::Challenges;
 
@@ -44,13 +43,9 @@ where
     where
         T: PlonkTranscript<E::ScalarField, KZG<E>>,
     {
-        let (challenges, mut transcript) = verifier.plonk_verifier.restore_challenges(
-            &result,
-            &proof.to_piop_proof(),
-            PiopVerifier::<E::ScalarField, <KZG<E> as PCS<_>>::C, Affine<J>>::N_COLUMNS + 1,
-            PiopVerifier::<E::ScalarField, <KZG<E> as PCS<_>>::C, Affine<J>>::N_CONSTRAINTS,
-        );
-        transcript.add_kzg_proofs(&proof.agg_at_zeta_proof, &proof.lin_at_zeta_omega_proof);
+        let (challenges, mut fs_rng) = verifier
+            .plonk_verifier
+            .restore_fs_with_rng::<PiopVerifier<_, _, Affine<J>>, _, _>(&result, &proof);
         let seed = verifier.piop_params.seed;
         let seed_plus_result = (seed + result).into_affine();
         let domain_at_zeta = verifier.piop_params.domain.evaluate(challenges.zeta);
@@ -64,7 +59,7 @@ where
         );
 
         let mut entropy = [0_u8; 32];
-        transcript.to_rng().fill_bytes(&mut entropy);
+        fs_rng.fill_bytes(&mut entropy);
 
         Self {
             piop,

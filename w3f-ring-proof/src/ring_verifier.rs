@@ -4,7 +4,6 @@ use ark_ec::CurveGroup;
 use ark_ff::PrimeField;
 use w3f_pcs::pcs::kzg::KZG;
 use w3f_pcs::pcs::{RawVerifierKey, PCS};
-use w3f_plonk_common::piop::VerifierPiop;
 use w3f_plonk_common::transcript::PlonkTranscript;
 use w3f_plonk_common::verifier::PlonkVerifier;
 
@@ -48,14 +47,9 @@ where
     }
 
     pub fn verify(&self, proof: RingProof<F, CS>, result: Affine<Jubjub>) -> bool {
-        let (challenges, mut transcript) = self.plonk_verifier.restore_challenges(
-            &result,
-            &proof.to_piop_proof(),
-            // '1' accounts for the quotient polynomial that is aggregated together with the columns
-            PiopVerifier::<F, CS::C, Affine<Jubjub>>::N_COLUMNS + 1,
-            PiopVerifier::<F, CS::C, Affine<Jubjub>>::N_CONSTRAINTS,
-        );
-        transcript.add_kzg_proofs(&proof.agg_at_zeta_proof, &proof.lin_at_zeta_omega_proof);
+        let (challenges, mut fs_rng) = self
+            .plonk_verifier
+            .restore_fs_with_rng::<PiopVerifier<_, _, Affine<Jubjub>>, _, _>(&result, &proof);
         let seed = self.piop_params.seed;
         let seed_plus_result = (seed + result).into_affine();
         let domain_at_zeta = self.piop_params.domain.evaluate(challenges.zeta);
@@ -69,7 +63,7 @@ where
         );
 
         self.plonk_verifier
-            .verify(piop, proof, challenges, &mut transcript.to_rng())
+            .verify(piop, proof, challenges, &mut fs_rng)
     }
 
     pub fn piop_params(&self) -> &PiopParams<Affine<Jubjub>> {

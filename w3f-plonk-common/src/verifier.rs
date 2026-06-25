@@ -2,6 +2,7 @@ use ark_ff::{Field, PrimeField};
 use ark_serialize::CanonicalSerialize;
 use ark_std::rand::Rng;
 use ark_std::{vec, vec::Vec};
+use rand_core::RngCore;
 use w3f_pcs::pcs::{Commitment, PcsParams, PCS};
 
 use crate::piop::VerifierPiop;
@@ -117,29 +118,57 @@ impl<F: PrimeField, CS: PCS<F>, T: PlonkTranscript<F, CS>> PlonkVerifier<F, CS, 
         .is_ok()
     }
 
-    pub fn restore_challenges<Commitments, Evaluations>(
+    pub fn _restore_challenges<Piop, Cols, Evals>(
         &self,
-        instance: &impl CanonicalSerialize,
-        proof: &PiopProof<F, CS::C, Commitments, Evaluations>,
-        n_polys: usize,
-        n_constraints: usize,
+        instance: &Piop::Instance,
+        proof: &PiopProof<F, CS::C, Cols, Evals>,
     ) -> (Challenges<F>, T)
     where
-        Commitments: ColumnsCommited<F, CS::C>,
-        Evaluations: ColumnsEvaluated<F>,
+        Piop: VerifierPiop<F, CS::C>,
+        Cols: ColumnsCommited<F, CS::C>,
+        Evals: ColumnsEvaluated<F>,
     {
         let mut transcript = self.transcript_prelude.clone();
         transcript.add_instance(instance);
         transcript.add_committed_cols(&proof.column_commitments);
         // let r = transcript.get_bitmask_aggregation_challenge();
         // transcript.append_2nd_round_register_commitments(&proof.additional_commitments);
-        let alphas = transcript.get_constraints_aggregation_coeffs(n_constraints);
+        let alphas = transcript.get_constraints_aggregation_coeffs(Piop::N_CONSTRAINTS);
         transcript.add_quotient_commitment(&proof.quotient_commitment);
         let zeta = transcript.get_evaluation_point();
         transcript.add_evaluations(&proof.columns_at_zeta, &proof.lin_at_zeta_omega);
-        let nus = transcript.get_kzg_aggregation_challenges(n_polys);
+        let nus = transcript.get_kzg_aggregation_challenges(Piop::N_COLUMNS + 1);
         let challenges = Challenges { alphas, zeta, nus };
         (challenges, transcript)
+    }
+
+    pub fn restore_fs_challenges<Piop, Cols, Evals>(
+        &self,
+        instance: &Piop::Instance,
+        proof: &PiopProof<F, CS::C, Cols, Evals>,
+    ) -> Challenges<F>
+    where
+        Piop: VerifierPiop<F, CS::C>,
+        Cols: ColumnsCommited<F, CS::C>,
+        Evals: ColumnsEvaluated<F>,
+    {
+        self._restore_challenges::<Piop, _, _>(instance, proof).0
+    }
+
+    pub fn restore_fs_with_rng<Piop, Cols, Evals>(
+        &self,
+        instance: &Piop::Instance,
+        proof: &Proof<F, CS, Cols, Evals>,
+    ) -> (Challenges<F>, impl RngCore)
+    where
+        Piop: VerifierPiop<F, CS::C>,
+        Cols: ColumnsCommited<F, CS::C>,
+        Evals: ColumnsEvaluated<F>,
+    {
+        let (challenges, mut transcript) =
+            self._restore_challenges::<Piop, _, _>(instance, &proof.to_piop_proof());
+        transcript.add_kzg_proofs(&proof.agg_at_zeta_proof, &proof.lin_at_zeta_omega_proof);
+        (challenges, transcript.to_rng())
     }
 }
 

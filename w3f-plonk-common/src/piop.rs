@@ -9,6 +9,7 @@ use crate::domain::{Domain, EvaluatedDomain};
 use crate::{ColumnsCommited, ColumnsEvaluated};
 
 pub trait ProverPiop<F: PrimeField, C: Commitment<F>> {
+    const N_COLUMNS: usize;
     const N_CONSTRAINTS: usize;
 
     type Commitments: ColumnsCommited<F, C>;
@@ -78,8 +79,9 @@ pub fn aggregate_evaluations<F: FftField>(
 }
 
 pub trait VerifierPiop<F: PrimeField, C: Commitment<F>> {
-    const N_CONSTRAINTS: usize;
     const N_COLUMNS: usize;
+    const N_CONSTRAINTS: usize;
+    type Instance: CanonicalSerialize + CanonicalDeserialize;
     // Columns the commitments to which are publicly known. These commitments are omitted from the proof.
     fn precommitted_columns(&self) -> Vec<C>;
 
