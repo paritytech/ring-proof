@@ -125,6 +125,20 @@ mod tests {
         _test_ring_proof::<pcs::IdentityCommitment>(2usize.pow(10), 1);
     }
 
+    // `zip` would silently drop unmatched elements, reporting success for
+    // inputs that received no verification at all (srlabs_findings#713).
+    #[test]
+    fn test_batch_length_mismatch_rejected() {
+        let (verifier, mut claims) = _test_ring_proof::<KZG<Bls12_381>>(2usize.pow(9), 1);
+        let (result, proof) = claims.pop().unwrap();
+        assert!(verifier.verify(proof.clone(), result));
+
+        assert!(!verifier.verify_batch(Vec::new(), vec![result]));
+        assert!(!verifier.verify_batch(vec![proof.clone()], Vec::new()));
+        assert!(!verifier.verify_batch_kzg(Vec::new(), vec![result]));
+        assert!(!verifier.verify_batch_kzg(vec![proof], Vec::new()));
+    }
+
     #[test]
     fn test_lagrangian_commitment() {
         let rng = &mut test_rng();

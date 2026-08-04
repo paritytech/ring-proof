@@ -74,11 +74,16 @@ where
         &self.plonk_verifier.pcs_vk
     }
 
+    /// Verifies the proofs sequentially, pairing them with the results
+    /// positionally. Fails if the two vectors differ in length.
     pub fn verify_batch(
         &self,
         proofs: Vec<RingProof<F, CS>>,
         results: Vec<Affine<Jubjub>>,
     ) -> bool {
+        if proofs.len() != results.len() {
+            return false;
+        }
         for (proof, result) in proofs.into_iter().zip(results) {
             let res = self.verify(proof, result);
             if !res {
@@ -97,11 +102,16 @@ where
 {
     /// Verifies a batch of proofs against this ring in a single batched
     /// pairing check, using a [`BatchVerifier`] under the hood.
+    /// Proofs are paired with the results positionally. Fails if the two
+    /// vectors differ in length.
     pub fn verify_batch_kzg(
         &self,
         proofs: Vec<RingProof<E::ScalarField, KZG<E>>>,
         results: Vec<Affine<J>>,
     ) -> bool {
+        if proofs.len() != results.len() {
+            return false;
+        }
         let mut batch = BatchVerifier::new(
             self.plonk_verifier.pcs_vk.clone(),
             self.plonk_verifier.transcript_prelude.clone(),
