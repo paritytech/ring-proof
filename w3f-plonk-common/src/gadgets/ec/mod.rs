@@ -1,3 +1,4 @@
+use crate::cond_select::{bit_to_field, PointSelect};
 use crate::domain::Domain;
 use crate::gadgets::booleanity::BitColumn;
 use crate::{Column, FieldColumn};
@@ -79,12 +80,18 @@ where
     // Both SW and TE gadgets use non-complete formulas, so special cases have to be avoided.
     // If we assume the proofs of possession have been verified for the ring points,
     // this can be achieved by setting the seed to a point of unknown dlog from the prime order subgroup.
+    // The bits are secret (the prover's ring position and blinding scalar), so the
+    // accumulation adds unconditionally and selects the result arithmetically
+    // rather than branching on them.
     pub fn init(
         bitmask: BitColumn<F>,
         points: AffineColumn<F, P>,
         seed: P,
         domain: &Domain<F>,
-    ) -> Self {
+    ) -> Self
+    where
+        P::Group: PointSelect<F>,
+    {
         debug_assert_eq!(bitmask.payload_len(), domain.capacity - 1);
         debug_assert_eq!(points.payload_len(), domain.capacity - 1);
         let not_last = domain.not_last_row.clone();
@@ -93,10 +100,10 @@ where
             .bits
             .iter()
             .zip(points.points.iter())
-            .map(|(&b, point)| {
-                if b {
-                    projective_acc += point;
-                }
+            .map(|(&bit, point)| {
+                let mut sum = projective_acc;
+                sum += point;
+                projective_acc = P::Group::select(bit_to_field(bit), &sum, &projective_acc);
                 projective_acc
             })
             .collect();
@@ -144,4 +151,61 @@ pub struct CondAddValues<F: Field, P: AffineRepr<BaseField = F>> {
     pub not_last: F,
     pub acc: (F, F),
     pub _phantom: PhantomData<P>,
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::test_helpers::{random_bitvec, random_vec};
+    use ark_ed_on_bls12_381_bandersnatch::{EdwardsAffine, SWAffine};
+    use ark_std::test_rng;
+
+    // The acc column is committed, so its values are consensus-critical:
+    // every row produced by the branch-free accumulation must equal the naive
+    // conditional sum that the constraints encode and that proofs generated
+    // before the hardening were built from.
+    fn acc_matches_naive_accumulation<F, P>()
+    where
+        F: FftField,
+        P: AffineRepr<BaseField = F>,
+        P::Group: PointSelect<F>,
+    {
+        let rng = &mut test_rng();
+        let domain = Domain::test_domain(256, true);
+        let bits = random_bitvec(domain.capacity - 1, 0.5, rng);
+        let points = random_vec::<P, _>(domain.capacity - 1, rng);
+        let seed = P::generator();
+
+        let gadget = CondAdd::init(
+            BitColumn::init(bits.clone(), &domain),
+            AffineColumn::column(points.clone(), &domain),
+            seed,
+            &domain,
+        );
+
+        let mut acc = seed.into_group();
+        let expected: Vec<P> = bits
+            .iter()
+            .zip(&points)
+            .map(|(&bit, point)| {
+                if bit {
+                    acc += point;
+                }
+                acc.into_affine()
+            })
+            .collect();
+
+        assert_eq!(gadget.acc.payload()[0], seed);
+        assert_eq!(&gadget.acc.payload()[1..], &expected[..]);
+    }
+
+    #[test]
+    fn te_acc_matches_naive_accumulation() {
+        acc_matches_naive_accumulation::<_, EdwardsAffine>();
+    }
+
+    #[test]
+    fn sw_acc_matches_naive_accumulation() {
+        acc_matches_naive_accumulation::<_, SWAffine>();
+    }
 }

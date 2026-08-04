@@ -12,6 +12,7 @@ use w3f_pcs::pcs::Commitment;
 use crate::piop::params::PiopParams;
 use crate::piop::FixedColumns;
 use crate::piop::{RingCommitments, RingEvaluations};
+use w3f_plonk_common::cond_select::PointSelect;
 use w3f_plonk_common::domain::Domain;
 use w3f_plonk_common::gadgets::booleanity::{BitColumn, Booleanity};
 use w3f_plonk_common::gadgets::ec::AffineColumn;
@@ -46,7 +47,10 @@ impl<F: PrimeField, G: AffineRepr<BaseField = F>> PiopProver<F, G> {
         fixed_columns: FixedColumns<F, G>,
         prover_index_in_keys: usize,
         secret: G::ScalarField,
-    ) -> Self {
+    ) -> Self
+    where
+        G::Group: PointSelect<F>,
+    {
         let domain = params.domain.clone();
         let FixedColumns {
             points,
@@ -81,8 +85,11 @@ impl<F: PrimeField, G: AffineRepr<BaseField = F>> PiopProver<F, G> {
         index_in_keys: usize,
         secret: G::ScalarField,
     ) -> BitColumn<F> {
-        let mut keyset_part = vec![false; params.keyset_part_size];
-        keyset_part[index_in_keys] = true;
+        // The index is the prover's ring position: an equality scan avoids the
+        // secret-index memory write of `keyset_part[index_in_keys] = true`.
+        let keyset_part: Vec<bool> = (0..params.keyset_part_size)
+            .map(|position| position == index_in_keys)
+            .collect();
         let scalar_part = params.scalar_part(secret);
         let bits = [keyset_part, scalar_part].concat();
         assert_eq!(bits.len(), params.domain.capacity - 1);
