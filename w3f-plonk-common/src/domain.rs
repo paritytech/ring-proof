@@ -64,6 +64,7 @@ pub struct Domain<F: FftField> {
     pub l_first: FieldColumn<F>,
     pub l_last: FieldColumn<F>,
     zk_rows_prod: DensePolynomial<F>,
+    blinding: bool,
 }
 
 impl<F: FftField> Domain<F> {
@@ -97,7 +98,18 @@ impl<F: FftField> Domain<F> {
             l_first,
             l_last,
             zk_rows_prod,
+            blinding: zk_rows != 0,
         }
+    }
+
+    /// Disables column blinding, preserving the domain layout (`zk_rows`, `capacity`):
+    /// the zk rows are padded with zeros instead of random values.
+    /// Proofs generated over such a domain are deterministic, thus NOT zero-knowledge,
+    /// but remain valid for verifiers configured with the blinding-enabled domain.
+    /// Intended for reproducible test vectors generation.
+    pub fn without_blinding(mut self) -> Self {
+        self.blinding = false;
+        self
     }
 
     #[cfg(test)]
@@ -136,13 +148,12 @@ impl<F: FftField> Domain<F> {
     fn _column(&self, mut values: Vec<F>, public: bool) -> FieldColumn<F> {
         let payload_len = values.len();
         assert!(payload_len <= self.capacity);
-        let no_blinding = !self.is_hiding() || public || cfg!(feature = "test-vectors");
-        if no_blinding {
-            values.resize(self.domain_size(), F::zero());
-        } else {
+        if self.blinding && !public {
             values.resize(self.capacity, F::zero());
             let rng = &mut getrandom_or_panic();
             values.resize_with(self.domain_size(), || F::rand(rng));
+        } else {
+            values.resize(self.domain_size(), F::zero());
         }
         self.domains.column_from_evals(values, payload_len)
     }
@@ -322,5 +333,26 @@ mod tests {
     fn test_evaluated_domain() {
         _test_evaluated_domain(false);
         _test_evaluated_domain(true);
+    }
+
+    // Disabling blinding must yield reproducible columns (deterministic proofs, for test
+    // vectors generation) without altering the domain layout, so that the resulting proofs
+    // still match the parameters (e.g. max ring size) of the blinding-enabled configuration.
+    #[test]
+    fn column_blinding() {
+        let n = 16;
+        let values = vec![Fq::one(); 4];
+
+        let domain = Domain::test_domain(n, true);
+        let col_1 = domain.column(values.clone());
+        let col_2 = domain.column(values.clone());
+        assert_ne!(col_1.poly, col_2.poly);
+
+        let capacity = domain.capacity;
+        let domain = domain.without_blinding();
+        assert_eq!(domain.capacity, capacity);
+        let col_1 = domain.column(values.clone());
+        let col_2 = domain.column(values);
+        assert_eq!(col_1.poly, col_2.poly);
     }
 }

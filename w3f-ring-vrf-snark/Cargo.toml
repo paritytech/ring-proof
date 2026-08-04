@@ -49,6 +49,5 @@ print-trace = [
   "w3f-plonk-common/print-trace"
 ]
 asm = [ "w3f-pcs/asm" ]
-test-vectors = [ "w3f-plonk-common/test-vectors" ]
 # benchmarking by running many proofs and verifications to get more accurate timing comparison
 intensive-benchmarking = ["std"] 
