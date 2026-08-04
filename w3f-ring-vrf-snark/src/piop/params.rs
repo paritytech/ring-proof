@@ -1,7 +1,7 @@
 use ark_ec::twisted_edwards::{Affine, TECurveConfig};
 use ark_ec::AffineRepr;
 use ark_ff::{BigInteger, PrimeField};
-use ark_std::{vec, vec::Vec};
+use ark_std::vec::Vec;
 
 use crate::piop::FixedColumns;
 use w3f_plonk_common::domain::Domain;
@@ -71,8 +71,11 @@ impl<F: PrimeField, Curve: TECurveConfig<BaseField = F>> PiopParams<F, Curve> {
     /// Represents `index` as a binary column.
     pub fn pk_index_col(&self, index: usize) -> BitColumn<F> {
         assert!(index < self.max_keys());
-        let mut col = vec![false; self.max_keys()];
-        col[index] = true;
+        // The index is the prover's ring position: an equality scan avoids a
+        // secret-index memory write.
+        let col = (0..self.max_keys())
+            .map(|position| position == index)
+            .collect();
         BitColumn::init(col, &self.domain)
     }
 

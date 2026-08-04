@@ -9,6 +9,7 @@ use ark_serialize::{CanonicalDeserialize, CanonicalSerialize};
 use ark_std::{vec, vec::Vec};
 use w3f_pcs::pcs::{Commitment, PCS};
 
+pub mod cond_select;
 pub mod domain;
 pub mod gadgets;
 pub mod kzg_acc;
