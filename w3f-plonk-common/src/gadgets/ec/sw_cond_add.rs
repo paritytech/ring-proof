@@ -1,17 +1,51 @@
 use ark_ec::short_weierstrass::{Affine, SWCurveConfig};
-use ark_ff::{FftField, Field};
+use ark_ec::AffineRepr;
+use ark_ff::{FftField, Field, Zero};
 use ark_poly::univariate::DensePolynomial;
 use ark_poly::{Evaluations, GeneralEvaluationDomain};
 use ark_std::{vec, vec::Vec};
 
-use crate::gadgets::ec::{CondAdd, CondAddValues};
+use crate::gadgets::ec::{AffineColumn, CondAdd, CondAddValues};
 use crate::gadgets::{ProverGadget, VerifierGadget};
 use crate::{const_evals, Column};
 
-impl<F, Curve> ProverGadget<F> for CondAdd<F, Affine<Curve>>
-where
-    F: FftField,
-    Curve: SWCurveConfig<BaseField = F>,
+impl<F: FftField, Curve: SWCurveConfig<BaseField = F>> ProverGadget<F>
+    for AffineColumn<F, Affine<Curve>>
+{
+    fn witness_columns(&self) -> Vec<DensePolynomial<F>> {
+        todo!()
+    }
+
+    // y^2 = x^3 + ax + b
+    fn constraints(&self) -> Vec<Evaluations<F>> {
+        let domain = self.xs.domain_4x();
+        let sw_coeff_a = &const_evals(Curve::COEFF_A, domain);
+        let sw_coeff_b = &const_evals(Curve::COEFF_B, domain);
+        let x = &self.xs.evals_4x;
+        let y = &self.ys.evals_4x;
+        let c = &(&(y * y) - &(&(x * x) * x)) - &(&(sw_coeff_a * x) + &sw_coeff_b);
+        vec![c]
+    }
+
+    fn constraints_linearized(&self, _zeta: &F) -> Vec<DensePolynomial<F>> {
+        vec![DensePolynomial::zero()]
+    }
+
+    fn domain(&self) -> GeneralEvaluationDomain<F> {
+        todo!()
+    }
+}
+
+impl<F: Field, C: SWCurveConfig<BaseField = F>> VerifierGadget<F> for Affine<C> {
+    fn evaluate_constraints_main(&self) -> Vec<F> {
+        let (x, y) = self.xy().unwrap();
+        let c = y * y - x * x * x - C::COEFF_A * x - C::COEFF_B;
+        vec![c]
+    }
+}
+
+impl<F: FftField, Curve: SWCurveConfig<BaseField = F>> ProverGadget<F>
+    for CondAdd<F, Affine<Curve>>
 {
     fn witness_columns(&self) -> Vec<DensePolynomial<F>> {
         vec![self.acc.xs.poly.clone(), self.acc.ys.poly.clone()]

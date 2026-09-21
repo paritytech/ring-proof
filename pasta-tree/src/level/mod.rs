@@ -7,7 +7,6 @@ use w3f_pcs::pcs::PCS;
 use w3f_pcs::pcs::ipa::hiding::HidingIpa;
 use w3f_pcs::shplonk::AggregateProof;
 use w3f_plonk_common::PiopProof;
-use w3f_ring_proof::piop::{RingCommitments, RingEvaluations};
 
 pub struct LevelProof<C: CurveGroup> {
     piop_proof: PiopProof<

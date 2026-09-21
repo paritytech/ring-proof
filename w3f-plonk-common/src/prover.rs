@@ -11,7 +11,7 @@ use w3f_pcs::pcs::PCS;
 
 use crate::piop::ProverPiop;
 use crate::transcript::PlonkTranscript;
-use crate::{PiopProof, Proof};
+use crate::{q_chunking, PiopProof, Proof};
 
 pub struct PlonkProver<F: PrimeField, CS: PCS<F>, T: PlonkTranscript<F, CS>> {
     // Polynomial commitment scheme committer's key.
@@ -56,22 +56,44 @@ impl<F: PrimeField, CS: PCS<F>, T: PlonkTranscript<F, CS>> PlonkProver<F, CS, T>
     {
         let mut transcript = self.transcript_prelude.clone();
         transcript.add_instance(&piop.result());
+
         // ROUND 1
         // The prover commits to the columns.
+        let t_commit_cols = start_timer!(|| format!(
+            "Committing to {} degree-{} columns",
+            P::N_COLUMNS,
+            piop.domain().domain_size() - 1
+        ));
         let column_commitments = piop.committed_columns(|p| CS::commit(&self.pcs_ck, p).unwrap());
         transcript.add_committed_cols(&column_commitments);
+        end_timer!(t_commit_cols);
 
         // ROUND 2
-        let alphas = transcript.get_constraints_aggregation_coeffs(P::N_CONSTRAINTS);
-        let quotient_poly = piop.compute_quotient(&alphas).unwrap();
         // The prover commits to the quotient polynomial...
-        let quotient_commitment = CS::commit(&self.pcs_ck, &quotient_poly).unwrap();
-        transcript.add_quotient_commitment(&quotient_commitment);
+        let alphas = transcript.get_constraints_aggregation_coeffs(P::N_CONSTRAINTS);
+        let quotient_chunks = piop.quotient(&alphas).unwrap();
+        let t_commit_q = start_timer!(|| format!(
+            "Committing to {} degree-{} quotient chunks",
+            quotient_chunks.len(),
+            quotient_chunks[0].degree()
+        ));
+        let quotient_chunks_committed: Vec<_> = quotient_chunks
+            .iter()
+            .map(|qi| CS::commit(&self.pcs_ck, qi).unwrap())
+            .collect();
+        for qi_committed in quotient_chunks_committed.iter() {
+            transcript.add_quotient_commitment(&qi_committed);
+        }
+        // let quotient_commitment = CS::commit(&self.pcs_ck, &quotient_poly).unwrap();
+        // transcript.add_quotient_commitment(&quotient_commitment);
+        end_timer!(t_commit_q);
 
         // and receives the evaluation point in response
 
         // ROUND 3
         let zeta = transcript.get_evaluation_point();
+        let z_n = zeta.pow([piop.domain().domain_size() as u64]);
+        let q_folded = q_chunking::fold_quotient_chunks(&quotient_chunks, z_n);
         let columns_to_open = piop.columns();
         let columns_at_zeta = piop.columns_evaluated(&zeta);
         let constraint_polys_linearized = piop.constraints_lin(&zeta);
@@ -82,11 +104,11 @@ impl<F: PrimeField, CS: PCS<F>, T: PlonkTranscript<F, CS>> PlonkProver<F, CS, T>
         transcript.add_evaluations(&columns_at_zeta, &lin_at_zeta_omega);
         let piop_proof = PiopProof {
             column_commitments,
-            quotient_commitment,
+            quotient_chunks: quotient_chunks_committed,
             columns_at_zeta,
             lin_at_zeta_omega,
         };
-        let polys_at_zeta = [columns_to_open, vec![quotient_poly]].concat();
+        let polys_at_zeta = [columns_to_open, vec![q_folded]].concat();
         let pcs_openings = PcsOpeningAt2Points {
             polys_at_zeta,
             polys_at_zeta_omega: vec![lin],
@@ -110,7 +132,7 @@ impl<F: PrimeField, CS: PCS<F>, T: PlonkTranscript<F, CS>> PlonkProver<F, CS, T>
         let lin = &polys_at_zeta_omega[0];
         let PiopProof {
             column_commitments,
-            quotient_commitment,
+            quotient_chunks: quotient_commitment,
             columns_at_zeta,
             lin_at_zeta_omega,
         } = piop_proof;
@@ -125,7 +147,7 @@ impl<F: PrimeField, CS: PCS<F>, T: PlonkTranscript<F, CS>> PlonkProver<F, CS, T>
         end_timer!(_t_open_zeta_omega);
         Proof {
             column_commitments,
-            quotient_commitment,
+            quotient_chunks: quotient_commitment,
             columns_at_zeta,
             lin_at_zeta_omega,
             agg_at_zeta_proof,
