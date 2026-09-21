@@ -33,6 +33,8 @@ pub trait Column<F: FftField, V> {
 #[derive(Clone, CanonicalSerialize, CanonicalDeserialize)]
 pub struct FieldColumn<F: FftField> {
     pub poly: DensePolynomial<F>,
+    /// Blinding factor for Pedersen commitment
+    pub bf: F,
     pub evals: Evaluations<F>,
     pub evals_4x: Evaluations<F>,
     // We require all the evaluations padded to the domain size
