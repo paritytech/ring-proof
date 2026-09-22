@@ -1,5 +1,5 @@
 use crate::domain::{Domain, EvaluatedDomain};
-use crate::{q_chunking, ColumnsCommited, ColumnsEvaluated};
+use crate::{q_chunking, ColumnsCommited, ColumnsEvaluated, FieldColumn};
 use ark_ff::{FftField, PrimeField};
 use ark_poly::univariate::DensePolynomial;
 use ark_poly::Evaluations;
@@ -19,10 +19,7 @@ pub trait ProverPiop<F: PrimeField, C: Commitment<F>> {
     type Instance: Clone + ark_std::fmt::Debug + CanonicalSerialize + CanonicalDeserialize;
 
     // Commitments to the column polynomials excluding the precommitted columns.
-    fn committed_columns<Fun: Fn(&DensePolynomial<F>) -> C + Clone>(
-        &self,
-        commit: Fun,
-    ) -> Self::Commitments;
+    fn committed_columns<Fun: Fn(&FieldColumn<F>) -> C>(&self, commit: Fun) -> Self::Commitments;
 
     // All the column polynomials (including precommitted columns)
     fn columns(&self) -> Vec<DensePolynomial<F>>;

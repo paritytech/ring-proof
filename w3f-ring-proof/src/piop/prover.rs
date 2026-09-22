@@ -100,16 +100,13 @@ impl<F: PrimeField, G: AffineRepr<BaseField = F>> PiopProver<F, G> {
         BitColumn::init(bits, &params.domain)
     }
 
-    fn _committed_columns<C: Commitment<F>, Fun: Fn(&DensePolynomial<F>) -> C>(
+    fn _committed_columns<C: Commitment<F>, Fun: Fn(&FieldColumn<F>) -> C>(
         &self,
         commit: Fun,
     ) -> RingCommitments<F, C> {
-        let bits = commit(self.bits.as_poly());
-        let cond_add_acc = [
-            commit(self.cond_add.acc.xs.as_poly()),
-            commit(self.cond_add.acc.ys.as_poly()),
-        ];
-        let inn_prod_acc = commit(self.inner_prod.acc.as_poly());
+        let bits = commit(&self.bits.col);
+        let cond_add_acc = [commit(&self.cond_add.acc.xs), commit(&self.cond_add.acc.ys)];
+        let inn_prod_acc = commit(&self.inner_prod.acc);
         RingCommitments {
             bits,
             cond_add_acc,
@@ -164,12 +161,16 @@ where
     type Evaluations = RingEvaluations<F>;
     type Instance = TeAffine<Curve>;
 
-    fn committed_columns<Fun: Fn(&DensePolynomial<F>) -> C>(
-        &self,
-        commit: Fun,
-    ) -> Self::Commitments {
+    fn committed_columns<Fun: Fn(&FieldColumn<F>) -> C>(&self, commit: Fun) -> Self::Commitments {
         self._committed_columns(commit)
     }
+
+    // fn committed_columns<Fun: Fn(&DensePolynomial<F>) -> C>(
+    //     &self,
+    //     commit: Fun,
+    // ) -> Self::Commitments {
+    //     self._committed_columns(commit)
+    // }
 
     // Should return polynomials in the consistent with
     // Self::Evaluations::to_vec() and Self::Commitments::to_vec().
@@ -226,10 +227,7 @@ where
     type Evaluations = RingEvaluations<F>;
     type Instance = SwAffine<Curve>;
 
-    fn committed_columns<Fun: Fn(&DensePolynomial<F>) -> C>(
-        &self,
-        commit: Fun,
-    ) -> Self::Commitments {
+    fn committed_columns<Fun: Fn(&FieldColumn<F>) -> C>(&self, commit: Fun) -> Self::Commitments {
         self._committed_columns(commit)
     }
 

@@ -1,6 +1,6 @@
 use crate::domain::{Domain, EvaluatedDomain};
 use crate::piop::{ProverPiop, VerifierPiop};
-use crate::{ColumnsCommited, ColumnsEvaluated};
+use crate::{ColumnsCommited, ColumnsEvaluated, FieldColumn};
 use ark_ff::PrimeField;
 use ark_poly::univariate::DensePolynomial;
 use ark_poly::Evaluations;
@@ -69,13 +69,10 @@ impl<F: PrimeField, C: Commitment<F>, P: ProverPiop<F, C>, const K: usize> Prove
     type Evaluations = [P::Evaluations; K];
     type Instance = [P::Instance; K];
 
-    fn committed_columns<Fun: Fn(&DensePolynomial<F>) -> C + Clone>(
-        &self,
-        commit: Fun,
-    ) -> Self::Commitments {
+    fn committed_columns<Fun: Fn(&FieldColumn<F>) -> C>(&self, commit: Fun) -> Self::Commitments {
         self.0
             .iter()
-            .map(|p| p.committed_columns(commit.clone()))
+            .map(|p| p.committed_columns(&commit))
             .collect::<Vec<_>>()
             .try_into()
             .unwrap()

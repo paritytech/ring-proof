@@ -23,7 +23,12 @@ impl<F: FftField> Domains<F> {
         Self { x1, x4 }
     }
 
-    pub fn column_from_evals(&self, padded_evals: Vec<F>, payload_len: usize, bf: F) -> FieldColumn<F> {
+    pub fn column_from_evals(
+        &self,
+        padded_evals: Vec<F>,
+        payload_len: usize,
+        bf: F,
+    ) -> FieldColumn<F> {
         debug_assert_eq!(padded_evals.len(), self.x1.size());
         let evals = Evaluations::from_vec_and_domain(padded_evals, self.x1);
         let poly = evals.interpolate_by_ref();
@@ -154,7 +159,8 @@ impl<F: FftField> Domain<F> {
             values.resize(self.capacity, F::zero());
             let rng = &mut getrandom_or_panic();
             values.resize_with(self.domain_size(), || F::rand(rng));
-            F::rand(rng)
+            // F::rand(rng)
+            F::zero()
         } else {
             values.resize(self.domain_size(), F::zero());
             F::zero()

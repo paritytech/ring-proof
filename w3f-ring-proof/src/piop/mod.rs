@@ -249,8 +249,8 @@ mod tests {
 
         let fixed_columns = verifier_key.fixed_columns_committed.as_vec();
         let advice_columns =
-            ProverPiop::<Fq, WrappedPolynomial<Fq>>::committed_columns(&prover, |p| {
-                IdentityCommitment::commit(&prover_key.pcs_ck, p).unwrap()
+            ProverPiop::<Fq, WrappedPolynomial<Fq>>::committed_columns(&prover, |col| {
+                IdentityCommitment::commit(&prover_key.pcs_ck, col.as_poly()).unwrap()
             });
         let advice_columns = advice_columns.to_vec();
         let commitments = [fixed_columns, advice_columns].concat();

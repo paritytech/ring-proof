@@ -112,7 +112,9 @@ where
         let mut x_coords = x_coords.to_vec();
         x_coords.resize(self.domain.domain_size(), G::BaseField::zero());
         x_coords[c] = G::BaseField::one();
-        self.domain.domains.column_from_evals(x_coords, c, G::BaseField::one())
+        self.domain
+            .domains
+            .column_from_evals(x_coords, c, G::BaseField::one())
     }
 
     pub fn h_powers_column(&self) -> AffineColumn<G::BaseField, G> {

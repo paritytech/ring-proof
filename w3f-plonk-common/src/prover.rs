@@ -64,7 +64,8 @@ impl<F: PrimeField, CS: PCS<F>, T: PlonkTranscript<F, CS>> PlonkProver<F, CS, T>
             P::N_COLUMNS,
             piop.domain().domain_size() - 1
         ));
-        let column_commitments = piop.committed_columns(|p| CS::commit(&self.pcs_ck, p).unwrap());
+        let column_commitments =
+            piop.committed_columns(|col| CS::commit_with_bf(&self.pcs_ck, col.as_poly(), col.bf).0);
         transcript.add_committed_cols(&column_commitments);
         end_timer!(t_commit_cols);
 
