@@ -54,6 +54,10 @@ impl<F: FftField> FieldColumn<F> {
         &self.poly
     }
 
+    pub fn poly_with_bf(&self) -> (DensePolynomial<F>, F) {
+        (self.poly.clone(), self.bf)
+    }
+
     pub fn evaluate(&self, z: &F) -> F {
         self.as_poly().evaluate(z)
     }

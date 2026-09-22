@@ -117,15 +117,15 @@ impl<F: PrimeField, G: AffineRepr<BaseField = F>> PiopProver<F, G> {
 
     // Should return polynomials in the consistent with
     // Self::Evaluations::to_vec() and Self::Commitments::to_vec().
-    fn _columns(&self) -> Vec<DensePolynomial<F>> {
+    fn _columns(&self) -> Vec<(DensePolynomial<F>, F)> {
         vec![
-            self.points.xs.as_poly().clone(),
-            self.points.ys.as_poly().clone(),
-            self.ring_selector.as_poly().clone(),
-            self.bits.as_poly().clone(),
-            self.inner_prod.acc.as_poly().clone(),
-            self.cond_add.acc.xs.as_poly().clone(),
-            self.cond_add.acc.ys.as_poly().clone(),
+            self.points.xs.poly_with_bf(),
+            self.points.ys.poly_with_bf(),
+            self.ring_selector.poly_with_bf(),
+            self.bits.col.poly_with_bf(),
+            self.inner_prod.acc.poly_with_bf(),
+            self.cond_add.acc.xs.poly_with_bf(),
+            self.cond_add.acc.ys.poly_with_bf(),
         ]
     }
 
@@ -174,7 +174,7 @@ where
 
     // Should return polynomials in the consistent with
     // Self::Evaluations::to_vec() and Self::Commitments::to_vec().
-    fn columns(&self) -> Vec<DensePolynomial<F>> {
+    fn columns(&self) -> Vec<(DensePolynomial<F>, F)> {
         self._columns()
     }
 
@@ -233,7 +233,7 @@ where
 
     // Should return polynomials in the consistent with
     // Self::Evaluations::to_vec() and Self::Commitments::to_vec().
-    fn columns(&self) -> Vec<DensePolynomial<F>> {
+    fn columns(&self) -> Vec<(DensePolynomial<F>, F)> {
         self._columns()
     }
 

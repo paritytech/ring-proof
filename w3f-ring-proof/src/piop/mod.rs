@@ -215,6 +215,7 @@ mod tests {
     use crate::index;
     use crate::tests::setup;
     use ark_ed_on_bls12_381_bandersnatch::{EdwardsAffine, Fq, Fr};
+    use ark_poly::univariate::DensePolynomial;
     use ark_std::{test_rng, UniformRand};
     use w3f_pcs::pcs::id::WrappedPolynomial;
     use w3f_pcs::pcs::IdentityCommitment;
@@ -243,7 +244,7 @@ mod tests {
         let evals = ProverPiop::<Fq, WrappedPolynomial<Fq>>::columns_evaluated(&prover, &zeta);
         let evals = evals.to_vec();
         assert_eq!(columns.len(), evals.len());
-        for (p, v) in columns.iter().zip(evals) {
+        for ((p, bf), v) in columns.iter().zip(evals) {
             assert_eq!(p.evaluate(&zeta), v);
         }
 
@@ -255,7 +256,7 @@ mod tests {
         let advice_columns = advice_columns.to_vec();
         let commitments = [fixed_columns, advice_columns].concat();
         assert_eq!(columns.len(), commitments.len());
-        for (p, c) in columns.iter().zip(commitments) {
+        for ((p, _bf), c) in columns.iter().zip(commitments) {
             assert_eq!(
                 IdentityCommitment::commit(&prover_key.pcs_ck, p).unwrap(),
                 c

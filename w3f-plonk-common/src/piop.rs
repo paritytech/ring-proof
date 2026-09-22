@@ -22,7 +22,7 @@ pub trait ProverPiop<F: PrimeField, C: Commitment<F>> {
     fn committed_columns<Fun: Fn(&FieldColumn<F>) -> C>(&self, commit: Fun) -> Self::Commitments;
 
     // All the column polynomials (including precommitted columns)
-    fn columns(&self) -> Vec<DensePolynomial<F>>;
+    fn columns(&self) -> Vec<(DensePolynomial<F>, F)>;
 
     // All the column polynomials (including precommitted columns) evaluated in a point
     // Self::Evaluations::to_vec should return evaluations in the order consistent to Self::columns

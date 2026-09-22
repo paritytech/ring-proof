@@ -78,7 +78,7 @@ impl<F: PrimeField, C: Commitment<F>, P: ProverPiop<F, C>, const K: usize> Prove
             .unwrap()
     }
 
-    fn columns(&self) -> Vec<DensePolynomial<F>> {
+    fn columns(&self) -> Vec<(DensePolynomial<F>, F)> {
         let column_vecs = self.0.iter().map(|p| p.columns()).collect::<Vec<_>>();
         excerpt_fixed_columns(column_vecs)
     }

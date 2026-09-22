@@ -120,15 +120,15 @@ impl<C: CurveGroup, G: CurveModel<BaseField = C::ScalarField>>
 
     // Should return polynomials in the consistent with
     // Self::Evaluations::to_vec() and Self::Commitments::to_vec().
-    fn columns(&self) -> Vec<DensePolynomial<C::ScalarField>> {
+    fn columns(&self) -> Vec<(DensePolynomial<C::ScalarField>, C::ScalarField)> {
         vec![
-            self.points.xs.as_poly().clone(),
-            self.select_part.as_poly().clone(),
-            self.points.ys.as_poly().clone(),
-            self.bits.as_poly().clone(),
-            self.inner_prod_acc.as_poly().clone(),
-            self.cond_add_acc_x.as_poly().clone(),
-            self.cond_add_acc_y.as_poly().clone(),
+            self.points.xs.poly_with_bf(),
+            self.select_part.poly_with_bf(),
+            self.points.ys.poly_with_bf(),
+            self.bits.col.poly_with_bf(),
+            self.inner_prod_acc.poly_with_bf(),
+            self.cond_add_acc_x.poly_with_bf(),
+            self.cond_add_acc_y.poly_with_bf(),
         ]
     }
 

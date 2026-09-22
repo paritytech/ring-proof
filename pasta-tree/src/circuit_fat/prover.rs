@@ -157,17 +157,17 @@ where
 
     // Should return polynomials in the consistent with
     // Self::Evaluations::to_vec() and Self::Commitments::to_vec().
-    fn _columns(&self) -> Vec<DensePolynomial<G::BaseField>> {
+    fn _columns(&self) -> Vec<(DensePolynomial<G::BaseField>, G::BaseField)> {
         vec![
-            self.x_coords.as_poly().clone(),
-            self.h_powers.xs.as_poly().clone(),
-            self.h_powers.ys.as_poly().clone(),
-            self.node_idx.as_poly().clone(),
-            self.bf_bits.as_poly().clone(),
-            self.selected_node_acc.as_poly().clone(),
-            self.blinded_node_acc.xs.as_poly().clone(),
-            self.blinded_node_acc.ys.as_poly().clone(),
-            self.node_idx_sum_acc.as_poly().clone(),
+            self.x_coords.poly_with_bf(),
+            self.h_powers.xs.poly_with_bf(),
+            self.h_powers.ys.poly_with_bf(),
+            self.node_idx.col.poly_with_bf(),
+            self.bf_bits.col.poly_with_bf(),
+            self.selected_node_acc.poly_with_bf(),
+            self.blinded_node_acc.xs.poly_with_bf(),
+            self.blinded_node_acc.ys.poly_with_bf(),
+            self.node_idx_sum_acc.poly_with_bf(),
         ]
     }
 
@@ -219,7 +219,7 @@ where
 
     // Should return polynomials in the consistent with
     // Self::Evaluations::to_vec() and Self::Commitments::to_vec().
-    fn columns(&self) -> Vec<DensePolynomial<C::ScalarField>> {
+    fn columns(&self) -> Vec<(DensePolynomial<C::ScalarField>, C::ScalarField)> {
         self._columns()
     }
 

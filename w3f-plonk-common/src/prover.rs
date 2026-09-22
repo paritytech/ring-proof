@@ -69,7 +69,7 @@ impl<F: PrimeField, CS: PCS<F>, T: PlonkTranscript<F, CS>> PlonkProver<F, CS, T>
             piop.domain().domain_size() - 1
         ));
         let column_commitments =
-            piop.committed_columns(|col| CS::commit_with_bf(&self.pcs_ck, col.as_poly(), col.bf).0);
+            piop.committed_columns(|col| CS::commit_with_bf(&self.pcs_ck, &col.poly, col.bf).0);
         transcript.add_committed_cols(&column_commitments);
         end_timer!(t_commit_cols);
 
@@ -99,7 +99,7 @@ impl<F: PrimeField, CS: PCS<F>, T: PlonkTranscript<F, CS>> PlonkProver<F, CS, T>
         let zeta = transcript.get_evaluation_point();
         let z_n = zeta.pow([piop.domain().domain_size() as u64]);
         let q_folded = q_chunking::fold_quotient_chunks(&quotient_chunks, z_n);
-        let columns_to_open = piop.columns();
+        let (columns_to_open, bfs): (Vec<_>, Vec<F>) = piop.columns().into_iter().unzip();
         let columns_at_zeta = piop.columns_evaluated(&zeta);
         let constraint_polys_linearized = piop.constraints_lin(&zeta);
         let lin = aggregate_polys(&constraint_polys_linearized, &alphas);
@@ -114,7 +114,7 @@ impl<F: PrimeField, CS: PCS<F>, T: PlonkTranscript<F, CS>> PlonkProver<F, CS, T>
             lin_at_zeta_omega,
         };
         let polys_at_zeta = [columns_to_open, vec![q_folded]].concat();
-        let mut bfs_at_zeta = vec![F::zero(); polys_at_zeta.len()]; //TODO
+        let mut bfs_at_zeta = [bfs, vec![F::zero()]].concat();
         let bf_at_zeta_omega = F::zero(); //TODO
         let pcs_openings = PcsOpeningAt2Points {
             at_zeta: BatchOpening {
