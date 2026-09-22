@@ -194,7 +194,7 @@ where
         .concat()
     }
 
-    fn constraints_lin(&self, zeta: &F) -> Vec<DensePolynomial<F>> {
+    fn constraints_lin(&self, zeta: &F) -> Vec<(DensePolynomial<F>, F)> {
         vec![
             self.inner_prod.constraints_linearized(zeta),
             self.cond_add.constraints_linearized(zeta),
@@ -253,7 +253,7 @@ where
         .concat()
     }
 
-    fn constraints_lin(&self, zeta: &F) -> Vec<DensePolynomial<F>> {
+    fn constraints_lin(&self, zeta: &F) -> Vec<(DensePolynomial<F>, F)> {
         vec![
             self.inner_prod.constraints_linearized(zeta),
             self.cond_add.constraints_linearized(zeta),

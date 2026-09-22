@@ -235,7 +235,7 @@ where
         <Self as ProverPiop<C::ScalarField, WrappedAffine<C>>>::_quotient_chunks(self, alphas)
     }
 
-    fn constraints_lin(&self, zeta: &C::ScalarField) -> Vec<DensePolynomial<C::ScalarField>> {
+    fn constraints_lin(&self, zeta: &C::ScalarField) -> Vec<(DensePolynomial<C::ScalarField>, C::ScalarField)> {
         self.gadgets
             .iter()
             .flat_map(|g| g.constraints_linearized(zeta))

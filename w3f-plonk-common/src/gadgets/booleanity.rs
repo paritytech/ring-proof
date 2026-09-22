@@ -71,8 +71,8 @@ impl<F: FftField> ProverGadget<F> for Booleanity<F> {
         vec![c]
     }
 
-    fn constraints_linearized(&self, _z: &F) -> Vec<DensePolynomial<F>> {
-        vec![DensePolynomial::zero()]
+    fn constraints_linearized(&self, _z: &F) -> Vec<(DensePolynomial<F>, F)> {
+        vec![(DensePolynomial::zero(), F::zero())]
     }
 
     fn domain(&self) -> GeneralEvaluationDomain<F> {

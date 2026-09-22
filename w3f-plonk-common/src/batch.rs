@@ -9,7 +9,7 @@ use ark_std::vec::Vec;
 use w3f_pcs::pcs::Commitment;
 
 impl<F: PrimeField, C: Commitment<F>, CC: ColumnsCommited<F, C>, const K: usize>
-    ColumnsCommited<F, C> for [CC; K]
+ColumnsCommited<F, C> for [CC; K]
 {
     fn to_vec(self) -> Vec<C> {
         self.into_iter().flat_map(|p| p.to_vec()).collect()
@@ -60,7 +60,7 @@ pub struct BatchVerifier<F: PrimeField, C: Commitment<F>, V: VerifierPiop<F, C>,
 );
 
 impl<F: PrimeField, C: Commitment<F>, P: ProverPiop<F, C>, const K: usize> ProverPiop<F, C>
-    for BatchProver<F, C, P, K>
+for BatchProver<F, C, P, K>
 {
     const N_COLUMNS: usize = P::N_COLUMNS * K;
     const N_CONSTRAINTS: usize = P::N_CONSTRAINTS * K;
@@ -96,7 +96,7 @@ impl<F: PrimeField, C: Commitment<F>, P: ProverPiop<F, C>, const K: usize> Prove
         self.0.iter().flat_map(|p| p.constraints()).collect()
     }
 
-    fn constraints_lin(&self, zeta: &F) -> Vec<DensePolynomial<F>> {
+    fn constraints_lin(&self, zeta: &F) -> Vec<(DensePolynomial<F>, F)> {
         self.0
             .iter()
             .flat_map(|p| p.constraints_lin(zeta))
@@ -122,7 +122,7 @@ impl<F: PrimeField, C: Commitment<F>, P: ProverPiop<F, C>, const K: usize> Prove
 }
 
 impl<F: PrimeField, C: Commitment<F>, V: VerifierPiop<F, C>, const K: usize> VerifierPiop<F, C>
-    for BatchVerifier<F, C, V, K>
+for BatchVerifier<F, C, V, K>
 {
     const N_COLUMNS: usize = V::N_COLUMNS * K;
     const N_CONSTRAINTS: usize = V::N_CONSTRAINTS * K;

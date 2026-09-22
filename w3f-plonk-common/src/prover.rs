@@ -1,4 +1,4 @@
-use ark_ff::PrimeField;
+use ark_ff::{PrimeField, Zero};
 use ark_poly::univariate::DensePolynomial;
 use ark_poly::Polynomial;
 use ark_serialize::CanonicalSerialize;
@@ -8,7 +8,7 @@ use ark_std::{end_timer, start_timer, vec};
 
 use w3f_pcs::aggregation::single::aggregate_polys;
 use w3f_pcs::pcs::PCS;
-
+use w3f_pcs::Poly;
 use crate::piop::ProverPiop;
 use crate::transcript::PlonkTranscript;
 use crate::{q_chunking, PiopProof, Proof};
@@ -102,7 +102,7 @@ impl<F: PrimeField, CS: PCS<F>, T: PlonkTranscript<F, CS>> PlonkProver<F, CS, T>
         let (columns_to_open, bfs): (Vec<_>, Vec<F>) = piop.columns().into_iter().unzip();
         let columns_at_zeta = piop.columns_evaluated(&zeta);
         let constraint_polys_linearized = piop.constraints_lin(&zeta);
-        let lin = aggregate_polys(&constraint_polys_linearized, &alphas);
+        let (lin, lin_bf) = Self::aggregate_polys_and_bfs(&constraint_polys_linearized, &alphas);
         let omega = piop.domain().omega();
         let zeta_omega = zeta * omega;
         let lin_at_zeta_omega = lin.evaluate(&zeta_omega);
@@ -115,7 +115,6 @@ impl<F: PrimeField, CS: PCS<F>, T: PlonkTranscript<F, CS>> PlonkProver<F, CS, T>
         };
         let polys_at_zeta = [columns_to_open, vec![q_folded]].concat();
         let mut bfs_at_zeta = [bfs, vec![F::zero()]].concat();
-        let bf_at_zeta_omega = F::zero(); //TODO
         let pcs_openings = PcsOpeningAt2Points {
             at_zeta: BatchOpening {
                 polys: polys_at_zeta,
@@ -124,7 +123,7 @@ impl<F: PrimeField, CS: PCS<F>, T: PlonkTranscript<F, CS>> PlonkProver<F, CS, T>
             },
             at_zeta_omega: BatchOpening {
                 polys: vec![lin],
-                bfs: vec![bf_at_zeta_omega],
+                bfs: vec![lin_bf],
                 zeta: zeta_omega,
             },
         };
@@ -162,5 +161,14 @@ impl<F: PrimeField, CS: PCS<F>, T: PlonkTranscript<F, CS>> PlonkProver<F, CS, T>
             agg_at_zeta_proof,
             lin_at_zeta_omega_proof,
         }
+    }
+
+    fn aggregate_polys_and_bfs(polys_and_bfs: &[(DensePolynomial<F>, F)], rs: &[F]) -> (DensePolynomial<F>, F) {
+        assert_eq!(polys_and_bfs.len(), rs.len());
+        polys_and_bfs
+            .iter()
+            .zip(rs.iter())
+            .map(|((p, bf), &r)| (p * r, r * bf))
+            .fold((Poly::zero(), F::zero()), |(p_acc, bf_acc), (p, bf)| (p_acc + p, bf_acc + bf))
     }
 }
