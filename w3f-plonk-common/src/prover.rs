@@ -21,11 +21,15 @@ pub struct PlonkProver<F: PrimeField, CS: PCS<F>, T: PlonkTranscript<F, CS>> {
     transcript_prelude: T,
 }
 
-pub struct PcsOpeningAt2Points<F: PrimeField> {
-    pub polys_at_zeta: Vec<DensePolynomial<F>>,
-    pub polys_at_zeta_omega: Vec<DensePolynomial<F>>,
+pub struct BatchOpening<F: PrimeField> {
+    pub polys: Vec<DensePolynomial<F>>,
+    pub bfs: Vec<F>,
     pub zeta: F,
-    pub zeta_omega: F,
+}
+
+pub struct PcsOpeningAt2Points<F: PrimeField> {
+    pub at_zeta: BatchOpening<F>,
+    pub at_zeta_omega: BatchOpening<F>,
 }
 
 impl<F: PrimeField, CS: PCS<F>, T: PlonkTranscript<F, CS>> PlonkProver<F, CS, T> {
@@ -110,11 +114,19 @@ impl<F: PrimeField, CS: PCS<F>, T: PlonkTranscript<F, CS>> PlonkProver<F, CS, T>
             lin_at_zeta_omega,
         };
         let polys_at_zeta = [columns_to_open, vec![q_folded]].concat();
+        let mut bfs_at_zeta = vec![F::zero(); polys_at_zeta.len()]; //TODO
+        let bf_at_zeta_omega = F::zero(); //TODO
         let pcs_openings = PcsOpeningAt2Points {
-            polys_at_zeta,
-            polys_at_zeta_omega: vec![lin],
-            zeta,
-            zeta_omega,
+            at_zeta: BatchOpening {
+                polys: polys_at_zeta,
+                bfs: bfs_at_zeta,
+                zeta,
+            },
+            at_zeta_omega: BatchOpening {
+                polys: vec![lin],
+                bfs: vec![bf_at_zeta_omega],
+                zeta: zeta_omega,
+            },
         };
         (pcs_openings, piop_proof, transcript)
     }
@@ -124,13 +136,7 @@ impl<F: PrimeField, CS: PCS<F>, T: PlonkTranscript<F, CS>> PlonkProver<F, CS, T>
         P: ProverPiop<F, CS::C>,
     {
         let (pcs_openings, piop_proof, mut transcript) = self.reduce_to_pcs_opening(piop);
-        let PcsOpeningAt2Points {
-            polys_at_zeta,
-            polys_at_zeta_omega,
-            zeta,
-            zeta_omega,
-        } = pcs_openings;
-        let lin = &polys_at_zeta_omega[0];
+        let lin = &pcs_openings.at_zeta_omega.polys[0];
         let PiopProof {
             column_commitments,
             quotient_chunks: quotient_commitment,
@@ -138,13 +144,15 @@ impl<F: PrimeField, CS: PCS<F>, T: PlonkTranscript<F, CS>> PlonkProver<F, CS, T>
             lin_at_zeta_omega,
         } = piop_proof;
 
-        let nus = transcript.get_kzg_aggregation_challenges(polys_at_zeta.len());
-        let agg_at_zeta = aggregate_polys(&polys_at_zeta, &nus);
+        let nus = transcript.get_kzg_aggregation_challenges(pcs_openings.at_zeta.polys.len());
+        let agg_at_zeta = aggregate_polys(&pcs_openings.at_zeta.polys, &nus);
         let _t_open_zeta = start_timer!(|| format!("Opening deg(f)={}", agg_at_zeta.degree()));
-        let agg_at_zeta_proof = CS::open(&self.pcs_ck, &agg_at_zeta, zeta).unwrap();
+        let agg_at_zeta_proof =
+            CS::open(&self.pcs_ck, &agg_at_zeta, pcs_openings.at_zeta.zeta).unwrap();
         end_timer!(_t_open_zeta);
         let _t_open_zeta_omega = start_timer!(|| format!("Opening deg(f)={}", lin.degree()));
-        let lin_at_zeta_omega_proof = CS::open(&self.pcs_ck, lin, zeta_omega).unwrap();
+        let lin_at_zeta_omega_proof =
+            CS::open(&self.pcs_ck, lin, pcs_openings.at_zeta_omega.zeta).unwrap();
         end_timer!(_t_open_zeta_omega);
         Proof {
             column_commitments,

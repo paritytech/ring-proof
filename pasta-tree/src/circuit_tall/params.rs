@@ -97,7 +97,7 @@ where
         x_coords.resize(self.domain.domain_size(), G::BaseField::zero());
         self.domain
             .domains
-            .column_from_evals(x_coords, payload_len, G::BaseField::zero())
+            .column_from_evals(x_coords, payload_len, G::BaseField::zero()) // TODO: bf
     }
 
     fn max_children(&self) -> usize {

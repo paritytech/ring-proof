@@ -114,7 +114,7 @@ where
         x_coords[c] = G::BaseField::one();
         self.domain
             .domains
-            .column_from_evals(x_coords, c, G::BaseField::one())
+            .column_from_evals(x_coords, c, G::BaseField::zero()) //TODO: bf
     }
 
     pub fn h_powers_column(&self) -> AffineColumn<G::BaseField, G> {
