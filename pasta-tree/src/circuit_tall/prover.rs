@@ -45,7 +45,7 @@ where
         level: LevelWitnessWithBlinding<AffinePoint<G>>,
     ) -> Self {
         let domain = params.domain.clone();
-        let points = params.points_column(level.level_witness.siblings);
+        let points = params.points_column(level.level_witness.siblings, level.parent_bf);
         let bits = params.bits_column(level.level_witness.path_node_idx, level.bf);
         let bits_bool = Booleanity::init(bits.clone());
         let select_part = params.select_part();
@@ -158,7 +158,10 @@ impl<C: CurveGroup, G: CurveModel<BaseField = C::ScalarField>>
         <Self as ProverPiop<C::ScalarField, WrappedAffine<C>>>::_quotient_chunks(self, alphas)
     }
 
-    fn constraints_lin(&self, zeta: &C::ScalarField) -> Vec<(DensePolynomial<C::ScalarField>, C::ScalarField)> {
+    fn constraints_lin(
+        &self,
+        zeta: &C::ScalarField,
+    ) -> Vec<(DensePolynomial<C::ScalarField>, C::ScalarField)> {
         self.gadgets
             .iter()
             .flat_map(|g| g.constraints_linearized(zeta))

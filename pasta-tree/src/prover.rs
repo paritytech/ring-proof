@@ -130,15 +130,15 @@ impl<C: CurveGroup, G: CurveModel<BaseField = C::ScalarField>, P: CircuitParams<
 
             at_coords.extend(vec![BTreeSet::from([at_zeta.zeta]); at_zeta.polys.len()]);
             polys_to_open.extend(at_zeta.polys);
+            with_bfs.extend(at_zeta.bfs);
+
             at_coords.extend(vec![
                 BTreeSet::from([at_zeta_omega.zeta]);
                 at_zeta_omega.polys.len()
             ]);
             polys_to_open.extend(at_zeta_omega.polys);
-            let mut bfs_at_zeta = at_zeta.bfs;
-            bfs_at_zeta[0] = level.parent_bf;
-            with_bfs.extend(bfs_at_zeta);
             with_bfs.extend(at_zeta_omega.bfs);
+
             assert_eq!(with_bfs.len(), polys_to_open.len());
             assert_eq!(with_bfs.len(), at_coords.len());
             // end_timer!(t_commit_level);
@@ -213,14 +213,17 @@ impl<C: CurveGroup, G: CurveModel<BaseField = C::ScalarField>, P: CircuitParams<
         polys_to_open.extend(at_zeta_omega.polys);
         assert_eq!(polys_to_open.len(), n_to_open);
 
-        let mut with_bfs: Vec<_> = parent_bfs
-            .into_iter()
-            .flat_map(|bf| vec![bf, C::ScalarField::zero(), C::ScalarField::zero()])
-            .collect();
-        with_bfs.resize(n_to_open, C::ScalarField::zero());
+        // let mut with_bfs: Vec<_> = parent_bfs
+        //     .into_iter()
+        //     .flat_map(|bf| vec![bf, C::ScalarField::zero(), C::ScalarField::zero()])
+        //     .collect();
+        // with_bfs.resize(n_to_open, C::ScalarField::zero());
+
+        let mut with_bfs = at_zeta.bfs;
+        with_bfs.extend(at_zeta_omega.bfs);
 
         // use ark_ec::AffineRepr;
-        // for (i, ((p, z), bf)) in polys_to_open.iter()
+        // for (i, ((p, z64), bf)) in polys_to_open.iter()
         //     .zip(at_coords.iter().map(|z| z.first().unwrap()))
         //     .zip(with_bfs.iter())
         //     .enumerate() {

@@ -51,7 +51,7 @@ where
         level: LevelWitnessWithBlinding<AffinePoint<G>>,
     ) -> Self {
         let domain = params.domain.clone();
-        let x_coords = params.x_coords_column(&level.level_witness.x_coords());
+        let x_coords = params.x_coords_column(&level.level_witness.x_coords(), level.parent_bf);
         let h_powers = params.h_powers_column();
         let node_idx = params.node_selector(level.level_witness.path_node_idx);
         let bf_bits = params.bf_bits_column(level.bf);
@@ -235,7 +235,10 @@ where
         <Self as ProverPiop<C::ScalarField, WrappedAffine<C>>>::_quotient_chunks(self, alphas)
     }
 
-    fn constraints_lin(&self, zeta: &C::ScalarField) -> Vec<(DensePolynomial<C::ScalarField>, C::ScalarField)> {
+    fn constraints_lin(
+        &self,
+        zeta: &C::ScalarField,
+    ) -> Vec<(DensePolynomial<C::ScalarField>, C::ScalarField)> {
         self.gadgets
             .iter()
             .flat_map(|g| g.constraints_linearized(zeta))
