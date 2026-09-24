@@ -110,7 +110,7 @@ impl<F: FftField, Curve: SWCurveConfig<BaseField = F>> ProverGadget<F>
         let acc_x = self.acc.xs.as_poly();
         let acc_y = self.acc.ys.as_poly();
         let acc_x_bf = self.acc.xs.bf;
-        let acc_y_bf = self.acc.xs.bf;
+        let acc_y_bf = self.acc.ys.bf;
 
         let (c_acc_x, c_acc_y) = vals.acc_coeffs_1();
         let c1_lin = acc_x * c_acc_x + acc_y * c_acc_y;

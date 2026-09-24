@@ -159,8 +159,7 @@ impl<F: FftField> Domain<F> {
             values.resize(self.capacity, F::zero());
             let rng = &mut getrandom_or_panic();
             values.resize_with(self.domain_size(), || F::rand(rng));
-            // F::rand(rng)
-            F::zero()
+            F::rand(rng)
         } else {
             values.resize(self.domain_size(), F::zero());
             F::zero()
