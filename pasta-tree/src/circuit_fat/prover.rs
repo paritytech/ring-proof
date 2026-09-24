@@ -51,7 +51,7 @@ where
         level: LevelWitnessWithBlinding<AffinePoint<G>>,
     ) -> Self {
         let domain = params.domain.clone();
-        let x_coords = params.x_coords_column(&level.level_witness.x_coords());
+        let x_coords = params.x_coords_column(&level.level_witness.x_coords(), level.parent_bf);
         let h_powers = params.h_powers_column();
         let node_idx = params.node_selector(level.level_witness.path_node_idx);
         let bf_bits = params.bf_bits_column(level.bf);
@@ -133,19 +133,19 @@ where
 
     fn _committed_columns<
         C: CurveGroup,
-        Fun: Fn(&DensePolynomial<G::BaseField>) -> WrappedAffine<C>,
+        Fun: Fn(&FieldColumn<G::BaseField>) -> WrappedAffine<C>,
     >(
         &self,
         commit: Fun,
     ) -> ProofComms<C> {
-        let node_idx = commit(self.node_idx.as_poly());
-        let bf_bits = commit(self.bf_bits.as_poly());
-        let selected_node_acc = commit(self.selected_node_acc.as_poly());
+        let node_idx = commit(&self.node_idx.col);
+        let bf_bits = commit(&self.bf_bits.col);
+        let selected_node_acc = commit(&self.selected_node_acc);
         let blinded_node_acc = [
-            commit(self.blinded_node_acc.xs.as_poly()),
-            commit(self.blinded_node_acc.ys.as_poly()),
+            commit(&self.blinded_node_acc.xs),
+            commit(&self.blinded_node_acc.ys),
         ];
-        let node_idx_sum_acc = commit(self.node_idx_sum_acc.as_poly());
+        let node_idx_sum_acc = commit(&self.node_idx_sum_acc);
         ProofComms {
             node_idx,
             bf_bits,
@@ -157,17 +157,17 @@ where
 
     // Should return polynomials in the consistent with
     // Self::Evaluations::to_vec() and Self::Commitments::to_vec().
-    fn _columns(&self) -> Vec<DensePolynomial<G::BaseField>> {
+    fn _columns(&self) -> Vec<(DensePolynomial<G::BaseField>, G::BaseField)> {
         vec![
-            self.x_coords.as_poly().clone(),
-            self.h_powers.xs.as_poly().clone(),
-            self.h_powers.ys.as_poly().clone(),
-            self.node_idx.as_poly().clone(),
-            self.bf_bits.as_poly().clone(),
-            self.selected_node_acc.as_poly().clone(),
-            self.blinded_node_acc.xs.as_poly().clone(),
-            self.blinded_node_acc.ys.as_poly().clone(),
-            self.node_idx_sum_acc.as_poly().clone(),
+            self.x_coords.poly_with_bf(),
+            self.h_powers.xs.poly_with_bf(),
+            self.h_powers.ys.poly_with_bf(),
+            self.node_idx.col.poly_with_bf(),
+            self.bf_bits.col.poly_with_bf(),
+            self.selected_node_acc.poly_with_bf(),
+            self.blinded_node_acc.xs.poly_with_bf(),
+            self.blinded_node_acc.ys.poly_with_bf(),
+            self.node_idx_sum_acc.poly_with_bf(),
         ]
     }
 
@@ -210,7 +210,7 @@ where
     type Evaluations = ProofEvals<C::ScalarField>;
     type Instance = AffinePoint<G>;
 
-    fn committed_columns<Fun: Fn(&DensePolynomial<C::ScalarField>) -> WrappedAffine<C>>(
+    fn committed_columns<Fun: Fn(&FieldColumn<C::ScalarField>) -> WrappedAffine<C>>(
         &self,
         commit: Fun,
     ) -> Self::Commitments {
@@ -219,7 +219,7 @@ where
 
     // Should return polynomials in the consistent with
     // Self::Evaluations::to_vec() and Self::Commitments::to_vec().
-    fn columns(&self) -> Vec<DensePolynomial<C::ScalarField>> {
+    fn columns(&self) -> Vec<(DensePolynomial<C::ScalarField>, C::ScalarField)> {
         self._columns()
     }
 
@@ -235,7 +235,10 @@ where
         <Self as ProverPiop<C::ScalarField, WrappedAffine<C>>>::_quotient_chunks(self, alphas)
     }
 
-    fn constraints_lin(&self, zeta: &C::ScalarField) -> Vec<DensePolynomial<C::ScalarField>> {
+    fn constraints_lin(
+        &self,
+        zeta: &C::ScalarField,
+    ) -> Vec<(DensePolynomial<C::ScalarField>, C::ScalarField)> {
         self.gadgets
             .iter()
             .flat_map(|g| g.constraints_linearized(zeta))

@@ -1,5 +1,5 @@
 use crate::domain::{Domain, EvaluatedDomain};
-use crate::{q_chunking, ColumnsCommited, ColumnsEvaluated};
+use crate::{q_chunking, ColumnsCommited, ColumnsEvaluated, FieldColumn};
 use ark_ff::{FftField, PrimeField};
 use ark_poly::univariate::DensePolynomial;
 use ark_poly::Evaluations;
@@ -19,13 +19,10 @@ pub trait ProverPiop<F: PrimeField, C: Commitment<F>> {
     type Instance: Clone + ark_std::fmt::Debug + CanonicalSerialize + CanonicalDeserialize;
 
     // Commitments to the column polynomials excluding the precommitted columns.
-    fn committed_columns<Fun: Fn(&DensePolynomial<F>) -> C + Clone>(
-        &self,
-        commit: Fun,
-    ) -> Self::Commitments;
+    fn committed_columns<Fun: Fn(&FieldColumn<F>) -> C>(&self, commit: Fun) -> Self::Commitments;
 
     // All the column polynomials (including precommitted columns)
-    fn columns(&self) -> Vec<DensePolynomial<F>>;
+    fn columns(&self) -> Vec<(DensePolynomial<F>, F)>;
 
     // All the column polynomials (including precommitted columns) evaluated in a point
     // Self::Evaluations::to_vec should return evaluations in the order consistent to Self::columns
@@ -78,7 +75,7 @@ pub trait ProverPiop<F: PrimeField, C: Commitment<F>> {
     // 'Linearized' parts of constraint polynomials.
     // For a constraint of the form C = C(c1(X),...,ck(X),c1(wX),...,ck(wX)), where ci's are of degree n,
     // and an evaluation point z, it is a degree n polynomial r = C(c1(z),...,ck(z),c1(X),...,ck(X)).
-    fn constraints_lin(&self, zeta: &F) -> Vec<DensePolynomial<F>>;
+    fn constraints_lin(&self, zeta: &F) -> Vec<(DensePolynomial<F>, F)>;
 
     // Subgroup over which the columns are defined.
     fn domain(&self) -> &Domain<F>;

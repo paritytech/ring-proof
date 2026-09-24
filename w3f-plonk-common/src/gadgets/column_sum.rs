@@ -76,9 +76,10 @@ impl<F: FftField> ProverGadget<F> for ColumnSumPolys<F> {
         vec![c]
     }
 
-    fn constraints_linearized(&self, z: &F) -> Vec<DensePolynomial<F>> {
-        let c = &self.acc.poly * self.not_last.evaluate(z);
-        vec![c]
+    fn constraints_linearized(&self, z: &F) -> Vec<(DensePolynomial<F>, F)> {
+        let nl = self.not_last.evaluate(z);
+        let c = &self.acc.poly * nl;
+        vec![(c, self.acc.bf * nl)]
     }
 
     fn domain(&self) -> GeneralEvaluationDomain<F> {

@@ -11,7 +11,7 @@ use crate::{const_evals, Column};
 impl<F, Curve> ProverGadget<F> for CondAdd<F, Affine<Curve>>
 where
     F: FftField,
-    Curve: TECurveConfig<BaseField = F>,
+    Curve: TECurveConfig<BaseField=F>,
 {
     fn witness_columns(&self) -> Vec<DensePolynomial<F>> {
         vec![self.acc.xs.poly.clone(), self.acc.ys.poly.clone()]
@@ -76,18 +76,22 @@ where
     }
 
     /// Mary-Oana Linearization technique. See: https://hackmd.io/0kdBl3GVSmmcB7QJe1NTuw?view#Linearization
-    fn constraints_linearized(&self, z: &F) -> Vec<DensePolynomial<F>> {
+    fn constraints_linearized(&self, z: &F) -> Vec<(DensePolynomial<F>, F)> {
         let vals = self.evaluate_assignment(z);
         let acc_x = self.acc.xs.as_poly();
         let acc_y = self.acc.ys.as_poly();
+        let acc_x_bf = self.acc.xs.bf;
+        let acc_y_bf = self.acc.ys.bf;
 
         let (c_acc_x, c_acc_y) = vals.acc_coeffs_1();
         let c1_lin = acc_x * c_acc_x + acc_y * c_acc_y; //though acc_y is 0
+        let c1_lin_bf = acc_x_bf * c_acc_x + acc_y_bf * c_acc_y;
 
         let (c_acc_x, c_acc_y) = vals.acc_coeffs_2();
         let c2_lin = acc_x * c_acc_x + acc_y * c_acc_y; //though acc_x is 0
+        let c2_lin_bf = acc_x_bf * c_acc_x + acc_y_bf * c_acc_y;
 
-        vec![c1_lin, c2_lin]
+        vec![(c1_lin, c1_lin_bf), (c2_lin, c2_lin_bf)]
     }
 
     fn domain(&self) -> GeneralEvaluationDomain<F> {
@@ -95,7 +99,7 @@ where
     }
 }
 
-impl<F: Field, C: TECurveConfig<BaseField = F>> CondAddValues<F, Affine<C>> {
+impl<F: Field, C: TECurveConfig<BaseField=F>> CondAddValues<F, Affine<C>> {
     pub fn acc_coeffs_1(&self) -> (F, F) {
         let b = self.bitmask;
         let (x1, y1) = self.acc;
@@ -125,8 +129,8 @@ impl<F: Field, C: TECurveConfig<BaseField = F>> CondAddValues<F, Affine<C>> {
     }
 }
 
-impl<F: FftField, C: TECurveConfig<BaseField = F>> VerifierGadget<F>
-    for CondAddValues<F, Affine<C>>
+impl<F: FftField, C: TECurveConfig<BaseField=F>> VerifierGadget<F>
+for CondAddValues<F, Affine<C>>
 {
     fn evaluate_constraints_main(&self) -> Vec<F> {
         let b = self.bitmask;

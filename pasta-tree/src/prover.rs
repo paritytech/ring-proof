@@ -118,10 +118,8 @@ impl<C: CurveGroup, G: CurveModel<BaseField = C::ScalarField>, P: CircuitParams<
             let (pcs_openings, piop_proof, _transcript) = plonk_prover.reduce_to_pcs_opening(piop);
             piop_proofs.push(piop_proof);
             let PcsOpeningAt2Points {
-                polys_at_zeta,
-                polys_at_zeta_omega,
-                zeta,
-                zeta_omega,
+                at_zeta,
+                at_zeta_omega,
             } = pcs_openings;
 
             // use ark_poly::Polynomial;
@@ -130,15 +128,19 @@ impl<C: CurveGroup, G: CurveModel<BaseField = C::ScalarField>, P: CircuitParams<
             //     polys_at_zeta[polys_at_zeta.len() - 1].evaluate(&zeta)
             // );
 
-            at_coords.extend(vec![BTreeSet::from([zeta]); polys_at_zeta.len()]);
-            polys_to_open.extend(polys_at_zeta);
+            at_coords.extend(vec![BTreeSet::from([at_zeta.zeta]); at_zeta.polys.len()]);
+            polys_to_open.extend(at_zeta.polys);
+            with_bfs.extend(at_zeta.bfs);
+
             at_coords.extend(vec![
-                BTreeSet::from([zeta_omega]);
-                polys_at_zeta_omega.len()
+                BTreeSet::from([at_zeta_omega.zeta]);
+                at_zeta_omega.polys.len()
             ]);
-            polys_to_open.extend(polys_at_zeta_omega);
-            with_bfs.push(level.parent_bf);
-            with_bfs.resize(polys_to_open.len(), C::ScalarField::zero());
+            polys_to_open.extend(at_zeta_omega.polys);
+            with_bfs.extend(at_zeta_omega.bfs);
+
+            assert_eq!(with_bfs.len(), polys_to_open.len());
+            assert_eq!(with_bfs.len(), at_coords.len());
             // end_timer!(t_commit_level);
         }
         end_timer!(t_commit_side);
@@ -197,30 +199,31 @@ impl<C: CurveGroup, G: CurveModel<BaseField = C::ScalarField>, P: CircuitParams<
         end_timer!(t_commit_side);
 
         let PcsOpeningAt2Points {
-            polys_at_zeta,
-            polys_at_zeta_omega,
-            zeta,
-            zeta_omega,
+            at_zeta,
+            at_zeta_omega,
         } = pcs_openings;
         // println!("zeta = {zeta}\nq(zeta) = {}\n", polys_at_zeta[polys_at_zeta.len() - 1].evaluate(&zeta));
 
-        let mut at_coords = vec![BTreeSet::from([zeta]); polys_at_zeta.len()];
-        let mut polys_to_open = polys_at_zeta;
+        let mut at_coords = vec![BTreeSet::from([at_zeta.zeta]); at_zeta.polys.len()];
+        let mut polys_to_open = at_zeta.polys;
         at_coords.extend(vec![
-            BTreeSet::from([zeta_omega]);
-            polys_at_zeta_omega.len()
+            BTreeSet::from([at_zeta_omega.zeta]);
+            at_zeta_omega.polys.len()
         ]);
-        polys_to_open.extend(polys_at_zeta_omega.clone());
+        polys_to_open.extend(at_zeta_omega.polys);
         assert_eq!(polys_to_open.len(), n_to_open);
 
-        let mut with_bfs: Vec<_> = parent_bfs
-            .into_iter()
-            .flat_map(|bf| vec![bf, C::ScalarField::zero(), C::ScalarField::zero()])
-            .collect();
-        with_bfs.resize(n_to_open, C::ScalarField::zero());
+        // let mut with_bfs: Vec<_> = parent_bfs
+        //     .into_iter()
+        //     .flat_map(|bf| vec![bf, C::ScalarField::zero(), C::ScalarField::zero()])
+        //     .collect();
+        // with_bfs.resize(n_to_open, C::ScalarField::zero());
+
+        let mut with_bfs = at_zeta.bfs;
+        with_bfs.extend(at_zeta_omega.bfs);
 
         // use ark_ec::AffineRepr;
-        // for (i, ((p, z), bf)) in polys_to_open.iter()
+        // for (i, ((p, z64), bf)) in polys_to_open.iter()
         //     .zip(at_coords.iter().map(|z| z.first().unwrap()))
         //     .zip(with_bfs.iter())
         //     .enumerate() {

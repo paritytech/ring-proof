@@ -59,6 +59,7 @@ pub trait CircuitParams<C: CurveGroup, G: CurveModel<BaseField = C::ScalarField>
     fn tree_nodes_column(
         &self,
         children_x_coords: &[C::ScalarField],
+        bf: C::ScalarField,
     ) -> FieldColumn<C::ScalarField>;
 
     fn max_children(&self) -> usize;
@@ -157,8 +158,10 @@ impl<C: CurveGroup, G: CurveModel<BaseField = C::ScalarField>, P: CircuitParams<
         bf: C::ScalarField,
     ) -> Result<WrappedAffine<C>, ()> {
         let nodes_column =
-            <P as CircuitParams<C, G>>::tree_nodes_column(&self.piop_params, nodes_x_coords);
-        let parent_node = self.pcs_params.commit_hiding(nodes_column.as_poly(), bf);
+            <P as CircuitParams<C, G>>::tree_nodes_column(&self.piop_params, nodes_x_coords, bf);
+        let parent_node = self
+            .pcs_params
+            .commit_hiding(nodes_column.as_poly(), nodes_column.bf);
         parent_node
     }
 
@@ -392,8 +395,7 @@ mod tests {
         end_timer!(t_verify);
         assert!(valid);
 
-        // number of columns for the FAT scheme is hardcoded in batch.rs
-        if height == 4 && log_n == 8 {
+        if height == 4 {
             println!("\n\n");
             let t_prove = start_timer!(|| format!(
                 "Batch-proving membership, height={height}, domain={domain_size}"

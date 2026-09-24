@@ -78,7 +78,11 @@ where
         vec![self.select_part()]
     }
 
-    fn tree_nodes_column(&self, children_x_coords: &[G::BaseField]) -> FieldColumn<G::BaseField> {
+    fn tree_nodes_column(
+        &self,
+        children_x_coords: &[G::BaseField],
+        bf: G::BaseField,
+    ) -> FieldColumn<G::BaseField> {
         assert!(children_x_coords.len() <= self.max_nodes);
         let mut x_coords = children_x_coords.to_vec();
         // padding
@@ -95,7 +99,9 @@ where
 
         // zk_rows
         x_coords.resize(self.domain.domain_size(), G::BaseField::zero());
-        self.domain.domains.column_from_evals(x_coords, payload_len)
+        self.domain
+            .domains
+            .column_from_evals(x_coords, payload_len, bf)
     }
 
     fn max_children(&self) -> usize {
@@ -145,10 +151,16 @@ where
     //     self.domain.domains.column_from_evals(x_coords, payload_len)
     // }
 
-    pub fn points_column(&self, child_nodes: Vec<G>) -> AffineColumn<G::BaseField, G> {
+    pub fn points_column(
+        &self,
+        child_nodes: Vec<G>,
+        bf: G::BaseField,
+    ) -> AffineColumn<G::BaseField, G> {
         let points = self.siblings_with_blinding(child_nodes);
         assert_eq!(points.len(), self.domain.capacity - 1);
-        AffineColumn::public_column(points, &self.domain)
+        let mut points = AffineColumn::public_column(points, &self.domain);
+        points.xs.bf = bf;
+        points
     }
 
     fn siblings_with_blinding(&self, siblings: Vec<G>) -> Vec<G> {

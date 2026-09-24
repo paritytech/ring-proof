@@ -29,9 +29,9 @@ pub struct PiopProver<G: AffineRepr<BaseField: FftField>> {
     // Bits of the chosen blinding factor. Private input.
     bits: BitColumn<G::BaseField>,
     select_part: FieldColumn<G::BaseField>,
-    inner_prod_acc: DensePolynomial<G::BaseField>,
-    cond_add_acc_x: DensePolynomial<G::BaseField>,
-    cond_add_acc_y: DensePolynomial<G::BaseField>,
+    inner_prod_acc: FieldColumn<G::BaseField>,
+    cond_add_acc_x: FieldColumn<G::BaseField>,
+    cond_add_acc_y: FieldColumn<G::BaseField>,
     gadgets: Vec<Box<dyn ProverGadget<G::BaseField>>>,
     result: G,
 }
@@ -45,7 +45,7 @@ where
         level: LevelWitnessWithBlinding<AffinePoint<G>>,
     ) -> Self {
         let domain = params.domain.clone();
-        let points = params.points_column(level.level_witness.siblings);
+        let points = params.points_column(level.level_witness.siblings, level.parent_bf);
         let bits = params.bits_column(level.level_witness.path_node_idx, level.bf);
         let bits_bool = Booleanity::init(bits.clone());
         let select_part = params.select_part();
@@ -62,9 +62,9 @@ where
         let cond_add_vals_x = FixedCells::init(cond_add.acc.xs.clone(), &domain, seed_x, result_x);
         let cond_add_vals_y = FixedCells::init(cond_add.acc.ys.clone(), &domain, seed_y, result_y);
 
-        let inner_prod_acc = inner_prod.acc.as_poly().clone();
-        let cond_add_acc_x = cond_add.acc.xs.as_poly().clone();
-        let cond_add_acc_y = cond_add.acc.ys.as_poly().clone();
+        let inner_prod_acc = inner_prod.acc.clone();
+        let cond_add_acc_x = cond_add.acc.xs.clone();
+        let cond_add_acc_y = cond_add.acc.ys.clone();
         let result = cond_add.result();
 
         let mut gadgets: Vec<Box<dyn ProverGadget<G::BaseField>>> = Vec::new();
@@ -102,12 +102,12 @@ impl<C: CurveGroup, G: CurveModel<BaseField = C::ScalarField>>
     type Evaluations = ProofEvals<C::ScalarField>;
     type Instance = AffinePoint<G>;
 
-    fn committed_columns<Fun: Fn(&DensePolynomial<C::ScalarField>) -> WrappedAffine<C>>(
+    fn committed_columns<Fun: Fn(&FieldColumn<C::ScalarField>) -> WrappedAffine<C>>(
         &self,
         commit: Fun,
     ) -> Self::Commitments {
-        let points_y = commit(self.points.ys.as_poly());
-        let bits = commit(self.bits.as_poly());
+        let points_y = commit(&self.points.ys);
+        let bits = commit(&self.bits.col);
         let cond_add_acc = [commit(&self.cond_add_acc_x), commit(&self.cond_add_acc_y)];
         let inn_prod_acc = commit(&self.inner_prod_acc);
         ProofComms {
@@ -120,15 +120,15 @@ impl<C: CurveGroup, G: CurveModel<BaseField = C::ScalarField>>
 
     // Should return polynomials in the consistent with
     // Self::Evaluations::to_vec() and Self::Commitments::to_vec().
-    fn columns(&self) -> Vec<DensePolynomial<C::ScalarField>> {
+    fn columns(&self) -> Vec<(DensePolynomial<C::ScalarField>, C::ScalarField)> {
         vec![
-            self.points.xs.as_poly().clone(),
-            self.select_part.as_poly().clone(),
-            self.points.ys.as_poly().clone(),
-            self.bits.as_poly().clone(),
-            self.inner_prod_acc.clone(),
-            self.cond_add_acc_x.clone(),
-            self.cond_add_acc_y.clone(),
+            self.points.xs.poly_with_bf(),
+            self.select_part.poly_with_bf(),
+            self.points.ys.poly_with_bf(),
+            self.bits.col.poly_with_bf(),
+            self.inner_prod_acc.poly_with_bf(),
+            self.cond_add_acc_x.poly_with_bf(),
+            self.cond_add_acc_y.poly_with_bf(),
         ]
     }
 
@@ -158,7 +158,10 @@ impl<C: CurveGroup, G: CurveModel<BaseField = C::ScalarField>>
         <Self as ProverPiop<C::ScalarField, WrappedAffine<C>>>::_quotient_chunks(self, alphas)
     }
 
-    fn constraints_lin(&self, zeta: &C::ScalarField) -> Vec<DensePolynomial<C::ScalarField>> {
+    fn constraints_lin(
+        &self,
+        zeta: &C::ScalarField,
+    ) -> Vec<(DensePolynomial<C::ScalarField>, C::ScalarField)> {
         self.gadgets
             .iter()
             .flat_map(|g| g.constraints_linearized(zeta))

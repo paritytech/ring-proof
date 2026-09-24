@@ -74,8 +74,9 @@ where
     fn tree_nodes_column(
         &self,
         children_x_coords: &[C::ScalarField],
+        bf: C::ScalarField,
     ) -> FieldColumn<C::ScalarField> {
-        self.x_coords_column(children_x_coords)
+        self.x_coords_column(children_x_coords, bf)
     }
 
     fn max_children(&self) -> usize {
@@ -106,13 +107,17 @@ where
         self.domain.capacity - 1
     }
 
-    pub fn x_coords_column(&self, x_coords: &[G::BaseField]) -> FieldColumn<G::BaseField> {
+    pub fn x_coords_column(
+        &self,
+        x_coords: &[G::BaseField],
+        bf: G::BaseField,
+    ) -> FieldColumn<G::BaseField> {
         let c = self.max_nodes();
         assert!(x_coords.len() <= c);
         let mut x_coords = x_coords.to_vec();
         x_coords.resize(self.domain.domain_size(), G::BaseField::zero());
         x_coords[c] = G::BaseField::one();
-        self.domain.domains.column_from_evals(x_coords, c)
+        self.domain.domains.column_from_evals(x_coords, c, bf)
     }
 
     pub fn h_powers_column(&self) -> AffineColumn<G::BaseField, G> {

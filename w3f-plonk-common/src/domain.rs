@@ -23,26 +23,33 @@ impl<F: FftField> Domains<F> {
         Self { x1, x4 }
     }
 
-    pub fn column_from_evals(&self, padded_evals: Vec<F>, payload_len: usize) -> FieldColumn<F> {
+    pub fn column_from_evals(
+        &self,
+        padded_evals: Vec<F>,
+        payload_len: usize,
+        bf: F,
+    ) -> FieldColumn<F> {
         debug_assert_eq!(padded_evals.len(), self.x1.size());
         let evals = Evaluations::from_vec_and_domain(padded_evals, self.x1);
         let poly = evals.interpolate_by_ref();
         let evals_4x = poly.evaluate_over_domain_by_ref(self.x4);
         FieldColumn {
             poly,
+            bf,
             evals,
             evals_4x,
             payload_len,
         }
     }
 
-    fn column_from_poly(&self, poly: DensePolynomial<F>) -> FieldColumn<F> {
+    fn public_col_from_poly(&self, poly: DensePolynomial<F>) -> FieldColumn<F> {
         debug_assert!(poly.degree() + 1 <= self.x1.size());
         let evals_4x = self.amplify(&poly);
         let evals = evals_4x.evals.iter().step_by(4).cloned().collect();
         let evals = Evaluations::from_vec_and_domain(evals, self.x1);
         FieldColumn {
             poly,
+            bf: F::zero(),
             evals,
             evals_4x,
             payload_len: self.x1.size(),
@@ -83,12 +90,12 @@ impl<F: FftField> Domain<F> {
         let last_row_index = capacity - 1;
 
         let l_first = l_i(0, domain_size);
-        let l_first = domains.column_from_evals(l_first, 0);
+        let l_first = domains.column_from_evals(l_first, 0, F::zero());
         let l_last = l_i(last_row_index, domain_size);
-        let l_last = domains.column_from_evals(l_last, 0);
+        let l_last = domains.column_from_evals(l_last, 0, F::zero());
 
         let (zk_rows_prod, last_row) = compute_row_polys(domains.x1, zk_rows);
-        let not_last_row = domains.column_from_poly(last_row);
+        let not_last_row = domains.public_col_from_poly(last_row);
 
         Self {
             domains,
@@ -148,14 +155,16 @@ impl<F: FftField> Domain<F> {
     fn _column(&self, mut values: Vec<F>, public: bool) -> FieldColumn<F> {
         let payload_len = values.len();
         assert!(payload_len <= self.capacity);
-        if self.blinding && !public {
+        let bf = if self.blinding && !public {
             values.resize(self.capacity, F::zero());
             let rng = &mut getrandom_or_panic();
             values.resize_with(self.domain_size(), || F::rand(rng));
+            F::rand(rng)
         } else {
             values.resize(self.domain_size(), F::zero());
-        }
-        self.domains.column_from_evals(values, payload_len)
+            F::zero()
+        };
+        self.domains.column_from_evals(values, payload_len, bf)
     }
 
     pub fn column(&self, values: Vec<F>) -> FieldColumn<F> {

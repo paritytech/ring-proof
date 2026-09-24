@@ -20,7 +20,7 @@ pub trait ProverGadget<F: FftField> {
     fn constraints(&self) -> Vec<Evaluations<F>>;
 
     // 'Linearized' parts of the constraint polynomials.
-    fn constraints_linearized(&self, zeta: &F) -> Vec<DensePolynomial<F>>;
+    fn constraints_linearized(&self, zeta: &F) -> Vec<(DensePolynomial<F>, F)>;
 
     // Subgroup over which the columns are defined.
     fn domain(&self) -> GeneralEvaluationDomain<F>;
