@@ -61,6 +61,7 @@ mod tests {
 
     use w3f_plonk_common::test_helpers::random_vec;
 
+    use crate::multi_ring_batch_verifier::BatchVerifier;
     use crate::ring::{Ring, RingBuilderKey};
     use crate::ring_prover::RingProver;
     use crate::ring_verifier::RingVerifier;
@@ -268,7 +269,6 @@ mod tests {
         }
 
         // Multi-ring batch verification
-        use crate::multi_ring_batch_verifier::BatchVerifier;
         let mut batch = BatchVerifier::new(
             verifier_a.pcs_vk().clone(),
             verifier_a.plonk_verifier.transcript_prelude.clone(),
@@ -280,5 +280,28 @@ mod tests {
             batch.push(&verifier_b, proof, result);
         }
         assert!(batch.verify());
+    }
+
+    // A degenerate randomizer (for example zero) keeps the pairing identity
+    // for every batch, so a batch of valid proofs does not detect it. Only a
+    // batch with an invalid item does.
+    #[test]
+    fn batch_rejects_a_tampered_item() {
+        let (verifier, claims) = _test_ring_proof::<KZG<Bls12_381>>(2usize.pow(9), 3);
+        let (results, proofs): (Vec<_>, Vec<_>) = claims.into_iter().unzip();
+        assert!(verifier.verify_batch_kzg(proofs.clone(), results.clone()));
+
+        // The third proof is paired with the result of the first one.
+        let tampered_results = vec![results[0], results[1], results[0]];
+        assert!(!verifier.verify_batch_kzg(proofs.clone(), tampered_results.clone()));
+
+        let mut batch = BatchVerifier::new(
+            verifier.pcs_vk().clone(),
+            verifier.plonk_verifier.transcript_prelude.clone(),
+        );
+        for (proof, result) in proofs.into_iter().zip(tampered_results) {
+            batch.push(&verifier, proof, result);
+        }
+        assert!(!batch.verify());
     }
 }
