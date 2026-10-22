@@ -8,8 +8,6 @@ use w3f_pcs::pcs::ipa::hiding::HidingIpa;
 use w3f_pcs::shplonk::Shplonk;
 use w3f_plonk_common::piop::VerifierPiop;
 use w3f_plonk_common::verifier::{PcsOpeningAt2Points, PlonkVerifier};
-use w3f_ring_proof::piop::verifier::PiopVerifier;
-use w3f_ring_proof::{ArkTranscript, FixedColumnsCommitted, VerifierKey};
 
 impl<C: CurveGroup, G: SWCurveConfig<BaseField = C::ScalarField, ScalarField = C::BaseField>>
     CycleSideParams<C, Affine<G>>

@@ -1,6 +1,6 @@
 use crate::piop::VerifierPiop;
 use crate::verifier::Challenges;
-use crate::{ColumnsCommited, ColumnsEvaluated, Proof};
+use crate::{q_chunking, ColumnsCommited, ColumnsEvaluated, Proof};
 use ark_ec::pairing::Pairing;
 use ark_ec::{CurveGroup, VariableBaseMSM};
 use ark_ff::{Field, PrimeField, Zero};
@@ -34,9 +34,9 @@ pub struct Openings<E: Pairing> {
 }
 
 impl<E: Pairing> Openings<E> {
-    pub fn new<F, Piop, Commitments, Evaluations>(
+    pub fn new<F, Piop, Commitments, Evaluations, const Q: usize>(
         piop: Piop,
-        proof: Proof<F, KZG<E>, Commitments, Evaluations>,
+        proof: Proof<F, KZG<E>, Commitments, Evaluations, Q>,
         challenges: Challenges<F>,
     ) -> Self
     where
@@ -47,6 +47,7 @@ impl<E: Pairing> Openings<E> {
         Evaluations: ColumnsEvaluated<F>,
     {
         // Columns and the quotient are opened at `zeta`, aggregated with the `nu`s.
+        // The quotient chunks share the last `nu`, scaled by the powers of `zeta^n`.
         let q_zeta = piop.evaluate_q_at_zeta(&challenges.alphas, proof.lin_at_zeta_omega);
         let mut columns_at_zeta = proof.columns_at_zeta.to_vec();
         columns_at_zeta.push(q_zeta);
@@ -57,10 +58,14 @@ impl<E: Pairing> Openings<E> {
             .sum();
         let mut commitments_at_zeta = piop.precommitted_columns();
         commitments_at_zeta.extend(proof.column_commitments.to_vec());
-        commitments_at_zeta.push(proof.quotient_commitment);
+        commitments_at_zeta.extend(proof.quotient_chunks);
+        let mut coeffs_at_zeta = challenges.nus;
+        let nu_last = coeffs_at_zeta.pop().unwrap();
+        let z_n = piop.domain_evaluated().z_n;
+        coeffs_at_zeta.extend(q_chunking::chunk_coeffs(z_n).take(Q).map(|c| nu_last * c));
         let at_zeta = OpeningClaim {
             commitments: commitments_at_zeta.into_iter().map(|c| c.0).collect(),
-            coeffs: challenges.nus,
+            coeffs: coeffs_at_zeta,
             at: challenges.zeta,
             value: agg_at_zeta,
             proof: proof.agg_at_zeta_proof,

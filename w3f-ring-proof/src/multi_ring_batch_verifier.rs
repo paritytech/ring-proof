@@ -36,7 +36,7 @@ impl<E: Pairing> BatchItem<E> {
     {
         let (challenges, mut fs_rng) = verifier
             .plonk_verifier
-            .restore_fs_with_rng::<PiopVerifier<_, _, Affine<J>>, _, _>(&result, &proof);
+            .restore_fs_with_rng::<PiopVerifier<_, _, Affine<J>>, _, _, _>(&result, &proof);
         let seed = verifier.piop_params.seed;
         let seed_plus_result = (seed + result).into_affine();
         let domain_at_zeta = verifier.piop_params.domain.evaluate(challenges.zeta);

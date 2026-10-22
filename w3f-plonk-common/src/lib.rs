@@ -9,12 +9,14 @@ use ark_serialize::{CanonicalDeserialize, CanonicalSerialize};
 use ark_std::{vec, vec::Vec};
 use w3f_pcs::pcs::{Commitment, PCS};
 
+pub mod batch;
 pub mod cond_select;
 pub mod domain;
 pub mod gadgets;
 pub mod kzg_acc;
 pub mod piop;
 pub mod prover;
+pub mod q_chunking;
 pub mod test_helpers;
 pub mod transcript;
 pub mod verifier;
@@ -36,7 +38,7 @@ pub struct FieldColumn<F: FftField> {
     // We require all the evaluations padded to the domain size
     // (as we need to add blinding cells aka zk_rows) at the end of the vector.
     // `payload_len` keeps the original length of the data.
-    payload_len: usize,
+    pub payload_len: usize,
 }
 
 impl<F: FftField> FieldColumn<F> {
@@ -74,13 +76,13 @@ pub fn const_evals<F: FftField>(c: F, domain: GeneralEvaluationDomain<F>) -> Eva
 }
 
 pub trait ColumnsEvaluated<F: PrimeField>:
-    Clone + CanonicalSerialize + CanonicalDeserialize
+    Clone + ark_std::fmt::Debug + CanonicalSerialize + CanonicalDeserialize
 {
     fn to_vec(self) -> Vec<F>;
 }
 
 pub trait ColumnsCommited<F: PrimeField, C: Commitment<F>>:
-    Clone + CanonicalSerialize + CanonicalDeserialize
+    Clone + ark_std::fmt::Debug + CanonicalSerialize + CanonicalDeserialize
 {
     fn to_vec(self) -> Vec<C>;
 }
@@ -95,7 +97,7 @@ fn is_in_correct_subgroup_assuming_on_curve<E: Pairing>(p: &E::G1Affine) -> bool
 /// - column and quotient polynomials are opened in a single point `zeta`
 /// - the linearization polynomial is opened in another (shifted) point `zeta * omega`
 #[derive(Clone, CanonicalSerialize, CanonicalDeserialize)]
-pub struct Proof<F, CS, Commitments, Evaluations>
+pub struct Proof<F, CS, Commitments, Evaluations, const Q: usize = 1>
 where
     F: PrimeField,
     CS: PCS<F>,
@@ -104,15 +106,15 @@ where
 {
     pub column_commitments: Commitments,
     pub columns_at_zeta: Evaluations,
-    pub quotient_commitment: CS::C,
+    pub quotient_chunks: [CS::C; Q],
     pub lin_at_zeta_omega: F,
     pub agg_at_zeta_proof: CS::Proof,
     pub lin_at_zeta_omega_proof: CS::Proof,
 }
 
 /// Same as `Proof` but excluding the PCS opening.
-#[derive(Clone, CanonicalSerialize, CanonicalDeserialize)]
-pub struct PiopProof<F, C, Commitments, Evaluations>
+#[derive(Clone, Debug, CanonicalSerialize, CanonicalDeserialize)]
+pub struct PiopProof<F, C, Commitments, Evaluations, const Q: usize = 1>
 where
     F: PrimeField,
     C: Commitment<F>,
@@ -121,22 +123,22 @@ where
 {
     pub column_commitments: Commitments,
     pub columns_at_zeta: Evaluations,
-    pub quotient_commitment: C,
+    pub quotient_chunks: [C; Q],
     pub lin_at_zeta_omega: F,
 }
 
-impl<F, CS, Commitments, Evaluations> Proof<F, CS, Commitments, Evaluations>
+impl<F, CS, Commitments, Evaluations, const Q: usize> Proof<F, CS, Commitments, Evaluations, Q>
 where
     F: PrimeField,
     CS: PCS<F>,
     Commitments: ColumnsCommited<F, CS::C>,
     Evaluations: ColumnsEvaluated<F>,
 {
-    pub fn to_piop_proof(&self) -> PiopProof<F, CS::C, Commitments, Evaluations> {
+    pub fn to_piop_proof(&self) -> PiopProof<F, CS::C, Commitments, Evaluations, Q> {
         PiopProof {
             column_commitments: self.column_commitments.clone(),
             columns_at_zeta: self.columns_at_zeta.clone(),
-            quotient_commitment: self.quotient_commitment.clone(),
+            quotient_chunks: self.quotient_chunks.clone(),
             lin_at_zeta_omega: self.lin_at_zeta_omega,
         }
     }
