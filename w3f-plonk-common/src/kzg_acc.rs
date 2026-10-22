@@ -3,8 +3,7 @@ use crate::verifier::Challenges;
 use crate::{ColumnsCommited, ColumnsEvaluated, Proof};
 use ark_ec::pairing::Pairing;
 use ark_ec::{CurveGroup, VariableBaseMSM};
-use ark_ff::{PrimeField, Zero};
-use ark_std::rand::Rng;
+use ark_ff::{Field, PrimeField, Zero};
 use ark_std::vec;
 use ark_std::vec::Vec;
 use w3f_pcs::pcs::kzg::params::KzgVerifierKey;
@@ -17,6 +16,72 @@ use w3f_pcs::pcs::PCS;
 // and runs `2` MSMs of size `O(k)` at the final stage,
 // that gives an asymptotic saving (thanks to Pippenger)
 // at the cost of linear accumulator size.
+
+// `sum(coeffs[i] * commitments[i])` opens to `value` at `at`.
+struct OpeningClaim<E: Pairing> {
+    commitments: Vec<E::G1Affine>,
+    coeffs: Vec<E::ScalarField>,
+    at: E::ScalarField,
+    value: E::ScalarField,
+    proof: E::G1Affine,
+}
+
+/// The two KZG opening claims of a Plonk proof, flattened for the final MSMs.
+/// The batch randomizer is not applied yet.
+pub struct Openings<E: Pairing> {
+    at_zeta: OpeningClaim<E>,
+    at_zeta_omega: OpeningClaim<E>,
+}
+
+impl<E: Pairing> Openings<E> {
+    pub fn new<F, Piop, Commitments, Evaluations>(
+        piop: Piop,
+        proof: Proof<F, KZG<E>, Commitments, Evaluations>,
+        challenges: Challenges<F>,
+    ) -> Self
+    where
+        F: PrimeField,
+        E: Pairing<ScalarField = F>,
+        Piop: VerifierPiop<F, <KZG<E> as PCS<F>>::C>,
+        Commitments: ColumnsCommited<F, <KZG<E> as PCS<F>>::C>,
+        Evaluations: ColumnsEvaluated<F>,
+    {
+        // Columns and the quotient are opened at `zeta`, aggregated with the `nu`s.
+        let q_zeta = piop.evaluate_q_at_zeta(&challenges.alphas, proof.lin_at_zeta_omega);
+        let mut columns_at_zeta = proof.columns_at_zeta.to_vec();
+        columns_at_zeta.push(q_zeta);
+        let agg_at_zeta = columns_at_zeta
+            .into_iter()
+            .zip(challenges.nus.iter())
+            .map(|(y, nu)| y * nu)
+            .sum();
+        let mut commitments_at_zeta = piop.precommitted_columns();
+        commitments_at_zeta.extend(proof.column_commitments.to_vec());
+        commitments_at_zeta.push(proof.quotient_commitment);
+        let at_zeta = OpeningClaim {
+            commitments: commitments_at_zeta.into_iter().map(|c| c.0).collect(),
+            coeffs: challenges.nus,
+            at: challenges.zeta,
+            value: agg_at_zeta,
+            proof: proof.agg_at_zeta_proof,
+        };
+
+        // The linearization polynomial is opened at `zeta * omega`.
+        let (lin_coeffs, lin_commitments) = piop.lin_poly_commitment(&challenges.alphas);
+        let at_zeta_omega = OpeningClaim {
+            commitments: lin_commitments.into_iter().map(|c| c.0).collect(),
+            coeffs: lin_coeffs,
+            at: challenges.zeta * piop.domain_evaluated().omega(),
+            value: proof.lin_at_zeta_omega,
+            proof: proof.lin_at_zeta_omega_proof,
+        };
+
+        Self {
+            at_zeta,
+            at_zeta_omega,
+        }
+    }
+}
 
 pub struct KzgAccumulator<E: Pairing> {
     // acc_points[0] = G1
@@ -62,75 +127,19 @@ impl<E: Pairing> KzgAccumulator<E> {
     // `Ci = ai_1.Ci_1 + ... + ai_ni.Ci_ni, i = 1,...,k`,
     // `acc` is a `1+k+(n1+...+nk)`-MSM.
 
-    /// Accumulates
-    pub fn accumulate<F, Piop, Commitments, Evaluations, R: Rng>(
-        &mut self,
-        piop: Piop,
-        proof: Proof<F, KZG<E>, Commitments, Evaluations>,
-        challenges: Challenges<F>,
-        rng: &mut R,
-    ) where
-        F: PrimeField,
-        E: Pairing<ScalarField = F>,
-        Piop: VerifierPiop<F, <KZG<E> as PCS<F>>::C>,
-        Commitments: ColumnsCommited<F, <KZG<E> as PCS<F>>::C>,
-        Evaluations: ColumnsEvaluated<F>,
-    {
-        let r = F::rand(rng);
-        let r2 = r.square();
-        let zeta = challenges.zeta;
+    pub fn accumulate(&mut self, openings: &Openings<E>, r: E::ScalarField) {
+        self.accumulate_claim(&openings.at_zeta, r);
+        self.accumulate_claim(&openings.at_zeta_omega, r.square());
+    }
 
-        // TODO: it could be a method unless `to_vec(self)`
-        let q_zeta = piop.evaluate_q_at_zeta(&challenges.alphas, proof.lin_at_zeta_omega);
-        let mut columns_at_zeta = proof.columns_at_zeta.to_vec();
-        columns_at_zeta.push(q_zeta);
-        let agg_at_zeta: F = columns_at_zeta
-            .into_iter()
-            .zip(challenges.nus.iter())
-            .map(|(y, r)| y * r)
-            .sum();
-
-        let zeta_omega = zeta * piop.domain_evaluated().omega();
-        let lin_comm = piop.lin_poly_commitment(&challenges.alphas);
-
-        // Openning at `z`
-        // TODO: try to get rid of the commitment wrapper in flonk
-        self.acc_points.extend(
-            piop.precommitted_columns()
-                .iter()
-                .map(|c| c.0)
-                .collect::<Vec<_>>(),
-        );
-        self.acc_points.extend(
-            proof
-                .column_commitments
-                .to_vec()
-                .iter()
-                .map(|c| c.0)
-                .collect::<Vec<_>>(),
-        );
-        self.acc_points.push(proof.quotient_commitment.clone().0);
-        self.acc_scalars
-            .extend(challenges.nus.iter().map(|nu| *nu * r).collect::<Vec<_>>()); // numbers should match here
-
-        self.acc_points.push(proof.agg_at_zeta_proof);
-        self.acc_scalars.push(zeta * r);
-        self.acc_scalars[0] -= agg_at_zeta * r;
-
-        // Openning at `z.w`
-        // TODO: see above
-        self.acc_points
-            .extend(lin_comm.1.iter().map(|c| c.0).collect::<Vec<_>>());
-        self.acc_scalars
-            .extend(lin_comm.0.into_iter().map(|c| c * r2).collect::<Vec<_>>());
-        self.acc_points.push(proof.lin_at_zeta_omega_proof);
-        self.acc_scalars.push(zeta_omega * r2);
-        self.acc_scalars[0] -= proof.lin_at_zeta_omega * r2;
-
-        self.kzg_proofs.push(proof.agg_at_zeta_proof);
-        self.kzg_proofs.push(proof.lin_at_zeta_omega_proof);
+    fn accumulate_claim(&mut self, claim: &OpeningClaim<E>, r: E::ScalarField) {
+        self.acc_points.extend_from_slice(&claim.commitments);
+        self.acc_scalars.extend(claim.coeffs.iter().map(|c| *c * r));
+        self.acc_points.push(claim.proof);
+        self.acc_scalars.push(claim.at * r);
+        self.acc_scalars[0] -= claim.value * r;
+        self.kzg_proofs.push(claim.proof);
         self.randomizers.push(r);
-        self.randomizers.push(r2);
     }
 
     pub fn verify(&self) -> bool {

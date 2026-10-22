@@ -2,45 +2,35 @@ use ark_ec::pairing::Pairing;
 use ark_ec::twisted_edwards::{Affine, TECurveConfig};
 use ark_ec::CurveGroup;
 use ark_std::rand::RngCore;
+use ark_std::UniformRand;
 use w3f_pcs::pcs::kzg::params::KzgVerifierKey;
 use w3f_pcs::pcs::kzg::KZG;
-use w3f_pcs::pcs::PCS;
-use w3f_plonk_common::kzg_acc::KzgAccumulator;
+use w3f_plonk_common::kzg_acc::{KzgAccumulator, Openings};
 use w3f_plonk_common::transcript::PlonkTranscript;
-use w3f_plonk_common::verifier::Challenges;
 
 use crate::piop::PiopVerifier;
 use crate::ring_verifier::RingVerifier;
 use crate::RingProof;
 
 /// A ring proof preprocessed for multi-ring batch verification.
-pub struct BatchItem<E, J>
-where
-    E: Pairing,
-    J: TECurveConfig<BaseField = E::ScalarField>,
-{
-    piop: PiopVerifier<E::ScalarField, <KZG<E> as PCS<E::ScalarField>>::C, Affine<J>>,
-    proof: RingProof<E::ScalarField, KZG<E>>,
-    challenges: Challenges<E::ScalarField>,
+pub struct BatchItem<E: Pairing> {
+    openings: Openings<E>,
     entropy: [u8; 32],
 }
 
-impl<E, J> BatchItem<E, J>
-where
-    E: Pairing,
-    J: TECurveConfig<BaseField = E::ScalarField>,
-{
+impl<E: Pairing> BatchItem<E> {
     /// Prepares a ring proof for batch verification without accumulating it.
     ///
     /// The returned item is independent of both any accumulator state and
     /// the originating `RingVerifier`, so multiple proofs (even from
     /// different rings) can be prepared in parallel.
-    pub fn new<T>(
+    pub fn new<J, T>(
         verifier: &RingVerifier<E::ScalarField, KZG<E>, J, T>,
         proof: RingProof<E::ScalarField, KZG<E>>,
         result: Affine<J>,
     ) -> Self
     where
+        J: TECurveConfig<BaseField = E::ScalarField>,
         T: PlonkTranscript<E::ScalarField, KZG<E>>,
     {
         let (challenges, mut fs_rng) = verifier
@@ -62,9 +52,7 @@ where
         fs_rng.fill_bytes(&mut entropy);
 
         Self {
-            piop,
-            proof,
-            challenges,
+            openings: Openings::new(piop, proof, challenges),
             entropy,
         }
     }
@@ -121,14 +109,11 @@ where
     /// should be parallelized. `BatchItem::new` is independent of the
     /// accumulator state, so multiple items can be built in parallel and
     /// then pushed sequentially here.
-    pub fn push_prepared<J>(&mut self, item: BatchItem<E, J>)
-    where
-        J: TECurveConfig<BaseField = E::ScalarField>,
-    {
+    pub fn push_prepared(&mut self, item: BatchItem<E>) {
         let mut ts = self.transcript.clone();
         ts._add_serializable(b"batch-entropy", &item.entropy);
-        self.acc
-            .accumulate(item.piop, item.proof, item.challenges, &mut ts.to_rng());
+        let r = E::ScalarField::rand(&mut ts.to_rng());
+        self.acc.accumulate(&item.openings, r);
     }
 
     /// Verifies all accumulated proofs in a single batched pairing check.
