@@ -2,6 +2,7 @@ use ark_ec::pairing::Pairing;
 use ark_ec::twisted_edwards::{Affine, TECurveConfig};
 use ark_ec::CurveGroup;
 use ark_std::rand::RngCore;
+use ark_std::vec::Vec;
 use ark_std::UniformRand;
 use w3f_pcs::pcs::kzg::params::KzgVerifierKey;
 use w3f_pcs::pcs::kzg::KZG;
@@ -58,23 +59,24 @@ impl<E: Pairing> BatchItem<E> {
     }
 }
 
-/// Accumulating batch verifier for ring proofs across one or more rings.
+/// Batch verifier for ring proofs across one or more rings.
 ///
-/// Accumulates proofs from one or more rings (keysets) into a single batched
+/// Verifies proofs from one or more rings (keysets) in a single batched
 /// pairing check. All rings must share the same KZG SRS.
 ///
-/// Holds its own transcript instance, cloned on each `push_prepared` call so
-/// the per-proof entropy can be folded in without touching the originating
-/// `RingVerifier`. Per-proof independence is ensured by the entropy derived
-/// during preparation (which absorbs the full proof via the per-ring
-/// transcript), so the base transcript only needs to be deterministic, not
-/// proof-specific.
+/// The batch accepts invalid proofs when their randomized opening errors
+/// cancel. A prover who controls the whole batch can make them cancel if the
+/// randomizer of each proof depends on that proof only. So the randomizer of
+/// every proof must depend on every proof of the batch: the transcript
+/// absorbs the entropy of each pushed item, and [`verify`](Self::verify)
+/// draws all the randomizers from the final transcript state.
 pub struct BatchVerifier<E: Pairing, T>
 where
     T: PlonkTranscript<E::ScalarField, KZG<E>>,
 {
-    acc: KzgAccumulator<E>,
+    kzg_vk: KzgVerifierKey<E>,
     transcript: T,
+    items: Vec<BatchItem<E>>,
 }
 
 impl<E: Pairing, T> BatchVerifier<E, T>
@@ -84,8 +86,9 @@ where
     /// Creates a new multi-ring batch verifier.
     pub fn new(kzg_vk: KzgVerifierKey<E>, transcript: T) -> Self {
         Self {
-            acc: KzgAccumulator::<E>::new(kzg_vk),
+            kzg_vk,
             transcript,
+            items: Vec::new(),
         }
     }
 
@@ -101,23 +104,34 @@ where
         self.push_prepared(BatchItem::new(verifier, proof, result));
     }
 
-    /// Accumulates a prepared [`BatchItem`] into the batch.
+    /// Adds a prepared [`BatchItem`] to the batch.
     ///
     /// Equivalent to [`push`](Self::push), but splits the work: the caller
     /// builds the [`BatchItem`] (transcript replay, challenge derivation,
-    /// PIOP setup) separately from accumulation. Useful when preparation
-    /// should be parallelized. `BatchItem::new` is independent of the
-    /// accumulator state, so multiple items can be built in parallel and
-    /// then pushed sequentially here.
+    /// PIOP setup) separately. Useful when preparation should be
+    /// parallelized. `BatchItem::new` is independent of the batch state, so
+    /// multiple items can be built in parallel and then pushed sequentially
+    /// here.
     pub fn push_prepared(&mut self, item: BatchItem<E>) {
-        let mut ts = self.transcript.clone();
-        ts._add_serializable(b"batch-entropy", &item.entropy);
-        let r = E::ScalarField::rand(&mut ts.to_rng());
-        self.acc.accumulate(&item.openings, r);
+        self.transcript
+            ._add_serializable(b"batch-entropy", &item.entropy);
+        self.items.push(item);
     }
 
-    /// Verifies all accumulated proofs in a single batched pairing check.
+    pub(crate) fn randomizers(&self) -> Vec<E::ScalarField> {
+        let mut rng = self.transcript.clone().to_rng();
+        self.items
+            .iter()
+            .map(|_| E::ScalarField::rand(&mut rng))
+            .collect()
+    }
+
+    /// Verifies all the pushed proofs in a single batched pairing check.
     pub fn verify(&self) -> bool {
-        self.acc.verify()
+        let mut acc = KzgAccumulator::new(self.kzg_vk.clone());
+        for (item, r) in self.items.iter().zip(self.randomizers()) {
+            acc.accumulate(&item.openings, r);
+        }
+        acc.verify()
     }
 }

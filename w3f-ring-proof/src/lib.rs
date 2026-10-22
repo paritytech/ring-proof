@@ -282,6 +282,33 @@ mod tests {
         assert!(batch.verify());
     }
 
+    // The batch accepts invalid proofs when their randomized opening errors
+    // cancel. If the randomizer of a proof depends on that proof only, a
+    // prover who controls the batch can pick proofs that cancel
+    // (eng_findings#43). So the randomizer must change with the other proofs
+    // of the batch and with the position.
+    #[test]
+    fn batch_randomizers_depend_on_the_whole_batch() {
+        let (verifier, claims) = _test_ring_proof::<KZG<Bls12_381>>(2usize.pow(9), 3);
+        let randomizers = |batch_items: &[usize]| {
+            let mut batch = BatchVerifier::new(
+                verifier.pcs_vk().clone(),
+                verifier.plonk_verifier.transcript_prelude.clone(),
+            );
+            for &item in batch_items {
+                let (result, proof) = &claims[item];
+                batch.push(&verifier, proof.clone(), *result);
+            }
+            batch.randomizers()
+        };
+        let (a, b, c) = (0, 1, 2);
+
+        let ab = randomizers(&[a, b]);
+        assert_eq!(ab, randomizers(&[a, b]));
+        assert_ne!(ab[0], randomizers(&[a, c])[0]);
+        assert_ne!(ab[0], randomizers(&[b, a])[1]);
+    }
+
     // A degenerate randomizer (for example zero) keeps the pairing identity
     // for every batch, so a batch of valid proofs does not detect it. Only a
     // batch with an invalid item does.
