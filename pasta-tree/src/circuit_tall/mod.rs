@@ -14,6 +14,7 @@ pub type PiopProof<C> = w3f_plonk_common::PiopProof<
     WrappedAffine<C>,
     ProofComms<C>,
     ProofEvals<<C as PrimeGroup>::ScalarField>,
+    { crate::QUOTIENT_CHUNKS },
 >;
 
 #[derive(Clone, Debug, CanonicalSerialize, CanonicalDeserialize)]

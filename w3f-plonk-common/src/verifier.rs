@@ -41,10 +41,10 @@ impl<F: PrimeField, CS: PCS<F>, T: PlonkTranscript<F, CS>> PlonkVerifier<F, CS, 
         }
     }
 
-    pub fn evaluate_piop<Piop, Commitments, Evaluations>(
+    pub fn evaluate_piop<Piop, Commitments, Evaluations, const Q: usize>(
         &self,
         piop: Piop,
-        proof: PiopProof<F, CS::C, Commitments, Evaluations>,
+        proof: PiopProof<F, CS::C, Commitments, Evaluations, Q>,
         challenges: Challenges<F>,
     ) -> PcsOpeningAt2Points<F, CS::C>
     where
@@ -81,10 +81,10 @@ impl<F: PrimeField, CS: PCS<F>, T: PlonkTranscript<F, CS>> PlonkVerifier<F, CS, 
         }
     }
 
-    pub fn verify<Piop, Commitments, Evaluations, R: Rng>(
+    pub fn verify<Piop, Commitments, Evaluations, R: Rng, const Q: usize>(
         &self,
         piop: Piop,
-        proof: Proof<F, CS, Commitments, Evaluations>,
+        proof: Proof<F, CS, Commitments, Evaluations, Q>,
         challenges: Challenges<F>,
         rng: &mut R,
     ) -> bool
@@ -123,10 +123,10 @@ impl<F: PrimeField, CS: PCS<F>, T: PlonkTranscript<F, CS>> PlonkVerifier<F, CS, 
         .is_ok()
     }
 
-    pub fn _restore_challenges<Piop, Cols, Evals>(
+    pub fn _restore_challenges<Piop, Cols, Evals, const Q: usize>(
         &self,
         instance: &Piop::Instance,
-        proof: &PiopProof<F, CS::C, Cols, Evals>,
+        proof: &PiopProof<F, CS::C, Cols, Evals, Q>,
     ) -> (Challenges<F>, T)
     where
         Piop: VerifierPiop<F, CS::C>,
@@ -149,23 +149,23 @@ impl<F: PrimeField, CS: PCS<F>, T: PlonkTranscript<F, CS>> PlonkVerifier<F, CS, 
         (challenges, transcript)
     }
 
-    pub fn restore_fs_challenges<Piop, Cols, Evals>(
+    pub fn restore_fs_challenges<Piop, Cols, Evals, const Q: usize>(
         &self,
         instance: &Piop::Instance,
-        proof: &PiopProof<F, CS::C, Cols, Evals>,
+        proof: &PiopProof<F, CS::C, Cols, Evals, Q>,
     ) -> Challenges<F>
     where
         Piop: VerifierPiop<F, CS::C>,
         Cols: ColumnsCommited<F, CS::C>,
         Evals: ColumnsEvaluated<F>,
     {
-        self._restore_challenges::<Piop, _, _>(instance, proof).0
+        self._restore_challenges::<Piop, _, _, Q>(instance, proof).0
     }
 
-    pub fn restore_fs_with_rng<Piop, Cols, Evals>(
+    pub fn restore_fs_with_rng<Piop, Cols, Evals, const Q: usize>(
         &self,
         instance: &Piop::Instance,
-        proof: &Proof<F, CS, Cols, Evals>,
+        proof: &Proof<F, CS, Cols, Evals, Q>,
     ) -> (Challenges<F>, impl RngCore)
     where
         Piop: VerifierPiop<F, CS::C>,
@@ -173,7 +173,7 @@ impl<F: PrimeField, CS: PCS<F>, T: PlonkTranscript<F, CS>> PlonkVerifier<F, CS, 
         Evals: ColumnsEvaluated<F>,
     {
         let (challenges, mut transcript) =
-            self._restore_challenges::<Piop, _, _>(instance, &proof.to_piop_proof());
+            self._restore_challenges::<Piop, _, _, Q>(instance, &proof.to_piop_proof());
         transcript.add_kzg_proofs(&proof.agg_at_zeta_proof, &proof.lin_at_zeta_omega_proof);
         (challenges, transcript.to_rng())
     }

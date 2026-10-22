@@ -2,7 +2,7 @@ use crate::auth_path::blinded::BlindedAuthenticationPath;
 use crate::{
     AffinePoint, CircuitParams, CurveModel, CycleParams, CycleSideParams, ProjectivePoint,
 };
-use crate::{ArkTranscript, BatchSideProof, CurveTreeProof2};
+use crate::{ArkTranscript, BatchSideProof, CurveTreeProof2, QUOTIENT_CHUNKS};
 use crate::{CurveTreeProof, CycleSideProof};
 use ark_ec::CurveGroup;
 use ark_ff::PrimeField;
@@ -101,7 +101,10 @@ impl<C: CurveGroup, G: CurveModel<BaseField = C::ScalarField>, P: CircuitParams<
             .zip(side_proof.piop_proofs.into_iter())
         {
             let challenges = plonk_verifier
-                .restore_fs_challenges::<P::VerifierCircuit, _, _>(&child, &level_proof);
+                .restore_fs_challenges::<P::VerifierCircuit, _, _, QUOTIENT_CHUNKS>(
+                    &child,
+                    &level_proof,
+                );
             let piop = self.piop_params.verifier_circuit(
                 (child, parent),
                 &fixed_cols,
@@ -169,7 +172,7 @@ impl<C: CurveGroup, G: CurveModel<BaseField = C::ScalarField>, P: CircuitParams<
             WrappedAffine<C>,
             P::VerifierCircuit,
             L,
-        >, _, _>(&instance, &piop_proof);
+        >, _, _, QUOTIENT_CHUNKS>(&instance, &piop_proof);
         let zeta_ = challenges.zeta;
         // println!("zeta = {zeta_}");
 
