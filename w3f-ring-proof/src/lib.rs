@@ -299,7 +299,7 @@ mod tests {
                 let (result, proof) = &claims[item];
                 batch.push(&verifier, proof.clone(), *result);
             }
-            batch.randomizers()
+            batch.randomizers().collect::<Vec<_>>()
         };
         let (a, b, c) = (0, 1, 2);
 

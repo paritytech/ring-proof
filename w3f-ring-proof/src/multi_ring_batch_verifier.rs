@@ -76,7 +76,7 @@ where
 {
     kzg_vk: KzgVerifierKey<E>,
     transcript: T,
-    items: Vec<BatchItem<E>>,
+    items: Vec<Openings<E>>,
 }
 
 impl<E: Pairing, T> BatchVerifier<E, T>
@@ -115,22 +115,19 @@ where
     pub fn push_prepared(&mut self, item: BatchItem<E>) {
         self.transcript
             ._add_serializable(b"batch-entropy", &item.entropy);
-        self.items.push(item);
+        self.items.push(item.openings);
     }
 
-    pub(crate) fn randomizers(&self) -> Vec<E::ScalarField> {
+    pub(crate) fn randomizers(&self) -> impl Iterator<Item = E::ScalarField> {
         let mut rng = self.transcript.clone().to_rng();
-        self.items
-            .iter()
-            .map(|_| E::ScalarField::rand(&mut rng))
-            .collect()
+        (0..self.items.len()).map(move |_| E::ScalarField::rand(&mut rng))
     }
 
     /// Verifies all the pushed proofs in a single batched pairing check.
     pub fn verify(&self) -> bool {
         let mut acc = KzgAccumulator::new(self.kzg_vk.clone());
-        for (item, r) in self.items.iter().zip(self.randomizers()) {
-            acc.accumulate(&item.openings, r);
+        for (openings, r) in self.items.iter().zip(self.randomizers()) {
+            acc.accumulate(openings, r);
         }
         acc.verify()
     }
