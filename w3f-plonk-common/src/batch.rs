@@ -64,7 +64,6 @@ impl<F: PrimeField, C: Commitment<F>, P: ProverPiop<F, C>, const K: usize> Prove
 {
     const N_COLUMNS: usize = P::N_COLUMNS * K;
     const N_CONSTRAINTS: usize = P::N_CONSTRAINTS * K;
-    const N_QUOTIENT_CHUNKS: usize = P::N_QUOTIENT_CHUNKS;
     type Commitments = [P::Commitments; K];
     type Evaluations = [P::Evaluations; K];
     type Instance = [P::Instance; K];
@@ -104,10 +103,6 @@ impl<F: PrimeField, C: Commitment<F>, P: ProverPiop<F, C>, const K: usize> Prove
             .iter()
             .flat_map(|p| p.constraints_lin(zeta))
             .collect()
-    }
-
-    fn quotient(&self, alphas: &[F]) -> Option<Vec<DensePolynomial<F>>> {
-        self._quotient_chunks(alphas)
     }
 
     fn domain(&self) -> &Domain<F> {

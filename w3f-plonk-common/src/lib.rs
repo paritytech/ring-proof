@@ -97,7 +97,7 @@ fn is_in_correct_subgroup_assuming_on_curve<E: Pairing>(p: &E::G1Affine) -> bool
 /// - column and quotient polynomials are opened in a single point `zeta`
 /// - the linearization polynomial is opened in another (shifted) point `zeta * omega`
 #[derive(Clone, CanonicalSerialize, CanonicalDeserialize)]
-pub struct Proof<F, CS, Commitments, Evaluations>
+pub struct Proof<F, CS, Commitments, Evaluations, const Q: usize = 1>
 where
     F: PrimeField,
     CS: PCS<F>,
@@ -106,7 +106,7 @@ where
 {
     pub column_commitments: Commitments,
     pub columns_at_zeta: Evaluations,
-    pub quotient_chunks: Vec<CS::C>,
+    pub quotient_chunks: [CS::C; Q],
     pub lin_at_zeta_omega: F,
     pub agg_at_zeta_proof: CS::Proof,
     pub lin_at_zeta_omega_proof: CS::Proof,
@@ -114,7 +114,7 @@ where
 
 /// Same as `Proof` but excluding the PCS opening.
 #[derive(Clone, Debug, CanonicalSerialize, CanonicalDeserialize)]
-pub struct PiopProof<F, C, Commitments, Evaluations>
+pub struct PiopProof<F, C, Commitments, Evaluations, const Q: usize = 1>
 where
     F: PrimeField,
     C: Commitment<F>,
@@ -123,18 +123,18 @@ where
 {
     pub column_commitments: Commitments,
     pub columns_at_zeta: Evaluations,
-    pub quotient_chunks: Vec<C>,
+    pub quotient_chunks: [C; Q],
     pub lin_at_zeta_omega: F,
 }
 
-impl<F, CS, Commitments, Evaluations> Proof<F, CS, Commitments, Evaluations>
+impl<F, CS, Commitments, Evaluations, const Q: usize> Proof<F, CS, Commitments, Evaluations, Q>
 where
     F: PrimeField,
     CS: PCS<F>,
     Commitments: ColumnsCommited<F, CS::C>,
     Evaluations: ColumnsEvaluated<F>,
 {
-    pub fn to_piop_proof(&self) -> PiopProof<F, CS::C, Commitments, Evaluations> {
+    pub fn to_piop_proof(&self) -> PiopProof<F, CS::C, Commitments, Evaluations, Q> {
         PiopProof {
             column_commitments: self.column_commitments.clone(),
             columns_at_zeta: self.columns_at_zeta.clone(),

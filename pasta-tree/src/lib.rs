@@ -88,11 +88,15 @@ pub struct CycleParams<
     c1_params: CycleSideParams<ProjectivePoint<C1>, C0, P1>,
 }
 
+// Chunks of degree below the domain size keep all the IPA openings of a level at that size.
+const QUOTIENT_CHUNKS: usize = 3;
+
 type LevelProof<C, G, P> = w3f_plonk_common::PiopProof<
     <C as PrimeGroup>::ScalarField,
     WrappedAffine<C>,
     <P as CircuitParams<C, G>>::Commitments,
     <P as CircuitParams<C, G>>::Evaluations,
+    QUOTIENT_CHUNKS,
 >;
 
 type BatchLevelProof<C, G, P, const L: usize> = w3f_plonk_common::PiopProof<
@@ -100,6 +104,7 @@ type BatchLevelProof<C, G, P, const L: usize> = w3f_plonk_common::PiopProof<
     WrappedAffine<C>,
     [<P as CircuitParams<C, G>>::Commitments; L],
     [<P as CircuitParams<C, G>>::Evaluations; L],
+    QUOTIENT_CHUNKS,
 >;
 
 #[derive(Clone, Debug)]

@@ -63,10 +63,10 @@ impl<E: Pairing> KzgAccumulator<E> {
     // `acc` is a `1+k+(n1+...+nk)`-MSM.
 
     /// Accumulates
-    pub fn accumulate<F, Piop, Commitments, Evaluations, R: Rng>(
+    pub fn accumulate<F, Piop, Commitments, Evaluations, R: Rng, const Q: usize>(
         &mut self,
         piop: Piop,
-        proof: Proof<F, KZG<E>, Commitments, Evaluations>,
+        proof: Proof<F, KZG<E>, Commitments, Evaluations, Q>,
         challenges: Challenges<F>,
         rng: &mut R,
     ) where

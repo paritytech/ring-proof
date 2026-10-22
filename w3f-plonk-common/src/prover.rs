@@ -43,12 +43,12 @@ impl<F: PrimeField, CS: PCS<F>, T: PlonkTranscript<F, CS>> PlonkProver<F, CS, T>
         }
     }
 
-    pub fn reduce_to_pcs_opening<P>(
+    pub fn reduce_to_pcs_opening<P, const Q: usize>(
         &self,
         piop: P,
     ) -> (
         PcsOpeningAt2Points<F>,
-        PiopProof<F, CS::C, P::Commitments, P::Evaluations>,
+        PiopProof<F, CS::C, P::Commitments, P::Evaluations, Q>,
         T,
     )
     where
@@ -71,16 +71,17 @@ impl<F: PrimeField, CS: PCS<F>, T: PlonkTranscript<F, CS>> PlonkProver<F, CS, T>
         // ROUND 2
         // The prover commits to the quotient polynomial...
         let alphas = transcript.get_constraints_aggregation_coeffs(P::N_CONSTRAINTS);
-        let quotient_chunks = piop.quotient(&alphas).unwrap();
+        let quotient = piop.compute_quotient(&alphas).unwrap();
+        let quotient_chunks: [_; Q] =
+            q_chunking::chunk_quotient(quotient, piop.domain().domain_size());
         let t_commit_q = start_timer!(|| format!(
             "Committing to {} degree-{} quotient chunks",
             quotient_chunks.len(),
             quotient_chunks[0].degree()
         ));
-        let quotient_chunks_committed: Vec<_> = quotient_chunks
-            .iter()
-            .map(|qi| CS::commit(&self.pcs_ck, qi).unwrap())
-            .collect();
+        let quotient_chunks_committed = quotient_chunks
+            .each_ref()
+            .map(|qi| CS::commit(&self.pcs_ck, qi).unwrap());
         for qi_committed in quotient_chunks_committed.iter() {
             transcript.add_quotient_commitment(&qi_committed);
         }
@@ -118,7 +119,10 @@ impl<F: PrimeField, CS: PCS<F>, T: PlonkTranscript<F, CS>> PlonkProver<F, CS, T>
         (pcs_openings, piop_proof, transcript)
     }
 
-    pub fn prove<P>(&self, piop: P) -> Proof<F, CS, P::Commitments, P::Evaluations>
+    pub fn prove<P, const Q: usize>(
+        &self,
+        piop: P,
+    ) -> Proof<F, CS, P::Commitments, P::Evaluations, Q>
     where
         P: ProverPiop<F, CS::C>,
     {
