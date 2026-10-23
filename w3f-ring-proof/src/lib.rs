@@ -154,7 +154,7 @@ mod tests {
     #[test]
     fn test_ring_proof_with_quotient_chunks() {
         use crate::piop::{PiopProver, PiopVerifier};
-        use w3f_plonk_common::kzg_acc::{KzgAccumulator, Openings};
+        use w3f_plonk_common::kzg_acc::{KzgAccumulator, KzgOpeningAt2Points};
         use w3f_plonk_common::prover::PlonkProver;
 
         const CHUNKS: usize = 3;
@@ -201,7 +201,7 @@ mod tests {
         };
 
         let mut acc = KzgAccumulator::<Bls12_381>::new(verifier.pcs_vk().clone());
-        let openings = Openings::new(piop_verifier(), proof.clone(), challenges.clone());
+        let openings = KzgOpeningAt2Points::new(piop_verifier(), proof.clone(), challenges.clone());
         acc.accumulate(&openings, Fq::rand(&mut fs_rng));
         assert!(acc.verify());
         assert!(verifier

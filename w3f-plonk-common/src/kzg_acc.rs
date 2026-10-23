@@ -18,7 +18,7 @@ use w3f_pcs::pcs::PCS;
 // at the cost of linear accumulator size.
 
 // `sum(coeffs[i] * commitments[i])` opens to `value` at `at`.
-struct OpeningClaim<E: Pairing> {
+struct PointOpening<E: Pairing> {
     commitments: Vec<E::G1Affine>,
     coeffs: Vec<E::ScalarField>,
     at: E::ScalarField,
@@ -26,14 +26,14 @@ struct OpeningClaim<E: Pairing> {
     proof: E::G1Affine,
 }
 
-/// The two KZG opening claims of a Plonk proof, flattened for the final MSMs.
+/// The two KZG openings of a Plonk proof, flattened for the final MSMs.
 /// The batch randomizer is not applied yet.
-pub struct Openings<E: Pairing> {
-    at_zeta: OpeningClaim<E>,
-    at_zeta_omega: OpeningClaim<E>,
+pub struct KzgOpeningAt2Points<E: Pairing> {
+    at_zeta: PointOpening<E>,
+    at_zeta_omega: PointOpening<E>,
 }
 
-impl<E: Pairing> Openings<E> {
+impl<E: Pairing> KzgOpeningAt2Points<E> {
     pub fn new<F, Piop, Commitments, Evaluations, const Q: usize>(
         piop: Piop,
         proof: Proof<F, KZG<E>, Commitments, Evaluations, Q>,
@@ -63,7 +63,7 @@ impl<E: Pairing> Openings<E> {
         let nu_last = coeffs_at_zeta.pop().unwrap();
         let z_n = piop.domain_evaluated().z_n;
         coeffs_at_zeta.extend(q_chunking::chunk_coeffs(z_n).take(Q).map(|c| nu_last * c));
-        let at_zeta = OpeningClaim {
+        let at_zeta = PointOpening {
             commitments: commitments_at_zeta.into_iter().map(|c| c.0).collect(),
             coeffs: coeffs_at_zeta,
             at: challenges.zeta,
@@ -73,7 +73,7 @@ impl<E: Pairing> Openings<E> {
 
         // The linearization polynomial is opened at `zeta * omega`.
         let (lin_coeffs, lin_commitments) = piop.lin_poly_commitment(&challenges.alphas);
-        let at_zeta_omega = OpeningClaim {
+        let at_zeta_omega = PointOpening {
             commitments: lin_commitments.into_iter().map(|c| c.0).collect(),
             coeffs: lin_coeffs,
             at: challenges.zeta * piop.domain_evaluated().omega(),
@@ -132,18 +132,24 @@ impl<E: Pairing> KzgAccumulator<E> {
     // `Ci = ai_1.Ci_1 + ... + ai_ni.Ci_ni, i = 1,...,k`,
     // `acc` is a `1+k+(n1+...+nk)`-MSM.
 
-    pub fn accumulate(&mut self, openings: &Openings<E>, r: E::ScalarField) {
-        self.accumulate_claim(&openings.at_zeta, r);
-        self.accumulate_claim(&openings.at_zeta_omega, r.square());
+    /// Adds the two openings of a proof with the randomizers `r` and `r^2`.
+    ///
+    /// Draw `r` only after all the openings of the batch are fixed, for example
+    /// from a transcript that absorbs every proof. Otherwise the prover of the
+    /// batch can make the errors of invalid proofs cancel.
+    pub fn accumulate(&mut self, openings: &KzgOpeningAt2Points<E>, r: E::ScalarField) {
+        self.accumulate_opening(&openings.at_zeta, r);
+        self.accumulate_opening(&openings.at_zeta_omega, r.square());
     }
 
-    fn accumulate_claim(&mut self, claim: &OpeningClaim<E>, r: E::ScalarField) {
-        self.acc_points.extend_from_slice(&claim.commitments);
-        self.acc_scalars.extend(claim.coeffs.iter().map(|c| *c * r));
-        self.acc_points.push(claim.proof);
-        self.acc_scalars.push(claim.at * r);
-        self.acc_scalars[0] -= claim.value * r;
-        self.kzg_proofs.push(claim.proof);
+    fn accumulate_opening(&mut self, opening: &PointOpening<E>, r: E::ScalarField) {
+        self.acc_points.extend_from_slice(&opening.commitments);
+        self.acc_scalars
+            .extend(opening.coeffs.iter().map(|c| *c * r));
+        self.acc_points.push(opening.proof);
+        self.acc_scalars.push(opening.at * r);
+        self.acc_scalars[0] -= opening.value * r;
+        self.kzg_proofs.push(opening.proof);
         self.randomizers.push(r);
     }
 

@@ -6,7 +6,7 @@ use ark_std::vec::Vec;
 use ark_std::UniformRand;
 use w3f_pcs::pcs::kzg::params::KzgVerifierKey;
 use w3f_pcs::pcs::kzg::KZG;
-use w3f_plonk_common::kzg_acc::{KzgAccumulator, Openings};
+use w3f_plonk_common::kzg_acc::{KzgAccumulator, KzgOpeningAt2Points};
 use w3f_plonk_common::transcript::PlonkTranscript;
 
 use crate::piop::PiopVerifier;
@@ -15,7 +15,7 @@ use crate::RingProof;
 
 /// A ring proof preprocessed for multi-ring batch verification.
 pub struct BatchItem<E: Pairing> {
-    openings: Openings<E>,
+    openings: KzgOpeningAt2Points<E>,
     entropy: [u8; 32],
 }
 
@@ -53,7 +53,7 @@ impl<E: Pairing> BatchItem<E> {
         fs_rng.fill_bytes(&mut entropy);
 
         Self {
-            openings: Openings::new(piop, proof, challenges),
+            openings: KzgOpeningAt2Points::new(piop, proof, challenges),
             entropy,
         }
     }
@@ -76,7 +76,7 @@ where
 {
     kzg_vk: KzgVerifierKey<E>,
     transcript: T,
-    items: Vec<Openings<E>>,
+    items: Vec<KzgOpeningAt2Points<E>>,
 }
 
 impl<E: Pairing, T> BatchVerifier<E, T>
