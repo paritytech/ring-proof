@@ -61,6 +61,7 @@ mod tests {
 
     use w3f_plonk_common::test_helpers::random_vec;
 
+    use crate::multi_ring_batch_verifier::BatchVerifier;
     use crate::ring::{Ring, RingBuilderKey};
     use crate::ring_prover::RingProver;
     use crate::ring_verifier::RingVerifier;
@@ -153,7 +154,7 @@ mod tests {
     #[test]
     fn test_ring_proof_with_quotient_chunks() {
         use crate::piop::{PiopProver, PiopVerifier};
-        use w3f_plonk_common::kzg_acc::KzgAccumulator;
+        use w3f_plonk_common::kzg_acc::{KzgAccumulator, KzgOpeningAt2Points};
         use w3f_plonk_common::prover::PlonkProver;
 
         const CHUNKS: usize = 3;
@@ -200,12 +201,8 @@ mod tests {
         };
 
         let mut acc = KzgAccumulator::<Bls12_381>::new(verifier.pcs_vk().clone());
-        acc.accumulate(
-            piop_verifier(),
-            proof.clone(),
-            challenges.clone(),
-            &mut fs_rng,
-        );
+        let openings = KzgOpeningAt2Points::new(piop_verifier(), proof.clone(), challenges.clone());
+        acc.accumulate(&openings, Fq::rand(&mut fs_rng));
         assert!(acc.verify());
         assert!(verifier
             .plonk_verifier
@@ -340,7 +337,6 @@ mod tests {
         }
 
         // Multi-ring batch verification
-        use crate::multi_ring_batch_verifier::BatchVerifier;
         let mut batch = BatchVerifier::new(
             verifier_a.pcs_vk().clone(),
             verifier_a.plonk_verifier.transcript_prelude.clone(),
@@ -352,5 +348,55 @@ mod tests {
             batch.push(&verifier_b, proof, result);
         }
         assert!(batch.verify());
+    }
+
+    // The batch accepts invalid proofs when their randomized opening errors
+    // cancel. If the randomizer of a proof depends on that proof only, a
+    // prover who controls the batch can pick proofs that cancel
+    // (eng_findings#43). So the randomizer must change with the other proofs
+    // of the batch and with the position.
+    #[test]
+    fn batch_randomizers_depend_on_the_whole_batch() {
+        let (verifier, claims) = _test_ring_proof::<KZG<Bls12_381>>(2usize.pow(9), 3);
+        let randomizers = |batch_items: &[usize]| {
+            let mut batch = BatchVerifier::new(
+                verifier.pcs_vk().clone(),
+                verifier.plonk_verifier.transcript_prelude.clone(),
+            );
+            for &item in batch_items {
+                let (result, proof) = &claims[item];
+                batch.push(&verifier, proof.clone(), *result);
+            }
+            batch.randomizers().collect::<Vec<_>>()
+        };
+        let (a, b, c) = (0, 1, 2);
+
+        let ab = randomizers(&[a, b]);
+        assert_eq!(ab, randomizers(&[a, b]));
+        assert_ne!(ab[0], randomizers(&[a, c])[0]);
+        assert_ne!(ab[0], randomizers(&[b, a])[1]);
+    }
+
+    // A degenerate randomizer (for example zero) keeps the pairing identity
+    // for every batch, so a batch of valid proofs does not detect it. Only a
+    // batch with an invalid item does.
+    #[test]
+    fn batch_rejects_a_tampered_item() {
+        let (verifier, claims) = _test_ring_proof::<KZG<Bls12_381>>(2usize.pow(9), 3);
+        let (results, proofs): (Vec<_>, Vec<_>) = claims.into_iter().unzip();
+        assert!(verifier.verify_batch_kzg(proofs.clone(), results.clone()));
+
+        // The third proof is paired with the result of the first one.
+        let tampered_results = vec![results[0], results[1], results[0]];
+        assert!(!verifier.verify_batch_kzg(proofs.clone(), tampered_results.clone()));
+
+        let mut batch = BatchVerifier::new(
+            verifier.pcs_vk().clone(),
+            verifier.plonk_verifier.transcript_prelude.clone(),
+        );
+        for (proof, result) in proofs.into_iter().zip(tampered_results) {
+            batch.push(&verifier, proof, result);
+        }
+        assert!(!batch.verify());
     }
 }
