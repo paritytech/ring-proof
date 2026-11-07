@@ -61,6 +61,7 @@ mod tests {
 
     use w3f_plonk_common::test_helpers::random_vec;
 
+    use crate::multi_ring_batch_verifier::BatchVerifier;
     use crate::ring::{Ring, RingBuilderKey};
     use crate::ring_prover::RingProver;
     use crate::ring_verifier::RingVerifier;
@@ -138,6 +139,74 @@ mod tests {
         assert!(!verifier.verify_batch(vec![proof.clone()], Vec::new()));
         assert!(!verifier.verify_batch_kzg(Vec::new(), vec![result]));
         assert!(!verifier.verify_batch_kzg(vec![proof], Vec::new()));
+    }
+
+    // Downstream users (ark-vrf, JAM) fix the ring proof size on the wire,
+    // so any change of the proof encoding breaks them.
+    #[test]
+    fn test_ring_proof_size_is_stable() {
+        let (_, claims) = _test_ring_proof::<KZG<Bls12_381>>(2usize.pow(9), 1);
+        assert_eq!(claims[0].1.compressed_size(), 592);
+    }
+
+    // The ring quotient has degree `3n`. In three chunks the prover needs an SRS
+    // of `n + 1` powers instead of `3n + 1`. Both verifiers must recombine the chunks.
+    #[test]
+    fn test_ring_proof_with_quotient_chunks() {
+        use crate::piop::{PiopProver, PiopVerifier};
+        use w3f_plonk_common::kzg_acc::{KzgAccumulator, KzgOpeningAt2Points};
+        use w3f_plonk_common::prover::PlonkProver;
+
+        const CHUNKS: usize = 3;
+        let rng = &mut test_rng();
+        let domain_size = 2usize.pow(9);
+        let pcs_params = KZG::<Bls12_381>::setup(domain_size, rng);
+        let piop_params = PiopParams::rand(domain_size, rng);
+        let pks = random_vec::<EdwardsAffine, _>(piop_params.keyset_part_size, rng);
+        let (prover_key, verifier_key) =
+            index::<_, KZG<Bls12_381>, _>(&pcs_params, &piop_params, &pks);
+
+        let k = rng.gen_range(0..pks.len());
+        let blinding = Fr::rand(rng);
+        let result = piop_params.blind_pk(pks[k], blinding);
+        let piop = PiopProver::build(&piop_params, prover_key.fixed_columns, k, blinding);
+        let prover = PlonkProver::init(
+            prover_key.pcs_ck,
+            verifier_key.clone(),
+            ArkTranscript::new(b"w3f-ring-proof-test"),
+        );
+        let proof = prover.prove::<_, CHUNKS>(piop);
+
+        let verifier = RingVerifier::<_, _, BandersnatchConfig>::init(
+            verifier_key,
+            piop_params,
+            ArkTranscript::new(b"w3f-ring-proof-test"),
+        );
+        let (challenges, mut fs_rng) = verifier
+            .plonk_verifier
+            .restore_fs_with_rng::<PiopVerifier<_, _, EdwardsAffine>, _, _, CHUNKS>(
+                &result, &proof,
+            );
+        let seed = verifier.piop_params.seed;
+        let seed_plus_result = (seed + result).into_affine();
+        let piop_verifier = || {
+            PiopVerifier::<_, _, EdwardsAffine>::init(
+                verifier.piop_params.domain.evaluate(challenges.zeta),
+                verifier.fixed_columns_committed.clone(),
+                proof.column_commitments.clone(),
+                proof.columns_at_zeta.clone(),
+                (seed.x, seed.y),
+                (seed_plus_result.x, seed_plus_result.y),
+            )
+        };
+
+        let mut acc = KzgAccumulator::<Bls12_381>::new(verifier.pcs_vk().clone());
+        let openings = KzgOpeningAt2Points::new(piop_verifier(), proof.clone(), challenges.clone());
+        acc.accumulate(&openings, Fq::rand(&mut fs_rng));
+        assert!(acc.verify());
+        assert!(verifier
+            .plonk_verifier
+            .verify(piop_verifier(), proof, challenges, &mut fs_rng));
     }
 
     #[test]
@@ -268,7 +337,6 @@ mod tests {
         }
 
         // Multi-ring batch verification
-        use crate::multi_ring_batch_verifier::BatchVerifier;
         let mut batch = BatchVerifier::new(
             verifier_a.pcs_vk().clone(),
             verifier_a.plonk_verifier.transcript_prelude.clone(),
@@ -280,5 +348,55 @@ mod tests {
             batch.push(&verifier_b, proof, result);
         }
         assert!(batch.verify());
+    }
+
+    // The batch accepts invalid proofs when their randomized opening errors
+    // cancel. If the randomizer of a proof depends on that proof only, a
+    // prover who controls the batch can pick proofs that cancel
+    // (eng_findings#43). So the randomizer must change with the other proofs
+    // of the batch and with the position.
+    #[test]
+    fn batch_randomizers_depend_on_the_whole_batch() {
+        let (verifier, claims) = _test_ring_proof::<KZG<Bls12_381>>(2usize.pow(9), 3);
+        let randomizers = |batch_items: &[usize]| {
+            let mut batch = BatchVerifier::new(
+                verifier.pcs_vk().clone(),
+                verifier.plonk_verifier.transcript_prelude.clone(),
+            );
+            for &item in batch_items {
+                let (result, proof) = &claims[item];
+                batch.push(&verifier, proof.clone(), *result);
+            }
+            batch.randomizers().collect::<Vec<_>>()
+        };
+        let (a, b, c) = (0, 1, 2);
+
+        let ab = randomizers(&[a, b]);
+        assert_eq!(ab, randomizers(&[a, b]));
+        assert_ne!(ab[0], randomizers(&[a, c])[0]);
+        assert_ne!(ab[0], randomizers(&[b, a])[1]);
+    }
+
+    // A degenerate randomizer (for example zero) keeps the pairing identity
+    // for every batch, so a batch of valid proofs does not detect it. Only a
+    // batch with an invalid item does.
+    #[test]
+    fn batch_rejects_a_tampered_item() {
+        let (verifier, claims) = _test_ring_proof::<KZG<Bls12_381>>(2usize.pow(9), 3);
+        let (results, proofs): (Vec<_>, Vec<_>) = claims.into_iter().unzip();
+        assert!(verifier.verify_batch_kzg(proofs.clone(), results.clone()));
+
+        // The third proof is paired with the result of the first one.
+        let tampered_results = vec![results[0], results[1], results[0]];
+        assert!(!verifier.verify_batch_kzg(proofs.clone(), tampered_results.clone()));
+
+        let mut batch = BatchVerifier::new(
+            verifier.pcs_vk().clone(),
+            verifier.plonk_verifier.transcript_prelude.clone(),
+        );
+        for (proof, result) in proofs.into_iter().zip(tampered_results) {
+            batch.push(&verifier, proof, result);
+        }
+        assert!(!batch.verify());
     }
 }

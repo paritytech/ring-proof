@@ -49,7 +49,7 @@ where
     pub fn verify(&self, proof: RingProof<F, CS>, result: Affine<Jubjub>) -> bool {
         let (challenges, mut fs_rng) = self
             .plonk_verifier
-            .restore_fs_with_rng::<PiopVerifier<_, _, Affine<Jubjub>>, _, _>(&result, &proof);
+            .restore_fs_with_rng::<PiopVerifier<_, _, Affine<Jubjub>>, _, _, _>(&result, &proof);
         let seed = self.piop_params.seed;
         let seed_plus_result = (seed + result).into_affine();
         let domain_at_zeta = self.piop_params.domain.evaluate(challenges.zeta);

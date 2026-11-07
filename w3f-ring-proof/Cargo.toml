@@ -1,6 +1,6 @@
 [package]
 name = "w3f-ring-proof"
-version = "0.0.10"
+version = "0.0.11"
 edition.workspace = true
 authors.workspace = true
 license.workspace = true
@@ -23,6 +23,8 @@ rayon = { workspace = true, optional = true }
 ark-bls12-381.workspace = true
 ark-ed-on-bls12-381-bandersnatch.workspace = true
 criterion.workspace = true
+hex.workspace = true
+serde_json.workspace = true
 
 [[bench]]
 name = "ring_proof"

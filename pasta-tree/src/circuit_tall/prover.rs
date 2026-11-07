@@ -95,7 +95,6 @@ impl<C: CurveGroup, G: CurveModel<BaseField = C::ScalarField>>
 {
     const N_COLUMNS: usize = 7;
     const N_CONSTRAINTS: usize = 7;
-    const N_QUOTIENT_CHUNKS: usize = 3;
 
     type Commitments = ProofComms<C>;
     type Evaluations = ProofEvals<C::ScalarField>;
@@ -151,10 +150,6 @@ impl<C: CurveGroup, G: CurveModel<BaseField = C::ScalarField>>
 
     fn constraints(&self) -> Vec<Evaluations<C::ScalarField>> {
         self.gadgets.iter().flat_map(|g| g.constraints()).collect()
-    }
-
-    fn quotient(&self, alphas: &[C::ScalarField]) -> Option<Vec<DensePolynomial<C::ScalarField>>> {
-        <Self as ProverPiop<C::ScalarField, WrappedAffine<C>>>::_quotient_chunks(self, alphas)
     }
 
     fn constraints_lin(
