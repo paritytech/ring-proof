@@ -2,7 +2,7 @@ use crate::auth_path::node::LevelWitnessWithBlinding;
 use crate::{AffinePoint, CircuitParams, CurveModel, CycleParams, CycleSide, ProjectivePoint};
 use ark_ec::CurveGroup;
 use ark_ff::PrimeField;
-use w3f_pcs::pcs::ipa::hiding::HidingIpa;
+use w3f_pcs::pcs::ipa::hiding::HidingIpaPcs;
 
 pub struct AuthenticationPathWithBlinding<C0: CurveGroup, C1: CurveGroup> {
     pub(crate) c0_path: Vec<LevelWitnessWithBlinding<C0::Affine>>,
@@ -22,8 +22,8 @@ where
 {
     pub(crate) fn apply_bfs(
         &self,
-        c0_pcs_params: &HidingIpa<ProjectivePoint<C0>>,
-        c1_pcs_params: &HidingIpa<ProjectivePoint<C1>>,
+        c0_pcs_params: &HidingIpaPcs<ProjectivePoint<C0>>,
+        c1_pcs_params: &HidingIpaPcs<ProjectivePoint<C1>>,
     ) -> BlindedAuthenticationPath<ProjectivePoint<C0>, ProjectivePoint<C1>> {
         let c0_path = self
             .c0_path

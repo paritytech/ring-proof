@@ -60,8 +60,8 @@ impl<F: FftField> CellsEqPolys<F> {
         gadget.constraints()
     }
 
-    pub fn constraints_lin() -> Vec<DensePolynomial<F>> {
-        vec![DensePolynomial::zero()]
+    pub fn constraints_lin() -> Vec<(DensePolynomial<F>, F)> {
+        vec![(DensePolynomial::zero(), F::zero())]
     }
 }
 
@@ -78,7 +78,7 @@ impl<F: FftField> ProverGadget<F> for CellsEqPolys<F> {
         vec![c]
     }
 
-    fn constraints_linearized(&self, _z: &F) -> Vec<DensePolynomial<F>> {
+    fn constraints_linearized(&self, _z: &F) -> Vec<(DensePolynomial<F>, F)> {
         Self::constraints_lin()
     }
 

@@ -7,7 +7,7 @@ use crate::{
 use crate::{ArkTranscript, BatchSideProof, CurveTreeProof2};
 use crate::{Coeffs, CurveTreeProof, CycleSideProof};
 use ark_ec::CurveGroup;
-use ark_ff::{PrimeField, Zero};
+use ark_ff::PrimeField;
 use ark_poly::Polynomial;
 use ark_std::rand::Rng;
 use ark_std::{UniformRand, end_timer, start_timer};
@@ -15,7 +15,7 @@ use std::collections::BTreeSet;
 use std::marker::PhantomData;
 use w3f_pcs::pcs::PcsParams;
 use w3f_pcs::pcs::commitment::WrappedAffine;
-use w3f_pcs::pcs::ipa::hiding::HidingIpa;
+use w3f_pcs::pcs::ipa::hiding::HidingIpaPcs;
 use w3f_pcs::shplonk::Shplonk;
 use w3f_plonk_common::batch::BatchProver;
 use w3f_plonk_common::piop::{ProverPiop, VerifierPiop};
@@ -99,7 +99,7 @@ impl<C: CurveGroup, G: CurveModel<BaseField = C::ScalarField>, P: CircuitParams<
         let mut at_coords = Vec::with_capacity(n_openings);
         let mut with_bfs = Vec::with_capacity(n_openings);
 
-        let plonk_prover = PlonkProver::<C::ScalarField, HidingIpa<C>, _>::init(
+        let plonk_prover = PlonkProver::<C::ScalarField, HidingIpaPcs<C>, _>::init(
             self.pcs_params.ck(),
             (),
             ArkTranscript::new(b"pasta-tree-level-proof"),
@@ -118,10 +118,8 @@ impl<C: CurveGroup, G: CurveModel<BaseField = C::ScalarField>, P: CircuitParams<
             let (pcs_openings, piop_proof, _transcript) = plonk_prover.reduce_to_pcs_opening(piop);
             piop_proofs.push(piop_proof);
             let PcsOpeningAt2Points {
-                polys_at_zeta,
-                polys_at_zeta_omega,
-                zeta,
-                zeta_omega,
+                at_zeta,
+                at_zeta_omega,
             } = pcs_openings;
 
             // use ark_poly::Polynomial;
@@ -130,15 +128,19 @@ impl<C: CurveGroup, G: CurveModel<BaseField = C::ScalarField>, P: CircuitParams<
             //     polys_at_zeta[polys_at_zeta.len() - 1].evaluate(&zeta)
             // );
 
-            at_coords.extend(vec![BTreeSet::from([zeta]); polys_at_zeta.len()]);
-            polys_to_open.extend(polys_at_zeta);
+            at_coords.extend(vec![BTreeSet::from([at_zeta.zeta]); at_zeta.polys.len()]);
+            polys_to_open.extend(at_zeta.polys);
+            with_bfs.extend(at_zeta.bfs);
+
             at_coords.extend(vec![
-                BTreeSet::from([zeta_omega]);
-                polys_at_zeta_omega.len()
+                BTreeSet::from([at_zeta_omega.zeta]);
+                at_zeta_omega.polys.len()
             ]);
-            polys_to_open.extend(polys_at_zeta_omega);
-            with_bfs.push(level.parent_bf);
-            with_bfs.resize(polys_to_open.len(), C::ScalarField::zero());
+            polys_to_open.extend(at_zeta_omega.polys);
+            with_bfs.extend(at_zeta_omega.bfs);
+
+            assert_eq!(with_bfs.len(), polys_to_open.len());
+            assert_eq!(with_bfs.len(), at_coords.len());
             // end_timer!(t_commit_level);
         }
         end_timer!(t_commit_side);
@@ -148,7 +150,7 @@ impl<C: CurveGroup, G: CurveModel<BaseField = C::ScalarField>, P: CircuitParams<
             polys_to_open.iter().map(|p| p.degree()).max().unwrap()
         ));
         let todo = Coeffs(C::ScalarField::rand(rng), C::ScalarField::rand(rng));
-        let pcs_proof = Shplonk::<C::ScalarField, HidingIpa<C>>::open_many_hiding(
+        let pcs_proof = Shplonk::<C::ScalarField, HidingIpaPcs<C>>::open_many_hiding(
             &self.pcs_params,
             &polys_to_open,
             &with_bfs,
@@ -179,13 +181,13 @@ impl<C: CurveGroup, G: CurveModel<BaseField = C::ScalarField>, P: CircuitParams<
         let n_to_commit = L * n_columns + 3; // columns for multiple levels + the shared quotient chunks
         let n_to_open = L * n_columns + 2; // --//-- + the (folded) quotient + the linearization polynomial
 
-        let plonk_prover = PlonkProver::<C::ScalarField, HidingIpa<C>, _>::init(
+        let plonk_prover = PlonkProver::<C::ScalarField, HidingIpaPcs<C>, _>::init(
             self.pcs_params.ck(),
             (), // TODO:
             ArkTranscript::new(b"pasta-tree-level-proof"),
         );
 
-        let parent_bfs: Vec<_> = witness.iter().map(|level| level.parent_bf).collect();
+        // let parent_bfs: Vec<_> = witness.iter().map(|level| level.parent_bf).collect();
         let batch_piop = witness.map(|level| self.piop_params.prover_circuit(level));
         let batch_piop = BatchProver(batch_piop, PhantomData, PhantomData);
 
@@ -197,35 +199,36 @@ impl<C: CurveGroup, G: CurveModel<BaseField = C::ScalarField>, P: CircuitParams<
         end_timer!(t_commit_side);
 
         let PcsOpeningAt2Points {
-            polys_at_zeta,
-            polys_at_zeta_omega,
-            zeta,
-            zeta_omega,
+            at_zeta,
+            at_zeta_omega,
         } = pcs_openings;
         // println!("zeta = {zeta}\nq(zeta) = {}\n", polys_at_zeta[polys_at_zeta.len() - 1].evaluate(&zeta));
 
-        let mut at_coords = vec![BTreeSet::from([zeta]); polys_at_zeta.len()];
-        let mut polys_to_open = polys_at_zeta;
+        let mut at_coords = vec![BTreeSet::from([at_zeta.zeta]); at_zeta.polys.len()];
+        let mut polys_to_open = at_zeta.polys;
         at_coords.extend(vec![
-            BTreeSet::from([zeta_omega]);
-            polys_at_zeta_omega.len()
+            BTreeSet::from([at_zeta_omega.zeta]);
+            at_zeta_omega.polys.len()
         ]);
-        polys_to_open.extend(polys_at_zeta_omega.clone());
+        polys_to_open.extend(at_zeta_omega.polys);
         assert_eq!(polys_to_open.len(), n_to_open);
 
-        let mut with_bfs: Vec<_> = parent_bfs
-            .into_iter()
-            .flat_map(|bf| vec![bf, C::ScalarField::zero(), C::ScalarField::zero()])
-            .collect();
-        with_bfs.resize(n_to_open, C::ScalarField::zero());
+        // let mut with_bfs: Vec<_> = parent_bfs
+        //     .into_iter()
+        //     .flat_map(|bf| vec![bf, C::ScalarField::zero(), C::ScalarField::zero()])
+        //     .collect();
+        // with_bfs.resize(n_to_open, C::ScalarField::zero());
+
+        let mut with_bfs = at_zeta.bfs;
+        with_bfs.extend(at_zeta_omega.bfs);
 
         // use ark_ec::AffineRepr;
-        // for (i, ((p, z), bf)) in polys_to_open.iter()
+        // for (i, ((p, z64), bf)) in polys_to_open.iter()
         //     .zip(at_coords.iter().map(|z| z.first().unwrap()))
         //     .zip(with_bfs.iter())
         //     .enumerate() {
         //     let v = p.evaluate(z);
-        //     let c = HidingIpa::<C>::commit(&self.pcs_params, &p).unwrap().0;
+        //     let c = HidingIpaPcs::<C>::commit(&self.pcs_params, &p).unwrap().0;
         //     println!("{i}: z={:.5}, v={:.5}, c={:.5}, bf={:.5}", z.to_string(), v.to_string(), c.x().unwrap().to_string(), bf.to_string());
         // }
 
@@ -234,7 +237,7 @@ impl<C: CurveGroup, G: CurveModel<BaseField = C::ScalarField>, P: CircuitParams<
             polys_to_open.iter().map(|p| p.degree()).max().unwrap()
         ));
         let todo = Coeffs(C::ScalarField::rand(rng), C::ScalarField::rand(rng));
-        let pcs_proof = Shplonk::<C::ScalarField, HidingIpa<C>>::open_many_hiding(
+        let pcs_proof = Shplonk::<C::ScalarField, HidingIpaPcs<C>>::open_many_hiding(
             &self.pcs_params,
             &polys_to_open,
             &with_bfs,

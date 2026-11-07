@@ -100,16 +100,13 @@ impl<F: PrimeField, G: AffineRepr<BaseField = F>> PiopProver<F, G> {
         BitColumn::init(bits, &params.domain)
     }
 
-    fn _committed_columns<C: Commitment<F>, Fun: Fn(&DensePolynomial<F>) -> C>(
+    fn _committed_columns<C: Commitment<F>, Fun: Fn(&FieldColumn<F>) -> C>(
         &self,
         commit: Fun,
     ) -> RingCommitments<F, C> {
-        let bits = commit(self.bits.as_poly());
-        let cond_add_acc = [
-            commit(self.cond_add.acc.xs.as_poly()),
-            commit(self.cond_add.acc.ys.as_poly()),
-        ];
-        let inn_prod_acc = commit(self.inner_prod.acc.as_poly());
+        let bits = commit(&self.bits.col);
+        let cond_add_acc = [commit(&self.cond_add.acc.xs), commit(&self.cond_add.acc.ys)];
+        let inn_prod_acc = commit(&self.inner_prod.acc);
         RingCommitments {
             bits,
             cond_add_acc,
@@ -120,15 +117,15 @@ impl<F: PrimeField, G: AffineRepr<BaseField = F>> PiopProver<F, G> {
 
     // Should return polynomials in the consistent with
     // Self::Evaluations::to_vec() and Self::Commitments::to_vec().
-    fn _columns(&self) -> Vec<DensePolynomial<F>> {
+    fn _columns(&self) -> Vec<(DensePolynomial<F>, F)> {
         vec![
-            self.points.xs.as_poly().clone(),
-            self.points.ys.as_poly().clone(),
-            self.ring_selector.as_poly().clone(),
-            self.bits.as_poly().clone(),
-            self.inner_prod.acc.as_poly().clone(),
-            self.cond_add.acc.xs.as_poly().clone(),
-            self.cond_add.acc.ys.as_poly().clone(),
+            self.points.xs.poly_with_bf(),
+            self.points.ys.poly_with_bf(),
+            self.ring_selector.poly_with_bf(),
+            self.bits.col.poly_with_bf(),
+            self.inner_prod.acc.poly_with_bf(),
+            self.cond_add.acc.xs.poly_with_bf(),
+            self.cond_add.acc.ys.poly_with_bf(),
         ]
     }
 
@@ -164,16 +161,20 @@ where
     type Evaluations = RingEvaluations<F>;
     type Instance = TeAffine<Curve>;
 
-    fn committed_columns<Fun: Fn(&DensePolynomial<F>) -> C>(
-        &self,
-        commit: Fun,
-    ) -> Self::Commitments {
+    fn committed_columns<Fun: Fn(&FieldColumn<F>) -> C>(&self, commit: Fun) -> Self::Commitments {
         self._committed_columns(commit)
     }
 
+    // fn committed_columns<Fun: Fn(&DensePolynomial<F>) -> C>(
+    //     &self,
+    //     commit: Fun,
+    // ) -> Self::Commitments {
+    //     self._committed_columns(commit)
+    // }
+
     // Should return polynomials in the consistent with
     // Self::Evaluations::to_vec() and Self::Commitments::to_vec().
-    fn columns(&self) -> Vec<DensePolynomial<F>> {
+    fn columns(&self) -> Vec<(DensePolynomial<F>, F)> {
         self._columns()
     }
 
@@ -193,7 +194,7 @@ where
         .concat()
     }
 
-    fn constraints_lin(&self, zeta: &F) -> Vec<DensePolynomial<F>> {
+    fn constraints_lin(&self, zeta: &F) -> Vec<(DensePolynomial<F>, F)> {
         vec![
             self.inner_prod.constraints_linearized(zeta),
             self.cond_add.constraints_linearized(zeta),
@@ -226,16 +227,13 @@ where
     type Evaluations = RingEvaluations<F>;
     type Instance = SwAffine<Curve>;
 
-    fn committed_columns<Fun: Fn(&DensePolynomial<F>) -> C>(
-        &self,
-        commit: Fun,
-    ) -> Self::Commitments {
+    fn committed_columns<Fun: Fn(&FieldColumn<F>) -> C>(&self, commit: Fun) -> Self::Commitments {
         self._committed_columns(commit)
     }
 
     // Should return polynomials in the consistent with
     // Self::Evaluations::to_vec() and Self::Commitments::to_vec().
-    fn columns(&self) -> Vec<DensePolynomial<F>> {
+    fn columns(&self) -> Vec<(DensePolynomial<F>, F)> {
         self._columns()
     }
 
@@ -255,7 +253,7 @@ where
         .concat()
     }
 
-    fn constraints_lin(&self, zeta: &F) -> Vec<DensePolynomial<F>> {
+    fn constraints_lin(&self, zeta: &F) -> Vec<(DensePolynomial<F>, F)> {
         vec![
             self.inner_prod.constraints_linearized(zeta),
             self.cond_add.constraints_linearized(zeta),

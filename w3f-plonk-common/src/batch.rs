@@ -1,6 +1,6 @@
 use crate::domain::{Domain, EvaluatedDomain};
 use crate::piop::{ProverPiop, VerifierPiop};
-use crate::{ColumnsCommited, ColumnsEvaluated};
+use crate::{ColumnsCommited, ColumnsEvaluated, FieldColumn};
 use ark_ff::PrimeField;
 use ark_poly::univariate::DensePolynomial;
 use ark_poly::Evaluations;
@@ -68,19 +68,16 @@ impl<F: PrimeField, C: Commitment<F>, P: ProverPiop<F, C>, const K: usize> Prove
     type Evaluations = [P::Evaluations; K];
     type Instance = [P::Instance; K];
 
-    fn committed_columns<Fun: Fn(&DensePolynomial<F>) -> C + Clone>(
-        &self,
-        commit: Fun,
-    ) -> Self::Commitments {
+    fn committed_columns<Fun: Fn(&FieldColumn<F>) -> C>(&self, commit: Fun) -> Self::Commitments {
         self.0
             .iter()
-            .map(|p| p.committed_columns(commit.clone()))
+            .map(|p| p.committed_columns(&commit))
             .collect::<Vec<_>>()
             .try_into()
             .unwrap()
     }
 
-    fn columns(&self) -> Vec<DensePolynomial<F>> {
+    fn columns(&self) -> Vec<(DensePolynomial<F>, F)> {
         let column_vecs = self.0.iter().map(|p| p.columns()).collect::<Vec<_>>();
         excerpt_fixed_columns(column_vecs)
     }
@@ -98,7 +95,7 @@ impl<F: PrimeField, C: Commitment<F>, P: ProverPiop<F, C>, const K: usize> Prove
         self.0.iter().flat_map(|p| p.constraints()).collect()
     }
 
-    fn constraints_lin(&self, zeta: &F) -> Vec<DensePolynomial<F>> {
+    fn constraints_lin(&self, zeta: &F) -> Vec<(DensePolynomial<F>, F)> {
         self.0
             .iter()
             .flat_map(|p| p.constraints_lin(zeta))

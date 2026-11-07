@@ -9,7 +9,7 @@ use ark_std::rand::Rng;
 use ark_std::{UniformRand, end_timer, start_timer};
 use std::collections::BTreeSet;
 use w3f_pcs::pcs::PcsParams;
-use w3f_pcs::pcs::ipa::hiding::HidingIpa;
+use w3f_pcs::pcs::ipa::hiding::HidingIpaPcs;
 use w3f_pcs::shplonk::Shplonk;
 use w3f_plonk_common::piop::ProverPiop;
 use w3f_plonk_common::prover::{PcsOpeningAt2Points, PlonkProver};
@@ -35,7 +35,7 @@ impl<C: CurveGroup, G: SWCurveConfig<BaseField = C::ScalarField, ScalarField = C
             IPACommitment<C>,
         >>::result(&piop);
         // let blinded_parent = verifier_key.fixed_columns_committed.points[0].clone();
-        let plonk_prover = PlonkProver::<C::ScalarField, HidingIpa<C>, _>::init(
+        let plonk_prover = PlonkProver::<C::ScalarField, HidingIpaPcs<C>, _>::init(
             self.pcs_params.ck(),
             blinded_node,
             ArkTranscript::new(b"pasta-tree-level-proof"),
@@ -66,7 +66,7 @@ impl<C: CurveGroup, G: SWCurveConfig<BaseField = C::ScalarField, ScalarField = C
             polys.len(),
             polys[polys.len() - 2].degree() // the quotient
         ));
-        let pcs_opening_proof = Shplonk::<C::ScalarField, HidingIpa<C>>::open_many_hiding(
+        let pcs_opening_proof = Shplonk::<C::ScalarField, HidingIpaPcs<C>>::open_many_hiding(
             &self.pcs_params,
             &polys,
             &bfs,

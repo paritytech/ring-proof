@@ -11,9 +11,6 @@ repository.workspace = true
 [dependencies]
 w3f-pcs.workspace = true
 w3f-plonk-common.workspace = true
-#w3f-ring-proof = { path = "../w3f-ring-proof", default-features = false }
-ark-pallas = { version = "0.6", default-features = false, features = ["curve"] }
-ark-vesta = { version = "0.6", default-features = false }
 ark-transcript.workspace = true
 ark-std.workspace = true
 ark-ff.workspace = true
@@ -23,6 +20,8 @@ ark-serialize.workspace = true
 rayon = { workspace = true, optional = true }
 
 [dev-dependencies]
+ark-pallas = { version = "0.6", default-features = false, features = ["curve"] }
+ark-vesta = { version = "0.6", default-features = false }
 num-format = "0.4"
 ark-bls12-381.workspace = true
 ark-ed-on-bls12-381-bandersnatch.workspace = true
@@ -49,7 +48,6 @@ parallel = [
     "ark-poly/parallel",
     "w3f-pcs/parallel",
     "w3f-plonk-common/parallel",
-#    "w3f-ring-proof/parallel",
 ]
 print-trace = ["ark-std/print-trace", ]
 asm = ["w3f-pcs/asm"]
