@@ -5,7 +5,6 @@ use crate::{AffinePoint, CurveModel};
 use ark_ec::{AffineRepr, CurveGroup};
 use ark_ff::{FftField, One, Zero};
 use ark_poly::Evaluations;
-use ark_poly::Polynomial;
 use ark_poly::univariate::DensePolynomial;
 use ark_std::{vec, vec::Vec};
 use w3f_pcs::pcs::commitment::WrappedAffine;

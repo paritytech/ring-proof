@@ -4,7 +4,7 @@ use ark_ec::CurveGroup;
 use ark_ec::short_weierstrass::{Affine, SWCurveConfig};
 use ark_std::{end_timer, start_timer};
 use w3f_pcs::pcs::PcsParams;
-use w3f_pcs::pcs::ipa::hiding::HidingIpa;
+use w3f_pcs::pcs::ipa::hiding::HidingIpaPcs;
 use w3f_pcs::shplonk::Shplonk;
 use w3f_plonk_common::piop::VerifierPiop;
 use w3f_plonk_common::verifier::{PcsOpeningAt2Points, PlonkVerifier};
@@ -18,11 +18,11 @@ impl<C: CurveGroup, G: SWCurveConfig<BaseField = C::ScalarField, ScalarField = C
         blinded_child: Affine<G>,
         level_proof: LevelProof<C>,
     ) -> bool {
-        let verifier_key: VerifierKey<C::ScalarField, HidingIpa<C>> = VerifierKey {
+        let verifier_key: VerifierKey<C::ScalarField, HidingIpaPcs<C>> = VerifierKey {
             pcs_raw_vk: self.pcs_params.raw_vk(),
             fixed_columns_committed: parent.clone(),
         };
-        let plonk_verifier: PlonkVerifier<C::ScalarField, HidingIpa<C>, _> = PlonkVerifier::init(
+        let plonk_verifier: PlonkVerifier<C::ScalarField, HidingIpaPcs<C>, _> = PlonkVerifier::init(
             self.pcs_params.vk(),
             &verifier_key,
             ArkTranscript::new(b"pasta-tree-level-proof"),
@@ -65,7 +65,7 @@ impl<C: CurveGroup, G: SWCurveConfig<BaseField = C::ScalarField, ScalarField = C
         let mut vals: Vec<_> = vals_at_zeta.into_iter().map(|v| vec![v]).collect();
         vals.push(vals_at_zeta_omega);
         let t_verify = start_timer!(|| "Verifying IPA shplonk opening");
-        let valid = Shplonk::<C::ScalarField, HidingIpa<C>>::verify_many(
+        let valid = Shplonk::<C::ScalarField, HidingIpaPcs<C>>::verify_many(
             &self.pcs_params.vk(),
             &polys,
             pcs_opening_proof,

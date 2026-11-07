@@ -7,7 +7,7 @@ use crate::{
 use crate::{ArkTranscript, BatchSideProof, CurveTreeProof2};
 use crate::{Coeffs, CurveTreeProof, CycleSideProof};
 use ark_ec::CurveGroup;
-use ark_ff::{PrimeField, Zero};
+use ark_ff::PrimeField;
 use ark_poly::Polynomial;
 use ark_std::rand::Rng;
 use ark_std::{UniformRand, end_timer, start_timer};
@@ -15,7 +15,7 @@ use std::collections::BTreeSet;
 use std::marker::PhantomData;
 use w3f_pcs::pcs::PcsParams;
 use w3f_pcs::pcs::commitment::WrappedAffine;
-use w3f_pcs::pcs::ipa::hiding::HidingIpa;
+use w3f_pcs::pcs::ipa::hiding::HidingIpaPcs;
 use w3f_pcs::shplonk::Shplonk;
 use w3f_plonk_common::batch::BatchProver;
 use w3f_plonk_common::piop::{ProverPiop, VerifierPiop};
@@ -99,7 +99,7 @@ impl<C: CurveGroup, G: CurveModel<BaseField = C::ScalarField>, P: CircuitParams<
         let mut at_coords = Vec::with_capacity(n_openings);
         let mut with_bfs = Vec::with_capacity(n_openings);
 
-        let plonk_prover = PlonkProver::<C::ScalarField, HidingIpa<C>, _>::init(
+        let plonk_prover = PlonkProver::<C::ScalarField, HidingIpaPcs<C>, _>::init(
             self.pcs_params.ck(),
             (),
             ArkTranscript::new(b"pasta-tree-level-proof"),
@@ -150,7 +150,7 @@ impl<C: CurveGroup, G: CurveModel<BaseField = C::ScalarField>, P: CircuitParams<
             polys_to_open.iter().map(|p| p.degree()).max().unwrap()
         ));
         let todo = Coeffs(C::ScalarField::rand(rng), C::ScalarField::rand(rng));
-        let pcs_proof = Shplonk::<C::ScalarField, HidingIpa<C>>::open_many_hiding(
+        let pcs_proof = Shplonk::<C::ScalarField, HidingIpaPcs<C>>::open_many_hiding(
             &self.pcs_params,
             &polys_to_open,
             &with_bfs,
@@ -181,13 +181,13 @@ impl<C: CurveGroup, G: CurveModel<BaseField = C::ScalarField>, P: CircuitParams<
         let n_to_commit = L * n_columns + 3; // columns for multiple levels + the shared quotient chunks
         let n_to_open = L * n_columns + 2; // --//-- + the (folded) quotient + the linearization polynomial
 
-        let plonk_prover = PlonkProver::<C::ScalarField, HidingIpa<C>, _>::init(
+        let plonk_prover = PlonkProver::<C::ScalarField, HidingIpaPcs<C>, _>::init(
             self.pcs_params.ck(),
             (), // TODO:
             ArkTranscript::new(b"pasta-tree-level-proof"),
         );
 
-        let parent_bfs: Vec<_> = witness.iter().map(|level| level.parent_bf).collect();
+        // let parent_bfs: Vec<_> = witness.iter().map(|level| level.parent_bf).collect();
         let batch_piop = witness.map(|level| self.piop_params.prover_circuit(level));
         let batch_piop = BatchProver(batch_piop, PhantomData, PhantomData);
 
@@ -228,7 +228,7 @@ impl<C: CurveGroup, G: CurveModel<BaseField = C::ScalarField>, P: CircuitParams<
         //     .zip(with_bfs.iter())
         //     .enumerate() {
         //     let v = p.evaluate(z);
-        //     let c = HidingIpa::<C>::commit(&self.pcs_params, &p).unwrap().0;
+        //     let c = HidingIpaPcs::<C>::commit(&self.pcs_params, &p).unwrap().0;
         //     println!("{i}: z={:.5}, v={:.5}, c={:.5}, bf={:.5}", z.to_string(), v.to_string(), c.x().unwrap().to_string(), bf.to_string());
         // }
 
@@ -237,7 +237,7 @@ impl<C: CurveGroup, G: CurveModel<BaseField = C::ScalarField>, P: CircuitParams<
             polys_to_open.iter().map(|p| p.degree()).max().unwrap()
         ));
         let todo = Coeffs(C::ScalarField::rand(rng), C::ScalarField::rand(rng));
-        let pcs_proof = Shplonk::<C::ScalarField, HidingIpa<C>>::open_many_hiding(
+        let pcs_proof = Shplonk::<C::ScalarField, HidingIpaPcs<C>>::open_many_hiding(
             &self.pcs_params,
             &polys_to_open,
             &with_bfs,

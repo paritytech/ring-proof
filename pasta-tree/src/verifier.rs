@@ -9,7 +9,7 @@ use ark_ff::PrimeField;
 use std::marker::PhantomData;
 use w3f_pcs::pcs::PcsParams;
 use w3f_pcs::pcs::commitment::WrappedAffine;
-use w3f_pcs::pcs::ipa::hiding::HidingIpa;
+use w3f_pcs::pcs::ipa::hiding::HidingIpaPcs;
 use w3f_pcs::shplonk::Shplonk;
 use w3f_plonk_common::batch::BatchVerifier;
 use w3f_plonk_common::piop::VerifierPiop;
@@ -86,7 +86,7 @@ impl<C: CurveGroup, G: CurveModel<BaseField = C::ScalarField>, P: CircuitParams<
         let mut at_coords = Vec::with_capacity(n_openings);
         let mut to_values = Vec::with_capacity(n_openings);
 
-        let plonk_verifier: PlonkVerifier<C::ScalarField, HidingIpa<C>, _> = PlonkVerifier::init(
+        let plonk_verifier: PlonkVerifier<C::ScalarField, HidingIpaPcs<C>, _> = PlonkVerifier::init(
             self.pcs_params.vk(),
             &(), // TODO
             ArkTranscript::new(b"pasta-tree-level-proof"),
@@ -132,7 +132,7 @@ impl<C: CurveGroup, G: CurveModel<BaseField = C::ScalarField>, P: CircuitParams<
         }
 
         let mut todo = side_proof.todo;
-        let valid = Shplonk::<C::ScalarField, HidingIpa<C>>::verify_many(
+        let valid = Shplonk::<C::ScalarField, HidingIpaPcs<C>>::verify_many(
             &self.pcs_params.vk(),
             &polys_to_open,
             side_proof.pcs_proof,
@@ -158,7 +158,7 @@ impl<C: CurveGroup, G: CurveModel<BaseField = C::ScalarField>, P: CircuitParams<
         let piop_proof = side_proof.piop_proof.clone();
         let instance: [AffinePoint<G>; L] = children.clone().try_into().unwrap();
 
-        let plonk_verifier: PlonkVerifier<C::ScalarField, HidingIpa<C>, _> = PlonkVerifier::init(
+        let plonk_verifier: PlonkVerifier<C::ScalarField, HidingIpaPcs<C>, _> = PlonkVerifier::init(
             self.pcs_params.vk(),
             &(), // TODO
             ArkTranscript::new(b"pasta-tree-level-proof"),
@@ -222,7 +222,7 @@ impl<C: CurveGroup, G: CurveModel<BaseField = C::ScalarField>, P: CircuitParams<
         // }
 
         let mut todo = side_proof.todo;
-        let valid = Shplonk::<C::ScalarField, HidingIpa<C>>::verify_many(
+        let valid = Shplonk::<C::ScalarField, HidingIpaPcs<C>>::verify_many(
             &self.pcs_params.vk(),
             &polys_to_open,
             side_proof.pcs_proof,

@@ -3,7 +3,7 @@ use ark_ec::{AffineRepr, CurveGroup};
 use ark_ff::{PrimeField, Zero};
 use ark_std::UniformRand;
 use ark_std::rand::Rng;
-use w3f_pcs::pcs::ipa::hiding::HidingIpa;
+use w3f_pcs::pcs::ipa::hiding::HidingIpaPcs;
 
 /// An element of a tree authentication path. A node on the path together with it's sibling.
 /// `path_node = self.siblings[self.path_node_idx]` is the node on the path.
@@ -93,7 +93,7 @@ pub struct LevelWitnessWithBlinding<G: AffineRepr> {
 impl<G: CurveModel> LevelWitnessWithBlinding<AffinePoint<G>> {
     pub(crate) fn blinded_path_node(
         &self,
-        ipa_pcs: &HidingIpa<ProjectivePoint<G>>,
+        ipa_pcs: &HidingIpaPcs<ProjectivePoint<G>>,
     ) -> Result<AffinePoint<G>, ()> {
         let blinded_path_node = ipa_pcs.reblind(
             self.level_witness.path_node(),

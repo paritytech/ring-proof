@@ -9,7 +9,7 @@ use std::marker::PhantomData;
 use w3f_pcs::aggregation::multiple::ShplonkTranscript;
 use w3f_pcs::pcs::PCS;
 use w3f_pcs::pcs::commitment::WrappedAffine;
-use w3f_pcs::pcs::ipa::hiding::HidingIpa;
+use w3f_pcs::pcs::ipa::hiding::HidingIpaPcs;
 use w3f_pcs::shplonk::AggregateProof;
 use w3f_plonk_common::piop::{ProverPiop, VerifierPiop};
 use w3f_plonk_common::{ColumnsCommited, ColumnsEvaluated, FieldColumn};
@@ -74,7 +74,7 @@ pub struct CycleSideParams<
     G: CurveModel<BaseField = C::ScalarField>,
     P: CircuitParams<C, G>,
 > {
-    pcs_params: HidingIpa<C>,
+    pcs_params: HidingIpaPcs<C>,
     piop_params: P,
     phantomm: PhantomData<G>,
 }
@@ -111,7 +111,7 @@ pub struct BatchSideProof<
     const L: usize,
 > {
     piop_proof: BatchLevelProof<C, G, P, L>,
-    pcs_proof: AggregateProof<C::ScalarField, HidingIpa<C>>,
+    pcs_proof: AggregateProof<C::ScalarField, HidingIpaPcs<C>>,
     todo: Coeffs<C::ScalarField>,
 }
 
@@ -122,7 +122,7 @@ pub struct CycleSideProof<
     P: CircuitParams<C, G>,
 > {
     piop_proofs: Vec<LevelProof<C, G, P>>,
-    pcs_proof: AggregateProof<C::ScalarField, HidingIpa<C>>,
+    pcs_proof: AggregateProof<C::ScalarField, HidingIpaPcs<C>>,
     todo: Coeffs<C::ScalarField>,
 }
 
@@ -247,13 +247,13 @@ mod tests {
     use w3f_pcs::Poly;
     use w3f_pcs::pcs::PCS;
     use w3f_pcs::pcs::PcsParams;
-    use w3f_pcs::pcs::ipa::IPA;
+    use w3f_pcs::pcs::ipa::IpaPcs;
     use w3f_plonk_common::test_helpers::random_vec;
 
     #[cfg(feature = "parallel")]
     use rayon::prelude::*;
 
-    type PallasIPA = IPA<ark_pallas::Projective>;
+    type PallasIPA = IpaPcs<ark_pallas::Projective>;
 
     impl<C0, C1, P0, P1> CycleParams<C0, C1, P0, P1>
     where
@@ -264,8 +264,8 @@ mod tests {
     {
         pub fn setup<R: Rng>(domain_size: usize, rng: &mut R) -> Self {
             let setup_degree = 3 * domain_size;
-            let c0_pcs_params = HidingIpa::<ProjectivePoint<C0>>::setup(setup_degree, rng);
-            let c1_pcs_params = HidingIpa::<ProjectivePoint<C1>>::setup(setup_degree, rng);
+            let c0_pcs_params = HidingIpaPcs::<ProjectivePoint<C0>>::setup(setup_degree, rng);
+            let c1_pcs_params = HidingIpaPcs::<ProjectivePoint<C1>>::setup(setup_degree, rng);
             let c0_piop_params =
                 P0::setup(domain_size, c1_pcs_params.h, AffinePoint::<C1>::rand(rng));
             let c1_piop_params =

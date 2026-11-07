@@ -6,12 +6,12 @@ use ark_std::format;
 use ark_std::vec::Vec;
 use ark_std::{end_timer, start_timer, vec};
 
-use w3f_pcs::aggregation::single::aggregate_polys;
-use w3f_pcs::pcs::PCS;
-use w3f_pcs::Poly;
 use crate::piop::ProverPiop;
 use crate::transcript::PlonkTranscript;
 use crate::{q_chunking, PiopProof, Proof};
+use w3f_pcs::aggregation::single::aggregate_polys;
+use w3f_pcs::pcs::PCS;
+use w3f_pcs::Poly;
 
 pub struct PlonkProver<F: PrimeField, CS: PCS<F>, T: PlonkTranscript<F, CS>> {
     // Polynomial commitment scheme committer's key.
@@ -68,8 +68,11 @@ impl<F: PrimeField, CS: PCS<F>, T: PlonkTranscript<F, CS>> PlonkProver<F, CS, T>
             P::N_COLUMNS,
             piop.domain().domain_size() - 1
         ));
-        let column_commitments =
-            piop.committed_columns(|col| CS::commit_with_bf(&self.pcs_ck, &col.poly, col.bf).0);
+        let column_commitments = piop.committed_columns(|col| {
+            CS::commit_with_bf(&self.pcs_ck, &col.poly, col.bf)
+                .unwrap()
+                .0
+        });
         transcript.add_committed_cols(&column_commitments);
         end_timer!(t_commit_cols);
 
@@ -114,7 +117,7 @@ impl<F: PrimeField, CS: PCS<F>, T: PlonkTranscript<F, CS>> PlonkProver<F, CS, T>
             lin_at_zeta_omega,
         };
         let polys_at_zeta = [columns_to_open, vec![q_folded]].concat();
-        let mut bfs_at_zeta = [bfs, vec![F::zero()]].concat();
+        let bfs_at_zeta = [bfs, vec![F::zero()]].concat();
         let pcs_openings = PcsOpeningAt2Points {
             at_zeta: BatchOpening {
                 polys: polys_at_zeta,
@@ -163,12 +166,17 @@ impl<F: PrimeField, CS: PCS<F>, T: PlonkTranscript<F, CS>> PlonkProver<F, CS, T>
         }
     }
 
-    fn aggregate_polys_and_bfs(polys_and_bfs: &[(DensePolynomial<F>, F)], rs: &[F]) -> (DensePolynomial<F>, F) {
+    fn aggregate_polys_and_bfs(
+        polys_and_bfs: &[(DensePolynomial<F>, F)],
+        rs: &[F],
+    ) -> (DensePolynomial<F>, F) {
         assert_eq!(polys_and_bfs.len(), rs.len());
         polys_and_bfs
             .iter()
             .zip(rs.iter())
             .map(|((p, bf), &r)| (p * r, r * bf))
-            .fold((Poly::zero(), F::zero()), |(p_acc, bf_acc), (p, bf)| (p_acc + p, bf_acc + bf))
+            .fold((Poly::zero(), F::zero()), |(p_acc, bf_acc), (p, bf)| {
+                (p_acc + p, bf_acc + bf)
+            })
     }
 }

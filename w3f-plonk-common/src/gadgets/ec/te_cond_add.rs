@@ -11,7 +11,7 @@ use crate::{const_evals, Column};
 impl<F, Curve> ProverGadget<F> for CondAdd<F, Affine<Curve>>
 where
     F: FftField,
-    Curve: TECurveConfig<BaseField=F>,
+    Curve: TECurveConfig<BaseField = F>,
 {
     fn witness_columns(&self) -> Vec<DensePolynomial<F>> {
         vec![self.acc.xs.poly.clone(), self.acc.ys.poly.clone()]
@@ -99,7 +99,7 @@ where
     }
 }
 
-impl<F: Field, C: TECurveConfig<BaseField=F>> CondAddValues<F, Affine<C>> {
+impl<F: Field, C: TECurveConfig<BaseField = F>> CondAddValues<F, Affine<C>> {
     pub fn acc_coeffs_1(&self) -> (F, F) {
         let b = self.bitmask;
         let (x1, y1) = self.acc;
@@ -129,8 +129,8 @@ impl<F: Field, C: TECurveConfig<BaseField=F>> CondAddValues<F, Affine<C>> {
     }
 }
 
-impl<F: FftField, C: TECurveConfig<BaseField=F>> VerifierGadget<F>
-for CondAddValues<F, Affine<C>>
+impl<F: FftField, C: TECurveConfig<BaseField = F>> VerifierGadget<F>
+    for CondAddValues<F, Affine<C>>
 {
     fn evaluate_constraints_main(&self) -> Vec<F> {
         let b = self.bitmask;

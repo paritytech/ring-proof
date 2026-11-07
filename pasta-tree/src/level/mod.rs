@@ -4,18 +4,18 @@ pub mod verifier;
 use crate::Coeffs;
 use ark_ec::CurveGroup;
 use w3f_pcs::pcs::PCS;
-use w3f_pcs::pcs::ipa::hiding::HidingIpa;
+use w3f_pcs::pcs::ipa::hiding::HidingIpaPcs;
 use w3f_pcs::shplonk::AggregateProof;
 use w3f_plonk_common::PiopProof;
 
 pub struct LevelProof<C: CurveGroup> {
     piop_proof: PiopProof<
         C::ScalarField,
-        <HidingIpa<C> as PCS<C::ScalarField>>::C,
-        RingCommitments<C::ScalarField, <HidingIpa<C> as PCS<C::ScalarField>>::C>,
+        <HidingIpaPcs<C> as PCS<C::ScalarField>>::C,
+        RingCommitments<C::ScalarField, <HidingIpaPcs<C> as PCS<C::ScalarField>>::C>,
         RingEvaluations<C::ScalarField>,
     >,
-    pcs_opening_proof: AggregateProof<C::ScalarField, HidingIpa<C>>,
+    pcs_opening_proof: AggregateProof<C::ScalarField, HidingIpaPcs<C>>,
     todo: Coeffs<C::ScalarField>,
 }
 
