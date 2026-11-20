@@ -78,6 +78,7 @@ where
     kzg_vk: KzgVerifierKey<E>,
     transcript: T,
     items: Vec<KzgOpeningAt2Points<E>>,
+    poisoned: bool,
 }
 
 impl<E: Pairing, T> BatchVerifier<E, T>
@@ -90,13 +91,16 @@ where
             kzg_vk,
             transcript,
             items: Vec::new(),
+            poisoned: false,
         }
     }
 
     /// Adds a ring proof to the batch.
     ///
     /// Returns `false`, and does not add the proof, if [`BatchItem::new`]
-    /// returns `None`.
+    /// returns `None`. Then the batch is poisoned: it drops all its proofs,
+    /// all later calls return `false`, and [`verify`](Self::verify) returns
+    /// `false`.
     pub fn push<J>(
         &mut self,
         verifier: &RingVerifier<E::ScalarField, KZG<E>, J, T>,
@@ -106,7 +110,12 @@ where
     where
         J: TECurveConfig<BaseField = E::ScalarField>,
     {
+        if self.poisoned {
+            return false;
+        }
         let Some(item) = BatchItem::new(verifier, proof, result) else {
+            self.poisoned = true;
+            self.items.clear();
             return false;
         };
         self.push_prepared(item);
@@ -133,7 +142,12 @@ where
     }
 
     /// Verifies all the pushed proofs in a single batched pairing check.
+    ///
+    /// Returns `false` if a [`push`](Self::push) returned `false`.
     pub fn verify(&self) -> bool {
+        if self.poisoned {
+            return false;
+        }
         let mut acc = KzgAccumulator::new(self.kzg_vk.clone());
         for (openings, r) in self.items.iter().zip(self.randomizers()) {
             acc.accumulate(openings, r);

@@ -419,6 +419,25 @@ mod tests {
 
         let proofs = vec![proof.clone(), proof.clone()];
         assert!(BatchItem::new(&verifier, proof.clone(), crafted).is_none());
+
+        // A caller can ignore the `bool` of `push`. The batch without the
+        // crafted item is valid or empty, so the batch must stay failed:
+        // later pushes and `verify` return false.
+        let new_batch = || {
+            BatchVerifier::new(
+                verifier.pcs_vk().clone(),
+                verifier.plonk_verifier.transcript_prelude.clone(),
+            )
+        };
+        let mut batch = new_batch();
+        assert!(batch.push(&verifier, proof.clone(), result));
+        assert!(!batch.push(&verifier, proof.clone(), crafted));
+        assert!(!batch.push(&verifier, proof.clone(), result));
+        assert!(!batch.verify());
+        let mut batch = new_batch();
+        assert!(!batch.push(&verifier, proof.clone(), crafted));
+        assert!(!batch.verify());
+
         assert!(!verifier.verify(proof, crafted));
         assert!(!verifier.verify_batch(proofs.clone(), vec![result, crafted]));
         assert!(!verifier.verify_batch_kzg(proofs, vec![result, crafted]));
