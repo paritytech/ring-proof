@@ -61,7 +61,7 @@ mod tests {
 
     use w3f_plonk_common::test_helpers::random_vec;
 
-    use crate::multi_ring_batch_verifier::BatchVerifier;
+    use crate::multi_ring_batch_verifier::{BatchItem, BatchVerifier};
     use crate::ring::{Ring, RingBuilderKey};
     use crate::ring_prover::RingProver;
     use crate::ring_verifier::RingVerifier;
@@ -398,5 +398,48 @@ mod tests {
             batch.push(&verifier, proof, result);
         }
         assert!(!batch.verify());
+    }
+
+    #[test]
+    fn verifier_rejects_a_result_with_sum_at_infinity() {
+        use ark_ec::twisted_edwards::TECurveConfig;
+        use ark_ff::{Field, Zero};
+
+        let (verifier, claims) = _test_ring_proof::<KZG<Bls12_381>>(2usize.pow(9), 1);
+        let (result, proof) = claims[0].clone();
+
+        let seed = verifier.piop_params.seed;
+        let (a, d) = (BandersnatchConfig::COEFF_A, BandersnatchConfig::COEFF_D);
+        let crafted = EdwardsAffine::new_unchecked(
+            ((a * d).sqrt().unwrap() * seed.x).inverse().unwrap(),
+            (a / d).sqrt().unwrap() / seed.y,
+        );
+        assert!(crafted.is_on_curve());
+        assert!((seed + crafted).z.is_zero());
+
+        let proofs = vec![proof.clone(), proof.clone()];
+        assert!(BatchItem::new(&verifier, proof.clone(), crafted).is_none());
+
+        // A caller can ignore the `bool` of `push`. The batch without the
+        // crafted item is valid or empty, so the batch must stay failed:
+        // later pushes and `verify` return false.
+        let new_batch = || {
+            BatchVerifier::new(
+                verifier.pcs_vk().clone(),
+                verifier.plonk_verifier.transcript_prelude.clone(),
+            )
+        };
+        let mut batch = new_batch();
+        assert!(batch.push(&verifier, proof.clone(), result));
+        assert!(!batch.push(&verifier, proof.clone(), crafted));
+        assert!(!batch.push(&verifier, proof.clone(), result));
+        assert!(!batch.verify());
+        let mut batch = new_batch();
+        assert!(!batch.push(&verifier, proof.clone(), crafted));
+        assert!(!batch.verify());
+
+        assert!(!verifier.verify(proof, crafted));
+        assert!(!verifier.verify_batch(proofs.clone(), vec![result, crafted]));
+        assert!(!verifier.verify_batch_kzg(proofs, vec![result, crafted]));
     }
 }
