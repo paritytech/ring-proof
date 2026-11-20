@@ -1,6 +1,5 @@
 use ark_ec::pairing::Pairing;
 use ark_ec::twisted_edwards::{Affine, TECurveConfig};
-use ark_ec::CurveGroup;
 use ark_std::rand::RngCore;
 use ark_std::vec::Vec;
 use ark_std::UniformRand;
@@ -10,7 +9,7 @@ use w3f_plonk_common::kzg_acc::{KzgAccumulator, KzgOpeningAt2Points};
 use w3f_plonk_common::transcript::PlonkTranscript;
 
 use crate::piop::PiopVerifier;
-use crate::ring_verifier::RingVerifier;
+use crate::ring_verifier::{checked_add, RingVerifier};
 use crate::RingProof;
 
 /// A ring proof preprocessed for multi-ring batch verification.
@@ -25,11 +24,13 @@ impl<E: Pairing> BatchItem<E> {
     /// The returned item is independent of both any accumulator state and
     /// the originating `RingVerifier`, so multiple proofs (even from
     /// different rings) can be prepared in parallel.
+    ///
+    /// Returns `None` if `seed + result` is a point at infinity.
     pub fn new<J, T>(
         verifier: &RingVerifier<E::ScalarField, KZG<E>, J, T>,
         proof: RingProof<E::ScalarField, KZG<E>>,
         result: Affine<J>,
-    ) -> Self
+    ) -> Option<Self>
     where
         J: TECurveConfig<BaseField = E::ScalarField>,
         T: PlonkTranscript<E::ScalarField, KZG<E>>,
@@ -38,7 +39,7 @@ impl<E: Pairing> BatchItem<E> {
             .plonk_verifier
             .restore_fs_with_rng::<PiopVerifier<_, _, Affine<J>>, _, _, _>(&result, &proof);
         let seed = verifier.piop_params.seed;
-        let seed_plus_result = (seed + result).into_affine();
+        let seed_plus_result = checked_add(seed, result)?;
         let domain_at_zeta = verifier.piop_params.domain.evaluate(challenges.zeta);
         let piop = PiopVerifier::<_, _, Affine<J>>::init(
             domain_at_zeta,
@@ -52,10 +53,10 @@ impl<E: Pairing> BatchItem<E> {
         let mut entropy = [0_u8; 32];
         fs_rng.fill_bytes(&mut entropy);
 
-        Self {
+        Some(Self {
             openings: KzgOpeningAt2Points::new(piop, proof, challenges),
             entropy,
-        }
+        })
     }
 }
 
@@ -93,15 +94,23 @@ where
     }
 
     /// Adds a ring proof to the batch.
+    ///
+    /// Returns `false`, and does not add the proof, if [`BatchItem::new`]
+    /// returns `None`.
     pub fn push<J>(
         &mut self,
         verifier: &RingVerifier<E::ScalarField, KZG<E>, J, T>,
         proof: RingProof<E::ScalarField, KZG<E>>,
         result: Affine<J>,
-    ) where
+    ) -> bool
+    where
         J: TECurveConfig<BaseField = E::ScalarField>,
     {
-        self.push_prepared(BatchItem::new(verifier, proof, result));
+        let Some(item) = BatchItem::new(verifier, proof, result) else {
+            return false;
+        };
+        self.push_prepared(item);
+        true
     }
 
     /// Adds a prepared [`BatchItem`] to the batch.

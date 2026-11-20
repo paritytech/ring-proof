@@ -1,7 +1,7 @@
 use ark_ec::pairing::Pairing;
 use ark_ec::twisted_edwards::{Affine, TECurveConfig};
 use ark_ec::CurveGroup;
-use ark_ff::PrimeField;
+use ark_ff::{PrimeField, Zero};
 use w3f_pcs::pcs::kzg::KZG;
 use w3f_pcs::pcs::{RawVerifierKey, PCS};
 use w3f_plonk_common::transcript::PlonkTranscript;
@@ -51,7 +51,9 @@ where
             .plonk_verifier
             .restore_fs_with_rng::<PiopVerifier<_, _, Affine<Jubjub>>, _, _, _>(&result, &proof);
         let seed = self.piop_params.seed;
-        let seed_plus_result = (seed + result).into_affine();
+        let Some(seed_plus_result) = checked_add(seed, result) else {
+            return false;
+        };
         let domain_at_zeta = self.piop_params.domain.evaluate(challenges.zeta);
         let piop = PiopVerifier::<_, _, Affine<Jubjub>>::init(
             domain_at_zeta,
@@ -117,8 +119,18 @@ where
             self.plonk_verifier.transcript_prelude.clone(),
         );
         for (proof, result) in proofs.into_iter().zip(results) {
-            batch.push(self, proof, result);
+            if !batch.push(self, proof, result) {
+                return false;
+            }
         }
         batch.verify()
     }
+}
+
+/// `a + b`, or `None` if it is a point at infinity. The twisted Edwards
+/// addition is incomplete outside the prime-order subgroup, so crafted points
+/// give `Z = 0`, and `into_affine` panics on it.
+pub(crate) fn checked_add<P: TECurveConfig>(a: Affine<P>, b: Affine<P>) -> Option<Affine<P>> {
+    let sum = a + b;
+    (!sum.z.is_zero()).then(|| sum.into_affine())
 }
